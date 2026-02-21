@@ -1,0 +1,46 @@
+<navigation-bar title="小组" back="{{false}}" color="white" background="#2E8B57"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <view class="container">
+    <view wx:if="{{!hasUserInfo}}" class="need-auth">
+      <text>请先完成授权</text>
+      <navigator url="/pages/index/index" class="link">去首页</navigator>
+    </view>
+    <view wx:else>
+      <view class="actions">
+        <button class="btn-primary" bindtap="showCreate">创建小组</button>
+        <button class="btn-secondary" bindtap="showJoin">加入小组</button>
+      </view>
+      <view class="group-list">
+        <view wx:for="{{groups || []}}" wx:key="_id" class="group-item" bindtap="goDetail" data-id="{{item._id}}">
+          <text class="group-name">{{item.name}}</text>
+          <text class="group-meta">成员 {{item.memberCount || 0}} 人</text>
+        </view>
+        <view wx:if="{{groups.length === 0 && !loading}}" class="empty">暂无小组</view>
+      </view>
+    </view>
+  </view>
+</scroll-view>
+
+<!-- 创建小组弹窗 -->
+<view class="modal {{showCreateModal ? 'show' : ''}}" catchtap="hideCreate" wx:if="{{showCreateModal}}">
+  <view class="modal-content" catchtap="">
+    <text class="modal-title">创建小组</text>
+    <input class="modal-input" placeholder="小组名称 2-10 字" value="{{createName}}" bindinput="onCreateInput" />
+    <view class="modal-btns">
+      <button class="btn-secondary" bindtap="hideCreate">取消</button>
+      <button class="btn-primary" bindtap="doCreate">确认创建</button>
+    </view>
+  </view>
+</view>
+
+<!-- 加入小组弹窗 -->
+<view class="modal {{showJoinModal ? 'show' : ''}}" catchtap="hideJoin" wx:if="{{showJoinModal}}">
+  <view class="modal-content" catchtap="">
+    <text class="modal-title">加入小组</text>
+    <input class="modal-input" placeholder="输入邀请码" value="{{joinCode}}" bindinput="onJoinInput" />
+    <view class="modal-btns">
+      <button class="btn-secondary" bindtap="hideJoin">取消</button>
+      <button class="btn-primary" bindtap="doJoin">加入</button>
+    </view>
+  </view>
+</view>

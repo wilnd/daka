@@ -1,0 +1,31 @@
+<navigation-bar title="{{group.name || '小组详情'}}" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <view class="container">
+    <view wx:if="{{loading}}" class="loading-wrap">
+      <view class="loading-spinner"></view>
+      <text>加载中</text>
+    </view>
+    <view wx:else class="content">
+      <view class="invite-bar">
+        <text class="invite-code">邀请码：{{group.inviteCode || '-'}}</text>
+        <button class="btn-secondary copy-btn" bindtap="copyInvite">复制邀请</button>
+      </view>
+      <view class="section">
+        <text class="section-title">今日打卡情况</text>
+        <view wx:for="{{todayMembers || []}}" wx:key="_id" class="member-row">
+          <image class="avatar" src="{{item.avatarUrl || 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'}}" mode="aspectFill"></image>
+          <text class="nick">{{item.nickName || '未知'}}</text>
+          <text class="status {{item.checked ? 'checked' : 'unchecked'}}">{{item.checked ? '已打卡' : '未打卡'}}</text>
+        </view>
+      </view>
+      <view class="section">
+        <text class="section-title">成员列表</text>
+        <view wx:for="{{members || []}}" wx:key="_id" class="member-row">
+          <image class="avatar" src="{{item.avatarUrl || ''}}" mode="aspectFill"></image>
+          <text class="nick">{{item.nickName || '未知'}}</text>
+          <text wx:if="{{item.role === 'admin'}}" class="role">组长</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</scroll-view>

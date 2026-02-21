@@ -1,0 +1,63 @@
+<navigation-bar title="好友运动打卡助手" back="{{false}}" color="white" background="#2E8B57"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <view class="container">
+    <view wx:if="{{!hasUserInfo}}" class="auth-section">
+      <text class="auth-tip">获取昵称、头像用于展示</text>
+      <button class="btn-primary auth-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image class="avatar-preview" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
+        选择头像
+      </button>
+      <input type="nickname" class="nickname-input" placeholder="请输入昵称" bindblur="onNicknameBlur" />
+      <button class="btn-primary confirm-auth" bindtap="onConfirmAuth">确认授权</button>
+    </view>
+    <view wx:elif="{{loading}}" class="loading-wrap">
+      <view class="loading-spinner"></view>
+      <text>加载中</text>
+    </view>
+    <view wx:else class="main">
+      <view class="group-header">
+        <text class="group-name">{{currentGroup ? currentGroup.name : '请选择或创建小组'}}</text>
+        <button class="btn-secondary switch-btn" bindtap="showSwitchGroup">切换小组</button>
+      </view>
+      <view class="checkin-card">
+        <view class="checkin-status {{checkedToday ? 'checked' : ''}}">
+          <text class="status-text">{{checkedToday ? '今日已打卡' : '立即打卡'}}</text>
+        </view>
+        <button
+          class="btn-primary checkin-btn"
+          hover-class="btn-hover"
+          bindtap="onCheckin"
+          disabled="{{checkedToday || !currentGroup}}"
+        >
+          {{checkedToday ? '已打卡' : '立即打卡'}}
+        </button>
+      </view>
+      <view wx:if="{{stats}}" class="stats-card">
+        <view class="stat-item">
+          <text class="stat-value primary">{{stats.streak}}</text>
+          <text class="stat-label">连胜天数</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{stats.totalDays}}</text>
+          <text class="stat-label">总打卡</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value {{stats.missStreak > 0 ? 'warn' : ''}}">{{stats.missStreak}}</text>
+          <text class="stat-label">连续未打卡</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</scroll-view>
+
+<!-- 切换小组弹窗 -->
+<view class="modal {{showSwitchModal ? 'show' : ''}}" catchtap="hideSwitchGroup" wx:if="{{showSwitchModal}}">
+  <view class="modal-content" catchtap="">
+    <text class="modal-title">切换小组</text>
+    <view wx:for="{{groups || []}}" wx:key="_id" class="group-option" bindtap="selectGroup" data-id="{{item._id}}">
+      <text>{{item.name}}</text>
+      <text class="meta">成员 {{item.memberCount || 0}} 人</text>
+    </view>
+    <button class="btn-secondary" bindtap="hideSwitchGroup">取消</button>
+  </view>
+</view>

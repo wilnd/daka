@@ -1,0 +1,29 @@
+<navigation-bar title="打卡日历" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <view class="container">
+    <view wx:if="{{!currentGroup}}" class="empty-tip">请先选择或创建小组</view>
+    <view wx:else>
+      <view class="month-nav">
+        <text class="nav-btn" bindtap="prevMonth">＜</text>
+        <text class="month-title">{{displayMonth}}</text>
+        <text class="nav-btn" bindtap="nextMonth">＞</text>
+      </view>
+      <view class="makeup-tip">本月剩余补卡 {{makeupRemain}} 次（仅可补近3天内未打卡）</view>
+      <view class="calendar">
+        <view class="weekday-row">
+          <text wx:for="{{weekdays || ['日','一','二','三','四','五','六']}}" wx:key="*this" class="weekday">{{item}}</text>
+        </view>
+        <view class="days-grid">
+          <view wx:for="{{days || []}}" wx:key="date" class="day-cell {{item.empty ? 'empty' : ''}} {{item.checked ? 'checked' : ''}} {{item.makeup ? 'makeup' : ''}} {{item.canMakeup ? 'can-makeup' : ''}}"
+            bindtap="onDayTap"
+            data-date="{{item.date}}"
+            data-can="{{item.canMakeup}}"
+            data-checked="{{item.checked}}">
+            <text class="day-num">{{item.day}}</text>
+            <text wx:if="{{item.makeup}}" class="day-tag">补</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</scroll-view>
