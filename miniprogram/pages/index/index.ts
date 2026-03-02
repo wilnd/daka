@@ -2,7 +2,7 @@
 import { getOrCreateUser, getOpenid } from '../../services/auth'
 import { getMyGroups } from '../../services/group'
 import { doCheckin, isCheckedToday } from '../../services/checkin'
-import { getStreak, getMissStreak, getTotalDays } from '../../services/stats'
+import { getStreak, getMissStreak, getTotalDays, getDayRank, getWeekRank, getMonthRank, RankUser } from '../../services/stats'
 
 const app = getApp<IAppOption>()
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
@@ -17,6 +17,11 @@ Component({
     checkedToday: false,
     stats: null as { streak: number; totalDays: number; missStreak: number } | null,
     loading: false,
+    checkinAnimating: false,
+    // 排行榜
+    rankType: 'day' as 'day' | 'week' | 'month',
+    rankList: [] as RankUser[],
+    rankLoading: false,
   },
   lifetimes: {
     attached() {
@@ -67,12 +72,21 @@ Component({
       this.setData({ loading: true })
       try {
         const groups = await getMyGroups(openid)
-        const gid = app.globalData.currentGroupId
-        let cur = groups.find((g: any) => g._id === gid) || groups[0] || null
-        if (cur && !gid) app.globalData.currentGroupId = cur._id
+        // 优先使用本地存储的默认群组ID，否则使用全局选中的，再否则使用第一个加入的群组
+        const defaultGroupId = wx.getStorageSync('defaultGroupId')
+        const globalGroupId = app.globalData.currentGroupId
+        let cur = groups.find((g: any) => g._id === defaultGroupId) 
+          || groups.find((g: any) => g._id === globalGroupId) 
+          || groups[0] 
+          || null
+        // 如果当前群组不是默认群组，保存为默认群组
+        if (cur && !defaultGroupId) {
+          wx.setStorageSync('defaultGroupId', cur._id)
+        }
 
         let checkedToday = false
         let stats = null
+        let rankList: RankUser[] = []
         if (cur) {
           checkedToday = await isCheckedToday(openid, cur._id)
           const [streak, totalDays, missStreak] = await Promise.all([
@@ -81,12 +95,14 @@ Component({
             getMissStreak(openid, cur._id),
           ])
           stats = { streak, totalDays, missStreak }
+          rankList = await getDayRank(cur._id)
         }
         this.setData({
           groups,
           currentGroup: cur,
           checkedToday,
           stats,
+          rankList,
           loading: false,
         })
       } catch (e) {
@@ -129,36 +145,87 @@ Component({
       }
       this.setData({ showSwitchModal: true })
     },
+    goCreateGroup() {
+      this.setData({ showSwitchModal: false })
+      wx.navigateTo({ url: '/pages/group/group' })
+    },
+    goJoinGroup() {
+      this.setData({ showSwitchModal: false })
+      wx.navigateTo({ url: '/pages/group/group?tab=join' })
+    },
     hideSwitchGroup() { this.setData({ showSwitchModal: false }) },
+    stopPropagation() {},
+    async switchRank(e: any) {
+      const type = e.currentTarget.dataset.type as 'day' | 'week' | 'month'
+      if (!this.data.currentGroup) return
+      this.setData({ rankType: type, rankLoading: true })
+      try {
+        let rankList: RankUser[] = []
+        if (type === 'day') rankList = await getDayRank(this.data.currentGroup._id)
+        else if (type === 'week') rankList = await getWeekRank(this.data.currentGroup._id)
+        else rankList = await getMonthRank(this.data.currentGroup._id)
+        this.setData({ rankList, rankLoading: false })
+      } catch (e) {
+        this.setData({ rankLoading: false })
+        wx.showToast({ title: '加载失败', icon: 'none' })
+      }
+    },
     selectGroup(e: any) {
       const id = e.currentTarget.dataset.id
-      app.globalData.currentGroupId = id
+      const isSetDefault = e.currentTarget.dataset.setDefault
       const g = this.data.groups.find((x: any) => x._id === id)
+      if (!g) return
+
+      // 设置为默认群组
+      if (isSetDefault) {
+        wx.setStorageSync('defaultGroupId', id)
+        app.globalData.currentGroupId = id
+        wx.showToast({ title: '已设为默认', icon: 'none' })
+      } else {
+        app.globalData.currentGroupId = id
+      }
+
       this.setData({
-        currentGroup: g || null,
+        currentGroup: g,
         showSwitchModal: false,
       })
       this.loadData()
     },
+    // 设置默认群组
+    setDefaultGroup(e: any) {
+      const id = e.currentTarget.dataset.id
+      wx.setStorageSync('defaultGroupId', id)
+      app.globalData.currentGroupId = id
+      const g = this.data.groups.find((x: any) => x._id === id)
+      this.setData({
+        currentGroup: g,
+        showSwitchModal: false,
+      })
+      wx.showToast({ title: '已设为默认', icon: 'none' })
+      this.loadData()
+    },
     async onCheckin() {
-      const { currentGroup } = this.data
-      if (!currentGroup) return
+      const { currentGroup, checkinAnimating } = this.data
+      if (!currentGroup || checkinAnimating) return
       wx.showModal({
         title: '确认打卡',
         content: '确认今日已运动打卡？',
         success: async (res) => {
           if (!res.confirm) return
+          this.setData({ checkinAnimating: true })
           try {
             const r = await doCheckin(app.globalData.openid!, currentGroup._id)
             if (r.ok) {
               this.setData({ checkedToday: true })
-              this.loadData()
-              wx.showToast({ title: '打卡成功' })
+              wx.showToast({ title: '打卡成功', icon: 'none' })
+              await this.loadData()
             } else {
               wx.showToast({ title: r.msg || '打卡失败', icon: 'none' })
             }
           } catch {
             wx.showToast({ title: '打卡失败，请稍后重试', icon: 'none' })
+          } finally {
+            this.setData({ checkinAnimating: false })
           }
         },
       })

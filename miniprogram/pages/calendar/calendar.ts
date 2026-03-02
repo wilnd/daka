@@ -12,6 +12,7 @@ Component({
     days: [] as any[],
     weekdays: ['日', '一', '二', '三', '四', '五', '六'],
     makeupRemain: 0,
+    isCurrentMonth: true,
   },
   lifetimes: {
     attached() { this.init() },
@@ -26,6 +27,7 @@ Component({
         currentGroup: gid ? { _id: gid } : null as any,
         yearMonth: ym,
         displayMonth: this.fmtMonth(ym),
+        isCurrentMonth: true,
       })
       this.load()
     },
@@ -39,14 +41,32 @@ Component({
       const d = new Date(y, m - 2, 1)
       const ym = `${d.getFullYear()}-${this.pad(d.getMonth() + 1)}`
       this.setData({ yearMonth: ym, displayMonth: this.fmtMonth(ym) })
+      this.updateCurrentMonth()
       this.load()
     },
     nextMonth() {
+      if (this.data.isCurrentMonth) return
       const [y, m] = this.data.yearMonth.split('-').map(Number)
       const d = new Date(y, m, 1)
       const ym = `${d.getFullYear()}-${this.pad(d.getMonth() + 1)}`
       this.setData({ yearMonth: ym, displayMonth: this.fmtMonth(ym) })
+      this.updateCurrentMonth()
       this.load()
+    },
+    goToday() {
+      const now = new Date()
+      const ym = `${now.getFullYear()}-${this.pad(now.getMonth() + 1)}`
+      this.setData({
+        yearMonth: ym,
+        displayMonth: this.fmtMonth(ym),
+        isCurrentMonth: true,
+      })
+      this.load()
+    },
+    updateCurrentMonth() {
+      const now = new Date()
+      const currentYm = `${now.getFullYear()}-${this.pad(now.getMonth() + 1)}`
+      this.setData({ isCurrentMonth: this.data.yearMonth === currentYm })
     },
     async load() {
       const { currentGroup, yearMonth } = this.data

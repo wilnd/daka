@@ -3,27 +3,48 @@
   <view class="container">
     <view wx:if="{{!hasUserInfo}}" class="need-auth">
       <text>请先完成授权</text>
+      <view style="margin-top:20rpx; font-size:24rpx; color:#666;">
+        <text>storage: {{userInfoStr}}</text>
+      </view>
       <navigator url="/pages/index/index" class="link">去首页</navigator>
     </view>
     <view wx:else>
       <view class="actions">
-        <button class="btn-primary" bindtap="showCreate">创建小组</button>
-        <button class="btn-secondary" bindtap="showJoin">加入小组</button>
+        <view class="action-btn btn-primary" bindtap="showCreate">
+          <text class="btn-icon">+</text> 创建小组
+        </view>
+        <view class="action-btn btn-secondary" bindtap="showJoin">
+          <text class="btn-icon">↔</text> 加入小组
+        </view>
       </view>
+
+      <view class="section-header" wx:if="{{groups.length > 0}}">
+        <text class="section-title">我的小组</text>
+        <text class="section-count">{{groups.length}} 个</text>
+      </view>
+
       <view class="group-list">
         <view wx:for="{{groups || []}}" wx:key="_id" class="group-item" bindtap="goDetail" data-id="{{item._id}}">
-          <text class="group-name">{{item.name}}</text>
-          <text class="group-meta">成员 {{item.memberCount || 0}} 人</text>
+          <view class="group-icon">👥</view>
+          <view class="group-info">
+            <text class="group-name">{{item.name}}</text>
+            <text class="group-meta">{{item.memberCount || 0}} 人</text>
+          </view>
+          <text class="arrow">></text>
         </view>
-        <view wx:if="{{groups.length === 0 && !loading}}" class="empty">暂无小组</view>
+        <view wx:if="{{groups.length === 0 && !loading}}" class="empty">
+          <text class="empty-icon">📋</text>
+          <text class="empty-text">暂无小组</text>
+          <text class="empty-hint">创建或加入小组开始打卡</text>
+        </view>
       </view>
     </view>
   </view>
 </scroll-view>
 
 <!-- 创建小组弹窗 -->
-<view class="modal {{showCreateModal ? 'show' : ''}}" catchtap="hideCreate" wx:if="{{showCreateModal}}">
-  <view class="modal-content" catchtap="">
+<view class="modal {{showCreateModal ? 'show' : ''}}" wx:if="{{showCreateModal}}" bindtap="hideCreate">
+  <view class="modal-content" catchtap="stopPropagation">
     <text class="modal-title">创建小组</text>
     <input class="modal-input" placeholder="小组名称 2-10 字" value="{{createName}}" bindinput="onCreateInput" />
     <view class="modal-btns">
@@ -34,10 +55,10 @@
 </view>
 
 <!-- 加入小组弹窗 -->
-<view class="modal {{showJoinModal ? 'show' : ''}}" catchtap="hideJoin" wx:if="{{showJoinModal}}">
-  <view class="modal-content" catchtap="">
+<view class="modal {{showJoinModal ? 'show' : ''}}" wx:if="{{showJoinModal}}" bindtap="hideJoin">
+  <view class="modal-content" catchtap="stopPropagation">
     <text class="modal-title">加入小组</text>
-    <input class="modal-input" placeholder="输入邀请码" value="{{joinCode}}" bindinput="onJoinInput" />
+    <input class="modal-input" placeholder="输入邀请码" value="{{joinCode}}" bindinput="onJoinInput" maxlength="6" />
     <view class="modal-btns">
       <button class="btn-secondary" bindtap="hideJoin">取消</button>
       <button class="btn-primary" bindtap="doJoin">加入</button>

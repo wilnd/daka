@@ -6,9 +6,13 @@
       <navigator url="/pages/index/index" class="link">去首页</navigator>
     </view>
     <view wx:else class="content">
-      <view class="user-card">
+      <view class="user-card" bindtap="onEditUserInfo">
         <image class="avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
-        <text class="nick">{{userInfo.nickName}}</text>
+        <view class="user-info">
+          <text class="nick">{{userInfo.nickName}}</text>
+          <text class="edit-hint">点击修改信息</text>
+        </view>
+        <text class="arrow">></text>
       </view>
       <view wx:if="{{currentGroup}}" class="stats-card">
         <view class="stat-item">
@@ -52,11 +56,32 @@
     <text class="modal-title">打卡记录</text>
     <scroll-view scroll-y class="records-list">
       <view wx:for="{{records || []}}" wx:key="_id" class="record-item">
-        <text>{{item.date}}</text>
+        <view class="record-left">
+          <text class="record-date">{{item.date}}</text>
+          <text wx:if="{{item.groupName}}" class="record-group">{{item.groupName}}</text>
+        </view>
         <text class="tag {{item.isMakeup ? 'makeup' : ''}}">{{item.isMakeup ? '补卡' : ''}}</text>
       </view>
       <view wx:if="{{records.length === 0}}" class="empty-records">暂无记录</view>
     </scroll-view>
     <button class="btn-secondary" bindtap="hideRecords">关闭</button>
+  </view>
+</view>
+
+<!-- 编辑用户信息弹窗 -->
+<view class="modal {{showEditModal ? 'show' : ''}}" catchtap="hideEditModal" wx:if="{{showEditModal}}">
+  <view class="modal-content" catchtap="">
+    <text class="modal-title">修改个人信息</text>
+    <view class="edit-form">
+      <button class="btn-primary auth-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image class="avatar-preview" src="{{editingInfo.avatarUrl}}" mode="aspectFill"></image>
+        <text class="avatar-tip">点击更换头像</text>
+      </button>
+      <input type="nickname" class="nickname-input" placeholder="请输入昵称" value="{{editingInfo.nickName}}" bindblur="onNicknameInput" />
+      <view class="modal-btns">
+        <button class="btn-secondary" bindtap="hideEditModal">取消</button>
+        <button class="btn-primary" bindtap="saveUserInfo">保存</button>
+      </view>
+    </view>
   </view>
 </view>

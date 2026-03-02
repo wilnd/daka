@@ -7,25 +7,92 @@
     </view>
     <view wx:else class="content">
       <view class="invite-bar">
-        <text class="invite-code">邀请码：{{group.inviteCode || '-'}}</text>
-        <button class="btn-secondary copy-btn" bindtap="copyInvite">复制邀请</button>
+        <view class="invite-info">
+          <text class="invite-code">邀请码：{{group.inviteCode || '-'}}</text>
+          <text class="invite-hint">分享给好友即可加入</text>
+        </view>
+        <view class="invite-btns">
+          <button class="btn-secondary btn-small" bindtap="copyInvite">复制</button>
+          <button wx:if="{{isAdmin}}" class="btn-secondary btn-small" bindtap="showEditInvite">修改</button>
+          <button wx:if="{{isAdmin}}" class="btn-secondary btn-small" bindtap="doRegenerateInvite">刷新</button>
+        </view>
       </view>
+
       <view class="section">
         <text class="section-title">今日打卡情况</text>
-        <view wx:for="{{todayMembers || []}}" wx:key="_id" class="member-row">
-          <image class="avatar" src="{{item.avatarUrl || 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'}}" mode="aspectFill"></image>
+        <view wx:if="{{todayMembers.length === 0}}" class="empty-section">暂无成员</view>
+        <view wx:for="{{todayMembers || []}}" wx:key="_id" class="member-row {{item.checked ? 'checked' : ''}}">
+          <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
           <text class="nick">{{item.nickName || '未知'}}</text>
           <text class="status {{item.checked ? 'checked' : 'unchecked'}}">{{item.checked ? '已打卡' : '未打卡'}}</text>
         </view>
       </view>
+
       <view class="section">
-        <text class="section-title">成员列表</text>
-        <view wx:for="{{members || []}}" wx:key="_id" class="member-row">
-          <image class="avatar" src="{{item.avatarUrl || ''}}" mode="aspectFill"></image>
-          <text class="nick">{{item.nickName || '未知'}}</text>
-          <text wx:if="{{item.role === 'admin'}}" class="role">组长</text>
+        <view class="section-header">
+          <text class="section-title">成员列表</text>
+          <text class="member-count">{{members.length}} 人</text>
         </view>
+        <view wx:if="{{members.length === 0}}" class="empty-section">暂无成员</view>
+        <view wx:for="{{members || []}}" wx:key="_id" class="member-row" bindtap="onMemberTap" data-member="{{item}}">
+          <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
+          <text class="nick">{{item.nickName || '未知'}}</text>
+          <text wx:if="{{item.role === 'admin'}}" class="role-badge">组长</text>
+          <text class="arrow">></text>
+        </view>
+      </view>
+
+      <!-- 退小组按钮 -->
+      <view class="quit-section" wx:if="{{!isAdmin}}">
+        <button class="btn-danger" bindtap="onQuitGroup">退出小组</button>
       </view>
     </view>
   </view>
 </scroll-view>
+
+<!-- 成员操作弹窗 -->
+<view class="modal {{showMemberModal ? 'show' : ''}}" catchtap="hideMemberModal" wx:if="{{showMemberModal}}">
+  <view class="modal-content" catchtap="">
+    <text class="modal-title">{{selectedMemberNickName}}</text>
+    <view class="member-info">
+      <image class="avatar-large" src="{{selectedMemberAvatarUrl}}" mode="aspectFill"></image>
+    </view>
+    <view class="action-list">
+      <view wx:if="{{canTransferAdmin}}" class="action-item" bindtap="onTransferAdmin">
+        <text>转让组长</text>
+      </view>
+      <view wx:if="{{canRemoveMember}}" class="action-item danger" bindtap="onRemoveMember">
+        <text>移除成员</text>
+      </view>
+      <view wx:if="{{isSelfMember}}" class="action-item danger" bindtap="onQuitGroup">
+        <text>退出小组</text>
+      </view>
+    </view>
+    <button class="btn-secondary" bindtap="hideMemberModal">取消</button>
+  </view>
+</view>
+
+<!-- 确认退组/移除弹窗 -->
+<view class="modal {{showConfirmModal ? 'show' : ''}}" catchtap="hideConfirmModal" wx:if="{{showConfirmModal}}">
+  <view class="modal-content" catchtap="">
+    <text class="modal-title">{{confirmTitle}}</text>
+    <text class="confirm-desc">{{confirmContent}}</text>
+    <view class="modal-btns">
+      <button class="btn-secondary" bindtap="hideConfirmModal">取消</button>
+      <button class="btn-danger" bindtap="confirmAction">确认</button>
+    </view>
+  </view>
+</view>
+
+<!-- 编辑邀请码弹窗 -->
+<view class="modal {{showEditInviteModal ? 'show' : ''}}" catchtap="hideEditInvite" wx:if="{{showEditInviteModal}}">
+  <view class="modal-content" catchtap="">
+    <text class="modal-title">修改邀请码</text>
+    <input class="modal-input" placeholder="输入新邀请码 4-10位" value="{{editInviteCode}}" maxlength="10" bindinput="onEditInviteInput" />
+    <text class="input-hint">只能使用字母和数字</text>
+    <view class="modal-btns">
+      <button class="btn-secondary" bindtap="hideEditInvite">取消</button>
+      <button class="btn-primary" bindtap="doUpdateInvite">保存</button>
+    </view>
+  </view>
+</view>

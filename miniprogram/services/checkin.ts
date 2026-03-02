@@ -1,7 +1,7 @@
 /**
  * 打卡服务
  */
-import { db, checkinsCol, makeupQuotaCol, getTodayStr, getCurrentMonth } from './db'
+import { db, checkinsCol, makeupQuotaCol, getTodayStr, getCurrentMonth, getServerMonth } from './db'
 
 export interface Checkin {
   _id: string
@@ -44,7 +44,8 @@ export async function doMakeup(
     .get()
   if (existing.length > 0) return { ok: false, msg: '该日期已打卡' }
 
-  const month = getCurrentMonth()
+  // 使用服务器时间获取当前月份，避免客户端时间被篡改
+  const month = await getServerMonth()
   const { data: quotaList } = await makeupQuotaCol()
     .where({ userId, month })
     .get()
@@ -104,7 +105,7 @@ export async function isCheckedToday(userId: string, groupId: string): Promise<b
 
 /** 获取今日剩余补卡次数 */
 export async function getMakeupRemain(userId: string): Promise<number> {
-  const month = getCurrentMonth()
+  const month = await getServerMonth()
   const { data } = await makeupQuotaCol().where({ userId, month }).get()
   const used = data.length > 0 ? (data[0] as any).usedCount : 0
   return Math.max(0, 2 - used)
@@ -122,4 +123,25 @@ export async function getCheckinRecords(
     .limit(limit)
     .get()
   return (data || []) as Checkin[]
+}
+
+/** 获取打卡记录详情（含小组名称） */
+export async function getCheckinRecordsWithGroup(
+  userId: string,
+  groupId: string,
+  limit = 50
+): Promise<(Checkin & { groupName?: string })[]> {
+  const { data: groupsData } = await wx.cloud.database().collection('groups').doc(groupId).get()
+  const groupName = groupsData?.name || ''
+
+  const { data } = await checkinsCol()
+    .where({ userId, groupId })
+    .orderBy('date', 'desc')
+    .limit(limit)
+    .get()
+
+  return ((data || []) as Checkin[]).map(item => ({
+    ...item,
+    groupName
+  }))
 }

@@ -33,3 +33,21 @@ export async function getOrCreateUser(openid: string, nickName: string, avatarUr
   })
   return { _id, openid, nickName, avatarUrl }
 }
+
+/** 更新用户信息 */
+export async function updateUserInfo(openid: string, nickName: string, avatarUrl: string) {
+  const col = usersCol()
+  const { data: list } = await col.where({ openid }).get()
+  if (list.length === 0) {
+    const now = new Date()
+    const { _id } = await col.add({
+      data: { openid, nickName, avatarUrl, createTime: now, updateTime: now }
+    })
+    return { _id, openid, nickName, avatarUrl }
+  }
+  const now = new Date()
+  await col.doc((list[0] as any)._id).update({
+    data: { nickName, avatarUrl, updateTime: now }
+  })
+  return { ...list[0], nickName, avatarUrl, updateTime: now }
+}

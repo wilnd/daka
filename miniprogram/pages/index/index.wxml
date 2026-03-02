@@ -10,40 +10,95 @@
       <input type="nickname" class="nickname-input" placeholder="请输入昵称" bindblur="onNicknameBlur" />
       <button class="btn-primary confirm-auth" bindtap="onConfirmAuth">确认授权</button>
     </view>
-    <view wx:elif="{{loading}}" class="loading-wrap">
-      <view class="loading-spinner"></view>
-      <text>加载中</text>
+    <view wx:elif="{{loading}}" class="skeleton-wrap">
+      <view class="skeleton-card">
+        <view class="skeleton skeleton-title"></view>
+        <view class="skeleton skeleton-btn"></view>
+      </view>
+      <view class="skeleton-card">
+        <view class="skeleton skeleton-text"></view>
+        <view class="skeleton skeleton-text short"></view>
+      </view>
+      <view class="skeleton-card">
+        <view class="skeleton skeleton-stat"></view>
+        <view class="skeleton skeleton-stat"></view>
+        <view class="skeleton skeleton-stat"></view>
+      </view>
     </view>
     <view wx:else class="main">
-      <view class="group-header">
-        <text class="group-name">{{currentGroup ? currentGroup.name : '请选择或创建小组'}}</text>
-        <button class="btn-secondary switch-btn" bindtap="showSwitchGroup">切换小组</button>
+      <!-- 空状态：没有小组 -->
+      <view wx:if="{{!currentGroup}}" class="empty-state">
+        <view class="empty-icon">🏃</view>
+        <text class="empty-title">欢迎使用打卡助手</text>
+        <text class="empty-desc">创建或加入一个小组，开始你的运动打卡之旅</text>
+        <view class="empty-actions">
+          <button class="btn-primary" bindtap="goCreateGroup">创建小组</button>
+          <button class="btn-secondary" bindtap="goJoinGroup">加入小组</button>
+        </view>
       </view>
-      <view class="checkin-card">
-        <view class="checkin-status {{checkedToday ? 'checked' : ''}}">
-          <text class="status-text">{{checkedToday ? '今日已打卡' : '立即打卡'}}</text>
+      <!-- 有小组时显示正常内容 -->
+      <view wx:else>
+        <view class="group-header">
+          <view class="group-selector" bindtap="showSwitchGroup">
+            <text class="group-name">{{currentGroup.name}}</text>
+            <text class="arrow">▼</text>
+          </view>
         </view>
-        <button
-          class="btn-primary checkin-btn"
-          hover-class="btn-hover"
-          bindtap="onCheckin"
-          disabled="{{checkedToday || !currentGroup}}"
-        >
-          {{checkedToday ? '已打卡' : '立即打卡'}}
-        </button>
-      </view>
-      <view wx:if="{{stats}}" class="stats-card">
-        <view class="stat-item">
-          <text class="stat-value primary">{{stats.streak}}</text>
-          <text class="stat-label">连胜天数</text>
+        <view class="checkin-card">
+          <view class="checkin-status {{checkedToday ? 'checked' : ''}}">
+            <text class="status-text">{{checkedToday ? '今日已打卡' : '立即打卡'}}</text>
+          </view>
+          <view class="checkin-btn-wrapper">
+            <button
+              class="btn-primary checkin-btn {{checkedToday ? 'checked' : ''}} {{checkinAnimating ? 'animating' : ''}}"
+              hover-class="btn-hover"
+              bindtap="onCheckin"
+              disabled="{{checkedToday || !currentGroup || checkinAnimating}}"
+            >
+              <text wx:if="{{checkinAnimating}}">打卡中...</text>
+              <text wx:elif="{{checkedToday}}">✓ 已打卡</text>
+              <text wx:else>立即打卡</text>
+            </button>
+            <view wx:if="{{checkedToday}}" class="success-badge">
+              <text class="badge-icon">✓</text>
+            </view>
+          </view>
         </view>
-        <view class="stat-item">
-          <text class="stat-value">{{stats.totalDays}}</text>
-          <text class="stat-label">总打卡</text>
+        <view wx:if="{{stats}}" class="stats-card">
+          <view class="stat-item highlight">
+            <text class="stat-value primary">{{stats.streak}}</text>
+            <text class="stat-label">连胜天数</text>
+          </view>
+          <view class="stat-item">
+            <text class="stat-value">{{stats.totalDays}}</text>
+            <text class="stat-label">总打卡</text>
+          </view>
+          <view class="stat-item">
+            <text class="stat-value {{stats.missStreak > 0 ? 'warn' : ''}}">{{stats.missStreak}}</text>
+            <text class="stat-label">连续未打卡</text>
+          </view>
         </view>
-        <view class="stat-item">
-          <text class="stat-value {{stats.missStreak > 0 ? 'warn' : ''}}">{{stats.missStreak}}</text>
-          <text class="stat-label">连续未打卡</text>
+
+        <!-- 排行榜 -->
+        <view wx:if="{{currentGroup}}" class="rank-card">
+          <view class="rank-header">
+            <text class="rank-title">排行榜</text>
+          </view>
+          <view class="rank-tabs">
+            <view class="rank-tab {{rankType === 'day' ? 'active' : ''}}" bindtap="switchRank" data-type="day">日榜</view>
+            <view class="rank-tab {{rankType === 'week' ? 'active' : ''}}" bindtap="switchRank" data-type="week">周榜</view>
+            <view class="rank-tab {{rankType === 'month' ? 'active' : ''}}" bindtap="switchRank" data-type="month">月榜</view>
+          </view>
+          <view wx:if="{{rankLoading}}" class="rank-loading">加载中...</view>
+          <view wx:elif="{{rankList.length === 0}}" class="rank-empty">暂无数据</view>
+          <view wx:else class="rank-list">
+            <view wx:for="{{rankList}}" wx:key="userId" class="rank-item">
+              <view class="rank-index {{index < 3 ? 'top' : ''}}">{{index + 1}}</view>
+              <image class="rank-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+              <text class="rank-name">{{item.nickName}}</text>
+              <text class="rank-streak">{{item.streak}} 天</text>
+            </view>
+          </view>
         </view>
       </view>
     </view>
@@ -51,13 +106,22 @@
 </scroll-view>
 
 <!-- 切换小组弹窗 -->
-<view class="modal {{showSwitchModal ? 'show' : ''}}" catchtap="hideSwitchGroup" wx:if="{{showSwitchModal}}">
-  <view class="modal-content" catchtap="">
+<view class="modal {{showSwitchModal ? 'show' : ''}}" bindtap="hideSwitchGroup" wx:if="{{showSwitchModal}}">
+  <view class="modal-content" catchtap="stopPropagation">
     <text class="modal-title">切换小组</text>
-    <view wx:for="{{groups || []}}" wx:key="_id" class="group-option" bindtap="selectGroup" data-id="{{item._id}}">
-      <text>{{item.name}}</text>
-      <text class="meta">成员 {{item.memberCount || 0}} 人</text>
+    <view wx:for="{{groups || []}}" wx:key="_id" class="group-option {{item._id === currentGroup._id ? 'active' : ''}}" bindtap="selectGroup" data-id="{{item._id}}">
+      <view class="group-option-info">
+        <text>{{item.name}}</text>
+        <text class="meta">成员 {{item.memberCount || 0}} 人</text>
+      </view>
+      <view class="group-option-actions">
+        <text wx:if="{{item._id === currentGroup._id}}" class="default-tag">当前</text>
+        <button wx:else class="btn-set-default" catchtap="setDefaultGroup" data-id="{{item._id}}">设为默认</button>
+      </view>
     </view>
-    <button class="btn-secondary" bindtap="hideSwitchGroup">取消</button>
+    <view class="modal-actions">
+      <button class="btn-text" bindtap="goCreateGroup">创建新小组</button>
+      <button class="btn-secondary" bindtap="hideSwitchGroup">取消</button>
+    </view>
   </view>
 </view>

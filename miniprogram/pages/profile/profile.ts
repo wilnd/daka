@@ -5,8 +5,10 @@ import { getStreak, getMissStreak, getTotalDays } from '../../services/stats'
 import { checkinsCol, membersCol } from '../../services/db'
 import { usersCol } from '../../services/db'
 import { getTodayStr } from '../../services/db'
+import { updateUserInfo } from '../../services/auth'
 
 const app = getApp<IAppOption>()
+const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
 Component({
   data: {
@@ -16,6 +18,8 @@ Component({
     stats: {} as any,
     records: [] as any[],
     showRecordsModal: false,
+    showEditModal: false,
+    editingInfo: { nickName: '', avatarUrl: defaultAvatar },
   },
   lifetimes: {
     attached() { this.init() },
@@ -47,22 +51,69 @@ Component({
         }
         this.setData({ currentGroup: cur, stats })
       } catch (e) {
-        wx.showToast({ title: '加载失败', icon: 'none' })
+        console.error(e)
       }
     },
     async showRecords() {
       const gid = this.data.currentGroup?._id
       if (!gid) { wx.showToast({ title: '请先选择小组', icon: 'none' }); return }
+      wx.showLoading({ title: '加载中' })
       try {
         const records = await getCheckinRecords(app.globalData.openid!, gid)
-        this.setData({ records, showRecordsModal: true })
+        const groupName = this.data.currentGroup?.name || ''
+        const recordsWithGroup = records.map((r: any) => ({ ...r, groupName }))
+        this.setData({ records: recordsWithGroup, showRecordsModal: true })
+        wx.hideLoading()
       } catch (e) {
+        wx.hideLoading()
         wx.showToast({ title: '加载失败', icon: 'none' })
       }
     },
-    hideRecords() { this.setData({ showRecordsModal: false }) },
+    hideRecords() {
+      this.setData({ showRecordsModal: false })
+    },
+    onEditUserInfo() {
+      this.setData({
+        showEditModal: true,
+        editingInfo: { ...this.data.userInfo }
+      })
+    },
+    hideEditModal() {
+      this.setData({ showEditModal: false })
+    },
+    onChooseAvatar(e: any) {
+      const { avatarUrl } = e.detail
+      this.setData({ 'editingInfo.avatarUrl': avatarUrl || this.data.editingInfo.avatarUrl })
+    },
+    onNicknameInput(e: any) {
+      const nickName = e.detail.value || ''
+      this.setData({ 'editingInfo.nickName': nickName })
+    },
+    async saveUserInfo() {
+      const { nickName, avatarUrl } = this.data.editingInfo
+      if (!nickName || !avatarUrl) {
+        wx.showToast({ title: '请填写昵称并选择头像', icon: 'none' })
+        return
+      }
+      const openid = app.globalData.openid
+      if (!openid) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
+      wx.showLoading({ title: '保存中' })
+      try {
+        await updateUserInfo(openid, nickName, avatarUrl)
+        wx.setStorageSync('userInfo', { nickName, avatarUrl })
+        this.setData({
+          hasUserInfo: true,
+          userInfo: { nickName, avatarUrl },
+          showEditModal: false
+        })
+        wx.showToast({ title: '保存成功' })
+      } catch (e) {
+        wx.showToast({ title: '保存失败', icon: 'none' })
+      } finally {
+        wx.hideLoading()
+      }
+    },
     subscribeRemind() {
-      // 需在微信公众平台-订阅消息中创建模板，将 templateId 填入下方
       const templateId = 'YOUR_SUBSCRIBE_TEMPLATE_ID'
       if (!templateId || templateId.startsWith('YOUR_')) {
         wx.showToast({ title: '请在代码中配置订阅消息模板ID', icon: 'none' })
