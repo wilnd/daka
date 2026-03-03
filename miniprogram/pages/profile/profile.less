@@ -17,6 +17,10 @@
     .menu-item {
       display: flex; justify-content: space-between; align-items: center; padding: 32rpx; background: @color-bg-card; border-radius: 16rpx; margin-bottom: 16rpx;
       .arrow { color: @color-text-hint; }
+      .subscribe-status { font-size: @font-size-caption; margin-right: 8rpx;
+        &.subscribed { color: @color-primary; }
+        &:not(.subscribed) { color: @color-text-hint; }
+      }
     }
   }
 }
@@ -42,4 +46,14 @@
     .avatar-tip { font-size: 20rpx; color: white; margin-top: 8rpx; }
   }
   .nickname-input { width: 100%; padding: 24rpx; border: 2rpx solid @color-bg-card; border-radius: 12rpx; margin-bottom: 32rpx; box-sizing: border-box; }
+}
+
+// 时间选择器
+.time-picker-wrapper {
+  margin-bottom: 32rpx;
+  .time-display {
+    display: flex; flex-direction: column; align-items: center; padding: 48rpx; background: @color-bg-card; border-radius: 16rpx;
+    .time-value { font-size: 64rpx; font-weight: bold; color: @color-primary; }
+    .time-hint { font-size: @font-size-caption; color: @color-text-hint; margin-top: 16rpx; }
+  }
 }

@@ -49,6 +49,7 @@ export async function joinByInviteCode(inviteCode: string, userId: string): Prom
   const { data: list } = await groupsCol().where({ inviteCode }).get()
   if (list.length === 0) return { ok: false, msg: '邀请码无效', group: null }
   const group = list[0] as any
+  if (group?.inviteEnabled === false) return { ok: false, msg: '邀请已关闭', group: null }
   const { data: members } = await membersCol()
     .where({ groupId: group._id, userId, status: 'normal' })
     .get()
@@ -195,6 +196,23 @@ export async function updateInviteCode(groupId: string, adminId: string, newCode
   await groupsCol().doc(groupId).update({
     data: { inviteCode: code, updateTime: new Date() }
   })
+  return { ok: true }
+}
+
+/** 更新小组信息 */
+export async function updateGroup(groupId: string, adminId: string, data: { inviteEnabled?: boolean }): Promise<{ ok: boolean; msg?: string }> {
+  // 验证权限
+  const { data: adminMember } = await membersCol()
+    .where({ groupId, userId: adminId, role: 'admin', status: 'normal' })
+    .get()
+  if (adminMember.length === 0) return { ok: false, msg: '只有组长才能修改小组设置' }
+
+  const updateData: any = { updateTime: new Date() }
+  if (data.inviteEnabled !== undefined) {
+    updateData.inviteEnabled = data.inviteEnabled
+  }
+
+  await groupsCol().doc(groupId).update({ data: updateData })
   return { ok: true }
 }
 

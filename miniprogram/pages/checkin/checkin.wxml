@@ -10,6 +10,7 @@
         range-key="name" 
         value="{{groupId}}"
         bindchange="onGroupChange"
+        disabled="{{mode === 'edit'}}"
       >
         <view class="picker-value">
           <text>{{groupName || '请选择小组'}}</text>
@@ -89,7 +90,7 @@
       bindtap="onSubmit"
       disabled="{{submitting}}"
     >
-      {{submitting ? '提交中...' : '确认打卡'}}
+      {{submitting ? '提交中...' : (mode === 'edit' ? '确认更新' : '确认打卡')}}
     </button>
   </view>
 </view>

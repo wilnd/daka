@@ -205,12 +205,22 @@ Component({
       this.loadData()
     },
     async onCheckin() {
-      const { currentGroup, checkinAnimating } = this.data
+      const { currentGroup, checkinAnimating, checkedToday } = this.data
       if (!currentGroup || checkinAnimating) return
       
-      // 跳转到带内容的打卡页面
+      // 已打卡：进入更新模式；未打卡：进入发布模式
       wx.navigateTo({
-        url: `/pages/checkin/checkin?groupId=${currentGroup._id}&groupName=${encodeURIComponent(currentGroup.name)}`
+        url: checkedToday
+          ? `/pages/checkin/checkin?mode=edit&groupId=${currentGroup._id}&groupName=${encodeURIComponent(currentGroup.name)}`
+          : `/pages/checkin/checkin?groupId=${currentGroup._id}&groupName=${encodeURIComponent(currentGroup.name)}`
+      })
+    },
+
+    onUpdateCheckin() {
+      const { currentGroup, checkedToday, checkinAnimating } = this.data
+      if (!currentGroup || !checkedToday || checkinAnimating) return
+      wx.navigateTo({
+        url: `/pages/checkin/checkin?mode=edit&groupId=${currentGroup._id}&groupName=${encodeURIComponent(currentGroup.name)}`
       })
     },
   },

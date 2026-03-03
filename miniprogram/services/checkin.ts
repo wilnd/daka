@@ -6,7 +6,7 @@ import { db, checkinsCol, makeupQuotaCol, momentsCol, getTodayStr, getCurrentMon
 export interface Checkin {
   _id: string
   userId: string
-  groupId: string
+  groupId?: string
   date: string
   isMakeup: boolean
   createTime: Date
@@ -46,6 +46,17 @@ export interface ScoreResult {
   tags?: string[]
 }
 
+/** 获取用户今日打卡（含内容） */
+export async function getTodayCheckin(userId: string): Promise<Checkin | null> {
+  const today = getTodayStr()
+  const { data } = await checkinsCol()
+    .where({ userId, date: today })
+    .orderBy('createTime', 'desc')
+    .limit(1)
+    .get()
+  return (data && data[0] ? (data[0] as Checkin) : null)
+}
+
 /** 每日打卡（支持内容） */
 export async function doCheckinWithContent(
   userId: string,
@@ -54,7 +65,8 @@ export async function doCheckinWithContent(
 ): Promise<{ ok: boolean; msg?: string; score?: ScoreResult }> {
   const today = getTodayStr()
   const { data: existing } = await checkinsCol()
-    .where({ userId, groupId, date: today })
+    // 打卡与群组无关：同一用户同一天只能打一次卡
+    .where({ userId, date: today })
     .get()
   if (existing.length > 0) return { ok: false, msg: '今日已打卡，无需重复操作' }
 
@@ -82,7 +94,7 @@ export async function doCheckinWithContent(
   const { _id: checkinId } = await checkinsCol().add({
     data: { 
       userId, 
-      groupId, 
+      groupId,
       date: today, 
       isMakeup: false, 
       createTime: now,
@@ -119,6 +131,97 @@ export async function doCheckinWithContent(
   return { ok: true, score }
 }
 
+/** 更新今日打卡内容（可同步更新/创建/删除朋友圈动态） */
+export async function updateTodayCheckinWithContent(
+  userId: string,
+  groupId: string,
+  content: CheckinContent
+): Promise<{ ok: boolean; msg?: string; score?: ScoreResult }> {
+  const existing = await getTodayCheckin(userId)
+  if (!existing?._id) return { ok: false, msg: '今日还未打卡，无法更新' }
+
+  if (!content || (!content.text && (!content.photos || content.photos.length === 0))) {
+    return { ok: false, msg: '请输入文字或上传照片' }
+  }
+
+  // 重新评分（与新增打卡保持一致）
+  let score: ScoreResult | undefined
+  try {
+    const scoreRes = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: {
+        text: content.text,
+        photos: content.photos,
+        isPublishToMoments: content.isPublishToMoments
+      }
+    })
+    if (scoreRes.result?.success) score = scoreRes.result.data
+  } catch (e) {
+    console.warn('评分失败，使用默认分', e)
+  }
+
+  const now = new Date()
+  await checkinsCol().doc(existing._id).update({
+    data: {
+      groupId,
+      content,
+      score: score || null,
+      updateTime: now
+    } as any
+  })
+
+  // 同步朋友圈：按 checkinId 关联
+  try {
+    const { data: momentList } = await momentsCol()
+      .where({ checkinId: existing._id, userId })
+      .limit(1)
+      .get()
+    const moment = momentList && momentList[0]
+
+    const hasContent = !!(content.text || (content.photos && content.photos.length > 0))
+    const shouldPublish = !!content.isPublishToMoments && hasContent
+
+    if (shouldPublish) {
+      const momentContent = {
+        photos: content.photos || [],
+        text: content.text || '',
+        sportType: content.sportType || '',
+        score: score?.totalScore,
+        tags: score?.tags || []
+      }
+
+      if (moment?._id) {
+        await momentsCol().doc((moment as any)._id).update({
+          data: {
+            groupId,
+            content: momentContent,
+            updateTime: now
+          } as any
+        })
+      } else {
+        await momentsCol().add({
+          data: {
+            userId,
+            groupId,
+            checkinId: existing._id,
+            content: momentContent,
+            likeCount: 0,
+            commentCount: 0,
+            createTime: now
+          }
+        })
+      }
+    } else if (moment?._id) {
+      // 用户取消发布：删除对应朋友圈动态
+      await momentsCol().doc((moment as any)._id).remove()
+    }
+  } catch (e) {
+    console.warn('同步朋友圈失败', e)
+  }
+
+  return { ok: true, score }
+}
+
 /** 补卡：仅可补今天往前 3 天（不含今天），每月 2 次 */
 export async function doMakeup(
   userId: string,
@@ -132,7 +235,8 @@ export async function doMakeup(
   if (diffDays < 1 || diffDays > 3) return { ok: false, msg: '仅可补近3天内未打卡日期' }
 
   const { data: existing } = await checkinsCol()
-    .where({ userId, groupId, date })
+    // 补卡与群组无关：同一用户同一天只能补一次
+    .where({ userId, date })
     .get()
   if (existing.length > 0) return { ok: false, msg: '该日期已打卡' }
 
@@ -177,7 +281,6 @@ export async function getCheckinsByMonth(
   const { data } = await checkinsCol()
     .where({
       userId,
-      groupId,
       date: _.and(_.gte(start), _.lte(end))
     })
     .orderBy('date', 'asc')
@@ -190,7 +293,7 @@ export async function getCheckinsByMonth(
 export async function isCheckedToday(userId: string, groupId: string): Promise<boolean> {
   const today = getTodayStr()
   const { total } = await checkinsCol()
-    .where({ userId, groupId, date: today })
+    .where({ userId, date: today })
     .count()
   return total > 0
 }
@@ -210,7 +313,7 @@ export async function getCheckinRecords(
   limit = 50
 ): Promise<Checkin[]> {
   const { data } = await checkinsCol()
-    .where({ userId, groupId })
+    .where({ userId })
     .orderBy('date', 'desc')
     .limit(limit)
     .get()
@@ -220,20 +323,32 @@ export async function getCheckinRecords(
 /** 获取打卡记录详情（含小组名称） */
 export async function getCheckinRecordsWithGroup(
   userId: string,
-  groupId: string,
   limit = 50
 ): Promise<(Checkin & { groupName?: string })[]> {
-  const { data: groupsData } = await wx.cloud.database().collection('groups').doc(groupId).get()
-  const groupName = groupsData?.name || ''
-
   const { data } = await checkinsCol()
-    .where({ userId, groupId })
+    .where({ userId })
     .orderBy('date', 'desc')
     .limit(limit)
     .get()
 
-  return ((data || []) as Checkin[]).map(item => ({
+  const records = (data || []) as Checkin[]
+  const groupIds = Array.from(new Set(records.map(r => r.groupId).filter(Boolean))) as string[]
+
+  // 批量取 group 名称（in 条件有数量限制，做分批）
+  const db2 = wx.cloud.database()
+  const _ = db2.command
+  const groupNameMap = new Map<string, string>()
+  const batchSize = 10
+  for (let i = 0; i < groupIds.length; i += batchSize) {
+    const batch = groupIds.slice(i, i + batchSize)
+    const { data: gs } = await db2.collection('groups').where({ _id: _.in(batch) }).get()
+    for (const g of (gs || []) as any[]) {
+      groupNameMap.set(g._id, g.name || '')
+    }
+  }
+
+  return records.map(item => ({
     ...item,
-    groupName
+    groupName: item.groupId ? (groupNameMap.get(item.groupId) || '') : ''
   }))
 }

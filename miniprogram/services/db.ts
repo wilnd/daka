@@ -12,6 +12,9 @@ export const momentsCol = () => db.collection('moments')
 export const momentLikesCol = () => db.collection('momentLikes')
 export const momentCommentsCol = () => db.collection('momentComments')
 
+/** 打卡提醒订阅配置 - 使用微信订阅消息 */
+export const SUBSCRIBE_TEMPLATE_ID = 'Onu-1essigRNJuZ8K0a_WdBq7qR5ktHKxST6F0fCDuQ' // 打卡提醒模板ID
+
 /** 生成唯一邀请码 6 位（避免重复） */
 export async function genInviteCode(): Promise<string> {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'

@@ -28,6 +28,14 @@ export async function getOrCreateUser(openid: string, nickName: string, avatarUr
     })
     return list[0] as any
   }
+  // 兼容历史数据：旧 users 记录可能只有 _openid，没有 openid 字段
+  const { data: legacy } = await col.where({ _openid: openid } as any).limit(1).get()
+  if (legacy.length > 0) {
+    await col.doc((legacy[0] as any)._id).update({
+      data: { openid, nickName, avatarUrl, updateTime: now }
+    })
+    return { ...(legacy[0] as any), openid, nickName, avatarUrl, updateTime: now }
+  }
   const { _id } = await col.add({
     data: { openid, nickName, avatarUrl, createTime: now, updateTime: now }
   })
@@ -39,6 +47,15 @@ export async function updateUserInfo(openid: string, nickName: string, avatarUrl
   const col = usersCol()
   const { data: list } = await col.where({ openid }).get()
   if (list.length === 0) {
+    // 兼容历史数据：旧 users 记录可能只有 _openid，没有 openid 字段
+    const { data: legacy } = await col.where({ _openid: openid } as any).limit(1).get()
+    if (legacy.length > 0) {
+      const now = new Date()
+      await col.doc((legacy[0] as any)._id).update({
+        data: { openid, nickName, avatarUrl, updateTime: now }
+      })
+      return { ...(legacy[0] as any), openid, nickName, avatarUrl, updateTime: now }
+    }
     const now = new Date()
     const { _id } = await col.add({
       data: { openid, nickName, avatarUrl, createTime: now, updateTime: now }

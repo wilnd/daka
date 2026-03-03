@@ -1,5 +1,5 @@
 // moments.ts
-import { getOpenid } from '../../services/auth'
+import { getOpenid, getOrCreateUser } from '../../services/auth'
 import { getMyGroups } from '../../services/group'
 
 const app = getApp<IAppOption>()
@@ -39,7 +39,8 @@ Page({
     currentGroupIndex: 0,
     groups: [] as any[],
     showCommentInput: false,
-    currentCommentMomentId: ''
+    currentCommentMomentId: '',
+    commentSubmitting: false,
   },
 
   onLoad() {
@@ -47,6 +48,11 @@ Page({
   },
 
   onShow() {
+    // 首次进入时，onShow 可能早于异步初始化完成
+    if (!this.data.currentGroupId) {
+      this.loadInitialData()
+      return
+    }
     this.loadMoments()
   },
 
@@ -69,8 +75,24 @@ Page({
         console.error('获取openid失败', e)
         return
       }
+    } else if (!app.globalData.openid) {
+      // 从本地缓存恢复时同步到全局，避免后续逻辑读取不到
+      app.globalData.openid = openid
     }
-    this.loadGroups()
+
+    // 确保 users 集合有当前用户信息，避免展示为“匿名用户”
+    const userInfo = wx.getStorageSync('userInfo')
+    if (openid && userInfo?.nickName && userInfo?.avatarUrl) {
+      try {
+        await getOrCreateUser(openid, userInfo.nickName, userInfo.avatarUrl)
+      } catch (e) {
+        console.warn('同步用户信息失败', e)
+      }
+    }
+
+    await this.loadGroups()
+    // 群组与 groupId 就绪后再拉取数据，避免 groupId 为空导致查询不到
+    await this.loadMoments()
   },
 
   async loadGroups() {
@@ -95,10 +117,16 @@ Page({
   },
 
   async loadMoments() {
+    // 兜底：有些场景 globalData 还没恢复，但本地缓存已存在
+    const cachedOpenid = wx.getStorageSync('openid')
+    if (!app.globalData.openid && cachedOpenid) {
+      app.globalData.openid = cachedOpenid
+    }
     const openid = app.globalData.openid
     if (!openid) return
     
     const { currentGroupId, loading, noMore } = this.data
+    if (!currentGroupId) return
     if (loading || noMore) return
 
     this.setData({ loading: true })
@@ -233,6 +261,10 @@ Page({
   // 打开评论弹窗
   onComment(e: any) {
     const { momentId } = e.currentTarget.dataset
+    if (!momentId) {
+      wx.showToast({ title: '数据异常，请重试', icon: 'none' })
+      return
+    }
     this.setData({ 
       currentCommentMomentId: momentId,
       showCommentInput: true 
@@ -243,9 +275,20 @@ Page({
   async onSendComment(e: any) {
     const openid = app.globalData.openid
     if (!openid) return
+    if (this.data.commentSubmitting) return
 
-    const { content } = e.detail.value
+    // form submit: e.detail.value = { content: string }
+    // input confirm: e.detail.value = string
+    const rawValue = e?.detail?.value
+    const content =
+      typeof rawValue === 'string'
+        ? rawValue
+        : (rawValue && typeof rawValue === 'object' ? rawValue.content : '')
     const { currentCommentMomentId: momentId } = this.data
+    if (!momentId) {
+      wx.showToast({ title: '未找到要评论的动态', icon: 'none' })
+      return
+    }
 
     if (!content || !content.trim()) {
       wx.showToast({ title: '请输入评论内容', icon: 'none' })
@@ -253,6 +296,21 @@ Page({
     }
 
     try {
+      this.setData({ commentSubmitting: true })
+      wx.hideKeyboard()
+      wx.showLoading({ title: '发送中', mask: true })
+
+      // 非阻塞兜底同步用户信息（避免同步失败/卡顿影响评论）
+      const userInfo = wx.getStorageSync('userInfo')
+      if (userInfo?.nickName && userInfo?.avatarUrl) {
+        try {
+          // 不 await：同步失败不影响评论发送
+          getOrCreateUser(openid, userInfo.nickName, userInfo.avatarUrl)
+        } catch (e) {
+          console.warn('同步用户信息失败', e)
+        }
+      }
+
       const res = await wx.cloud.callFunction({
         name: 'moments',
         data: {
@@ -287,7 +345,14 @@ Page({
       }
     } catch (e) {
       console.error('评论失败', e)
-      wx.showToast({ title: '评论失败', icon: 'none' })
+      const msg =
+        (e as any)?.errMsg ||
+        (e as any)?.message ||
+        '评论失败'
+      wx.showToast({ title: msg, icon: 'none' })
+    } finally {
+      wx.hideLoading()
+      this.setData({ commentSubmitting: false })
     }
   },
 

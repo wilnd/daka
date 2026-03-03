@@ -1,0 +1,18 @@
+<navigation-bar title="联系管理员" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <view class="container">
+    <view class="card">
+      <text class="title">添加管理员微信</text>
+      <text class="desc">复制微信号后，去微信搜索添加好友</text>
+      <view class="wxid-row">
+        <text class="label">微信号</text>
+        <text class="wxid" selectable="true">{{wechatId}}</text>
+      </view>
+      <view class="actions">
+        <button class="btn-primary" bindtap="copyWechatId">复制微信号</button>
+        <button class="btn-secondary" bindtap="showGuide">如何添加</button>
+      </view>
+    </view>
+  </view>
+</scroll-view>
+

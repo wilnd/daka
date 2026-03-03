@@ -1,10 +1,8 @@
 // profile.ts
 import { getMyGroups } from '../../services/group'
-import { getCheckinRecords } from '../../services/checkin'
+import { getCheckinRecordsWithGroup } from '../../services/checkin'
 import { getStreak, getMissStreak, getTotalDays } from '../../services/stats'
-import { checkinsCol, membersCol } from '../../services/db'
-import { usersCol } from '../../services/db'
-import { getTodayStr } from '../../services/db'
+import { checkinsCol, membersCol, usersCol, SUBSCRIBE_TEMPLATE_ID, getTodayStr } from '../../services/db'
 import { updateUserInfo } from '../../services/auth'
 
 const app = getApp<IAppOption>()
@@ -19,7 +17,10 @@ Component({
     records: [] as any[],
     showRecordsModal: false,
     showEditModal: false,
+    showTimePickerModal: false,
     editingInfo: { nickName: '', avatarUrl: defaultAvatar },
+    isSubscribed: false,
+    remindTime: '21:00',
   },
   lifetimes: {
     attached() { this.init() },
@@ -31,6 +32,20 @@ Component({
       if (ui?.nickName && ui?.avatarUrl) {
         this.setData({ hasUserInfo: true, userInfo: ui })
         this.loadData()
+        this.loadSubscriptionStatus()
+      }
+    },
+    async loadSubscriptionStatus() {
+      const openid = app.globalData.openid
+      if (!openid) return
+      try {
+        const { data: users } = await usersCol().where({ openid }).get()
+        const user = users[0] as any
+        const isSubscribed = user?.subscribeRemindEnabled === true
+        const remindTime = user?.remindTime || '21:00'
+        this.setData({ isSubscribed, remindTime })
+      } catch (e) {
+        console.error('loadSubscriptionStatus error', e)
       }
     },
     async loadData() {
@@ -55,14 +70,10 @@ Component({
       }
     },
     async showRecords() {
-      const gid = this.data.currentGroup?._id
-      if (!gid) { wx.showToast({ title: '请先选择小组', icon: 'none' }); return }
       wx.showLoading({ title: '加载中' })
       try {
-        const records = await getCheckinRecords(app.globalData.openid!, gid)
-        const groupName = this.data.currentGroup?.name || ''
-        const recordsWithGroup = records.map((r: any) => ({ ...r, groupName }))
-        this.setData({ records: recordsWithGroup, showRecordsModal: true })
+        const records = await getCheckinRecordsWithGroup(app.globalData.openid!, 50)
+        this.setData({ records, showRecordsModal: true })
         wx.hideLoading()
       } catch (e) {
         wx.hideLoading()
@@ -113,20 +124,81 @@ Component({
         wx.hideLoading()
       }
     },
-    subscribeRemind() {
-      const templateId = 'YOUR_SUBSCRIBE_TEMPLATE_ID'
+    async subscribeRemind() {
+      const templateId = SUBSCRIBE_TEMPLATE_ID
       if (!templateId || templateId.startsWith('YOUR_')) {
         wx.showToast({ title: '请在代码中配置订阅消息模板ID', icon: 'none' })
         return
       }
+      const openid = app.globalData.openid
+      if (!openid) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
+
+      // 如果已订阅，提供修改时间或取消订阅的选项
+      if (this.data.isSubscribed) {
+        wx.showActionSheet({
+          itemList: ['修改提醒时间', '取消订阅'],
+          success: async (res) => {
+            if (res.tapIndex === 0) {
+              this.setData({ showTimePickerModal: true })
+            } else if (res.tapIndex === 1) {
+              await this.updateSubscriptionStatus(openid, false)
+              this.setData({ isSubscribed: false })
+              wx.showToast({ title: '已取消订阅' })
+            }
+          }
+        })
+        return
+      }
+
+      // 请求订阅
       wx.requestSubscribeMessage({
         tmplIds: [templateId],
-        success: (res: any) => {
-          if (res[templateId] === 'accept') wx.showToast({ title: '订阅成功' })
-          else wx.showToast({ title: '已取消', icon: 'none' })
+        success: async (res: any) => {
+          if (res[templateId] === 'accept') {
+            await this.updateSubscriptionStatus(openid, true)
+            this.setData({ isSubscribed: true, showTimePickerModal: true })
+          } else if (res[templateId] === 'reject') {
+            wx.showToast({ title: '需要您同意接收通知', icon: 'none' })
+          } else {
+            wx.showToast({ title: '已取消', icon: 'none' })
+          }
         },
         fail: () => wx.showToast({ title: '订阅失败', icon: 'none' }),
       })
+    },
+    onTimeChange(e: any) {
+      this.setData({ remindTime: e.detail.value })
+    },
+    async saveRemindTime() {
+      const openid = app.globalData.openid
+      if (!openid) return
+      try {
+        const { data: users } = await usersCol().where({ openid }).get()
+        if (users.length > 0) {
+          await usersCol().doc((users[0] as any)._id).update({
+            data: { remindTime: this.data.remindTime }
+          })
+        }
+        this.setData({ showTimePickerModal: false })
+        wx.showToast({ title: '提醒时间已设置' })
+      } catch (e) {
+        wx.showToast({ title: '保存失败', icon: 'none' })
+      }
+    },
+    hideTimePickerModal() {
+      this.setData({ showTimePickerModal: false })
+    },
+    async updateSubscriptionStatus(openid: string, enabled: boolean) {
+      try {
+        const { data: users } = await usersCol().where({ openid }).get()
+        if (users.length > 0) {
+          await usersCol().doc((users[0] as any)._id).update({
+            data: { subscribeRemindEnabled: enabled }
+          })
+        }
+      } catch (e) {
+        console.error('updateSubscriptionStatus error', e)
+      }
     },
     async genRemindCopy() {
       const gid = this.data.currentGroup?._id
@@ -134,8 +206,18 @@ Component({
       try {
         const today = getTodayStr()
         const { data: members } = await membersCol().where({ groupId: gid, status: 'normal' }).get()
-        const { data: checked } = await checkinsCol().where({ groupId: gid, date: today }).get()
-        const checkedSet = new Set((checked || []).map((c: any) => c.userId))
+        const userIds = (members || []).map((m: any) => m.userId).filter(Boolean)
+        const checkedSet = new Set<string>()
+        const db = wx.cloud.database()
+        const _ = db.command
+        const batchSize = 10
+        for (let i = 0; i < userIds.length; i += batchSize) {
+          const batch = userIds.slice(i, i + batchSize)
+          const { data: checked } = await checkinsCol().where({ userId: _.in(batch), date: today }).get()
+          for (const c of (checked || []) as any[]) {
+            if (c?.userId) checkedSet.add(c.userId)
+          }
+        }
         const missList: any[] = []
         for (const m of members || []) {
           if (!checkedSet.has(m.userId)) {

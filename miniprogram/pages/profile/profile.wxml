@@ -43,8 +43,13 @@
         </view>
         <view class="menu-item" bindtap="subscribeRemind">
           <text>订阅打卡提醒</text>
+          <text class="subscribe-status {{isSubscribed ? 'subscribed' : ''}}">{{isSubscribed ? '已开启' : '未订阅'}}</text>
           <text class="arrow">></text>
         </view>
+        <navigator url="/pages/contact-admin/contact-admin" class="menu-item">
+          <text>联系管理员</text>
+          <text class="arrow">></text>
+        </navigator>
       </view>
     </view>
   </view>
@@ -82,6 +87,25 @@
         <button class="btn-secondary" bindtap="hideEditModal">取消</button>
         <button class="btn-primary" bindtap="saveUserInfo">保存</button>
       </view>
+    </view>
+  </view>
+</view>
+
+<!-- 提醒时间选择弹窗 -->
+<view class="modal {{showTimePickerModal ? 'show' : ''}}" catchtap="hideTimePickerModal" wx:if="{{showTimePickerModal}}">
+  <view class="modal-content" catchtap="">
+    <text class="modal-title">设置提醒时间</text>
+    <view class="time-picker-wrapper">
+      <picker mode="time" value="{{remindTime}}" start="00:00" end="23:59" bindchange="onTimeChange">
+        <view class="time-display">
+          <text class="time-value">{{remindTime}}</text>
+          <text class="time-hint">点击选择时间</text>
+        </view>
+      </picker>
+    </view>
+    <view class="modal-btns">
+      <button class="btn-secondary" bindtap="hideTimePickerModal">取消</button>
+      <button class="btn-primary" bindtap="saveRemindTime">保存</button>
     </view>
   </view>
 </view>

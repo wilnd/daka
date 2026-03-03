@@ -1,8 +1,7 @@
 // group-detail.ts
-import { getGroupById, getGroupMembers, removeMember, quitGroup, transferAdmin, updateInviteCode, regenerateInviteCode } from '../../services/group'
-import { usersCol } from '../../services/db'
-import { checkinsCol } from '../../services/db'
-import { getTodayStr } from '../../services/db'
+import { getGroupById, getGroupMembers, removeMember, quitGroup, transferAdmin, updateInviteCode, updateGroup } from '../../services/group'
+import { getOpenid } from '../../services/auth'
+import { usersCol, checkinsCol, getTodayStr, getCurrentMonth } from '../../services/db'
 
 const app = getApp<IAppOption>()
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
@@ -13,8 +12,10 @@ Component({
     group: {} as any,
     members: [] as any[],
     todayMembers: [] as any[],
+    rankMembers: [] as any[],
     loading: true,
     isAdmin: false,
+    currentTab: 'today', // today | members | rank
     showMemberModal: false,
     showConfirmModal: false,
     showEditInviteModal: false,
@@ -31,41 +32,78 @@ Component({
     isSelfMember: false,
     // 邀请码编辑
     editInviteCode: '',
+    // 邀请开关
+    inviteEnabled: true,
   },
   lifetimes: {
     attached() {
       const pages = getCurrentPages()
       const cur = pages[pages.length - 1] as any
-      const id = cur?.options?.id || ''
-      this.setData({ groupId: id })
+      const id = cur?.options?.id || cur?.options?.groupId || ''
+      this.setData({ groupId: id, loading: true })
       this.load()
     },
   },
   methods: {
+    async ensureOpenid() {
+      let openid = app.globalData.openid || wx.getStorageSync('openid')
+      if (openid && !app.globalData.openid) {
+        app.globalData.openid = openid
+      }
+      if (!openid) {
+        try {
+          openid = await getOpenid()
+          app.globalData.openid = openid
+          wx.setStorageSync('openid', openid)
+        } catch (e) {
+          console.error('获取 openid 失败', e)
+          return ''
+        }
+      }
+      return openid
+    },
     async load() {
       const { groupId } = this.data
-      const openid = app.globalData.openid
-      if (!groupId || !openid) { this.setData({ loading: false }); return }
+      const openid = await this.ensureOpenid()
+      if (!groupId || !openid) {
+        this.setData({ loading: false })
+        if (!groupId) wx.showToast({ title: '参数错误', icon: 'none' })
+        return
+      }
       try {
+        const db = wx.cloud.database()
+        const _ = db.command
+
         const group = await getGroupById(groupId)
         if (!group) { wx.showToast({ title: '小组不存在', icon: 'none' }); wx.navigateBack(); return }
         const members = await getGroupMembers(groupId)
         const isAdmin = members.some((m: any) => m.userId === openid && m.role === 'admin')
-        const today = getTodayStr()
-        const { data: todayCheckins } = await checkinsCol()
-          .where({ groupId, date: today })
-          .get()
-        const checkedIds = new Set((todayCheckins || []).map((c: any) => c.userId))
 
         const userIds = members.map((m: any) => m.userId)
+        // 打卡与群组无关：只要用户今天打过卡，在其加入的任意群都视为已打卡
+        const today = getTodayStr()
+        const checkedIds = new Set<string>()
+        const batchSize = 10
+        for (let i = 0; i < userIds.length; i += batchSize) {
+          const batch = userIds.slice(i, i + batchSize)
+          const { data: todayCheckins } = await checkinsCol()
+            .where({ userId: _.in(batch), date: today })
+            .get()
+          for (const c of (todayCheckins || []) as any[]) {
+            if (c?.userId) checkedIds.add(c.userId)
+          }
+        }
+
         let membersWithUser: any[] = []
         if (userIds.length > 0) {
-          const _ = wx.cloud.database().command
-          const { data: users } = await usersCol()
-            .where({
-              openid: _.in(userIds)
-            })
-            .get()
+          const users: any[] = []
+          for (let i = 0; i < userIds.length; i += batchSize) {
+            const batch = userIds.slice(i, i + batchSize)
+            const { data } = await usersCol()
+              .where({ openid: _.in(batch) })
+              .get()
+            users.push(...((data || []) as any[]))
+          }
           const userMap = new Map(users.map((u: any) => [u.openid, u]))
           membersWithUser = members.map((m: any) => {
             const u = userMap.get(m.userId)
@@ -80,12 +118,47 @@ Component({
           })
         }
 
+        // 打卡排行 - 统计本月打卡天数
+        const currentMonth = getCurrentMonth()
+        const monthDateRegExp = db.RegExp({
+          regexp: `^${currentMonth}`,
+          options: ''
+        })
+        const monthCheckins: any[] = []
+        const limit = 100
+        for (let i = 0; i < userIds.length; i += batchSize) {
+          const batch = userIds.slice(i, i + batchSize)
+          let skip = 0
+          while (true) {
+            const { data } = await checkinsCol()
+              .where({ userId: _.in(batch), date: monthDateRegExp })
+              .orderBy('date', 'asc')
+              .skip(skip)
+              .limit(limit)
+              .get()
+            monthCheckins.push(...(data || []))
+            if (!data || data.length < limit) break
+            skip += limit
+          }
+        }
+        const checkinCountMap = new Map<string, number>()
+        ;(monthCheckins || []).forEach((c: any) => {
+          const count = checkinCountMap.get(c.userId) || 0
+          checkinCountMap.set(c.userId, count + 1)
+        })
+        const rankMembers = membersWithUser.map(m => ({
+          ...m,
+          checkinDays: checkinCountMap.get(m.userId) || 0
+        })).sort((a, b) => b.checkinDays - a.checkinDays)
+
         this.setData({
           group: group as any,
           members: membersWithUser,
           todayMembers: membersWithUser,
+          rankMembers,
           loading: false,
-          isAdmin
+          isAdmin,
+          inviteEnabled: (group as any).inviteEnabled !== false
         })
       } catch (e) {
         console.error('load error:', e)
@@ -94,12 +167,42 @@ Component({
       }
     },
     copyInvite() {
-      const code = this.data.group.inviteCode
+      const { group, inviteEnabled } = this.data
+      if (!inviteEnabled) {
+        wx.showToast({ title: '邀请已关闭', icon: 'none' })
+        return
+      }
+      const code = group.inviteCode
       if (!code) return
       wx.setClipboardData({
         data: code,
         success: () => wx.showToast({ title: '已复制到剪贴板', icon: 'none' }),
       })
+    },
+    async toggleInviteEnabled() {
+      const openid = app.globalData.openid
+      if (!openid) return
+      const { inviteEnabled, groupId } = this.data
+      const newValue = !inviteEnabled
+
+      wx.showLoading({ title: '保存中...' })
+      try {
+        const result = await updateGroup(groupId, openid, { inviteEnabled: newValue })
+        wx.hideLoading()
+        if (result.ok) {
+          wx.showToast({ title: newValue ? '邀请已开启' : '邀请已关闭' })
+          this.setData({ inviteEnabled: newValue })
+        } else {
+          wx.showToast({ title: result.msg || '操作失败', icon: 'none' })
+        }
+      } catch (e) {
+        wx.hideLoading()
+        wx.showToast({ title: '操作失败', icon: 'none' })
+      }
+    },
+    switchTab(e: any) {
+      const tab = e.currentTarget.dataset.tab
+      this.setData({ currentTab: tab })
     },
     showEditInvite() {
       this.setData({
@@ -137,32 +240,6 @@ Component({
         wx.hideLoading()
         wx.showToast({ title: '修改失败', icon: 'none' })
       }
-    },
-    async doRegenerateInvite() {
-      const openid = app.globalData.openid
-      if (!openid) return
-
-      wx.showModal({
-        title: '重新生成邀请码',
-        content: '确定要重新生成邀请码吗？旧邀请码将失效',
-        success: async (res) => {
-          if (!res.confirm) return
-          wx.showLoading({ title: '生成中...' })
-          try {
-            const result = await regenerateInviteCode(this.data.groupId, openid)
-            wx.hideLoading()
-            if (result.ok) {
-              wx.showToast({ title: '已生成新邀请码' })
-              this.load()
-            } else {
-              wx.showToast({ title: result.msg || '生成失败', icon: 'none' })
-            }
-          } catch (e) {
-            wx.hideLoading()
-            wx.showToast({ title: '生成失败', icon: 'none' })
-          }
-        }
-      })
     },
     onMemberTap(e: any) {
       const member = e.currentTarget.dataset.member

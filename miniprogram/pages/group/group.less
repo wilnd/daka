@@ -23,8 +23,12 @@
 
 .section-header {
   display: flex; justify-content: space-between; align-items: center; margin-bottom: 24rpx;
+  .title-row { display: flex; align-items: baseline; gap: 12rpx; }
   .section-title { font-size: @font-size-title; font-weight: @font-weight-bold; color: @color-text-title; }
   .section-count { font-size: @font-size-caption; color: @color-text-hint; }
+  .refresh-btn {
+    font-size: @font-size-caption; color: @color-primary; padding: 8rpx 16rpx;
+  }
 }
 
 .group-list {
@@ -32,6 +36,8 @@
     display: flex; align-items: center; background: @color-bg-card; border-radius: 16rpx; padding: 32rpx; margin-bottom: 24rpx;
     .group-icon { font-size: 48rpx; margin-right: 24rpx; }
     .group-info { flex: 1; .group-name { font-size: @font-size-title; font-weight: @font-weight-bold; color: @color-text-title; display: block; } .group-meta { font-size: @font-size-caption; color: @color-text-hint; margin-top: 8rpx; } }
+    .invite-code-wrap { font-size: @font-size-caption; color: @color-text-hint; margin-right: 16rpx; }
+    .invite-code-text { color: @color-text-hint; font-size: 24rpx; }
     .arrow { color: @color-text-hint; }
   }
 }

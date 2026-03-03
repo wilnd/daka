@@ -6,20 +6,42 @@
       <text>加载中</text>
     </view>
     <view wx:else class="content">
-      <view class="invite-bar">
-        <view class="invite-info">
-          <text class="invite-code">邀请码：{{group.inviteCode || '-'}}</text>
-          <text class="invite-hint">分享给好友即可加入</text>
+      <!-- 邀请码区域 -->
+      <view class="invite-section">
+        <view class="invite-header">
+          <view class="invite-label">邀请码</view>
+          <view wx:if="{{isAdmin}}" class="invite-toggle" bindtap="toggleInviteEnabled">
+            <text class="toggle-text {{inviteEnabled ? 'on' : ''}}">{{inviteEnabled ? '已开启' : '已关闭'}}</text>
+          </view>
         </view>
-        <view class="invite-btns">
-          <button class="btn-secondary btn-small" bindtap="copyInvite">复制</button>
-          <button wx:if="{{isAdmin}}" class="btn-secondary btn-small" bindtap="showEditInvite">修改</button>
-          <button wx:if="{{isAdmin}}" class="btn-secondary btn-small" bindtap="doRegenerateInvite">刷新</button>
+        <view class="invite-code-display" wx:if="{{inviteEnabled}}">
+          <text class="code-text">{{group.inviteCode || '-'}}</text>
+          <button class="btn-copy" bindtap="copyInvite">复制</button>
+        </view>
+        <view class="invite-disabled" wx:else>
+          <text>邀请已关闭</text>
+        </view>
+        <view class="invite-actions" wx:if="{{isAdmin && inviteEnabled}}">
+          <button class="btn-action" bindtap="showEditInvite">修改邀请码</button>
+        </view>
+        <text class="invite-hint" wx:if="{{inviteEnabled}}">分享邀请码，好友即可加入小组</text>
+      </view>
+
+      <!-- Tab 切换 -->
+      <view class="tab-bar">
+        <view class="tab-item {{currentTab === 'today' ? 'active' : ''}}" data-tab="today" bindtap="switchTab">
+          <text>今日打卡</text>
+        </view>
+        <view class="tab-item {{currentTab === 'members' ? 'active' : ''}}" data-tab="members" bindtap="switchTab">
+          <text>成员列表</text>
+        </view>
+        <view class="tab-item {{currentTab === 'rank' ? 'active' : ''}}" data-tab="rank" bindtap="switchTab">
+          <text>打卡排行</text>
         </view>
       </view>
 
-      <view class="section">
-        <text class="section-title">今日打卡情况</text>
+      <!-- 今日打卡 -->
+      <view wx:if="{{currentTab === 'today'}}" class="section">
         <view wx:if="{{todayMembers.length === 0}}" class="empty-section">暂无成员</view>
         <view wx:for="{{todayMembers || []}}" wx:key="_id" class="member-row {{item.checked ? 'checked' : ''}}">
           <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
@@ -28,9 +50,9 @@
         </view>
       </view>
 
-      <view class="section">
+      <!-- 成员列表 -->
+      <view wx:if="{{currentTab === 'members'}}" class="section">
         <view class="section-header">
-          <text class="section-title">成员列表</text>
           <text class="member-count">{{members.length}} 人</text>
         </view>
         <view wx:if="{{members.length === 0}}" class="empty-section">暂无成员</view>
@@ -39,6 +61,17 @@
           <text class="nick">{{item.nickName || '未知'}}</text>
           <text wx:if="{{item.role === 'admin'}}" class="role-badge">组长</text>
           <text class="arrow">></text>
+        </view>
+      </view>
+
+      <!-- 打卡排行 -->
+      <view wx:if="{{currentTab === 'rank'}}" class="section">
+        <view wx:if="{{rankMembers.length === 0}}" class="empty-section">暂无数据</view>
+        <view wx:for="{{rankMembers || []}}" wx:key="_id" class="rank-row {{index < 3 ? 'top' : ''}}">
+          <view class="rank-num">{{index + 1}}</view>
+          <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
+          <text class="nick">{{item.nickName || '未知'}}</text>
+          <text class="days">{{item.checkinDays}} 天</text>
         </view>
       </view>
 

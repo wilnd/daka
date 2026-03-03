@@ -2,7 +2,7 @@
  * 数据统计服务：连胜、连续未打卡、打卡率
  * 优化：单次查询打卡记录，本地计算，避免多次 DB 请求卡顿
  */
-import { db, checkinsCol, membersCol, getTodayStr, getDateBefore } from './db'
+import { db, checkinsCol, membersCol, usersCol, getTodayStr, getDateBefore } from './db'
 
 /** 获取近 400 天的打卡记录（用于计算连胜/未打卡） */
 async function getRecentCheckins(
@@ -15,7 +15,6 @@ async function getRecentCheckins(
   const { data } = await checkinsCol()
     .where({
       userId,
-      groupId,
       date: _.and(_.gte(start), _.lte(today)),
     })
     .limit(500)
@@ -72,7 +71,7 @@ export async function getTotalDays(
   groupId: string
 ): Promise<number> {
   const { total } = await checkinsCol()
-    .where({ userId, groupId })
+    .where({ userId })
     .count()
   return total
 }
@@ -94,16 +93,11 @@ export async function getDayRank(groupId: string): Promise<RankUser[]> {
 
   if (members.length === 0) return []
 
-  // 获取所有成员最近400天的打卡记录
+  // 获取所有成员最近400天的打卡记录（打卡与群组无关：按用户维度聚合）
   const today = getTodayStr()
   const start = getDateBefore(today, 400)
-  const _ = db.command
-  const { data: checkins } = await checkinsCol()
-    .where({
-      groupId,
-      date: _.and(_.gte(start), _.lte(today)),
-    })
-    .get()
+  const memberUserIds = (members as any[]).map(m => m.userId).filter(Boolean)
+  const checkins = await getCheckinsForUsersInRange(memberUserIds, start, today)
 
   // 按用户分组，统计连续打卡天数
   return computeRank(members as any[], checkins as any[])
@@ -118,16 +112,11 @@ export async function getWeekRank(groupId: string): Promise<RankUser[]> {
 
   if (members.length === 0) return []
 
-  // 获取所有成员最近400天的打卡记录
+  // 获取所有成员最近400天的打卡记录（打卡与群组无关：按用户维度聚合）
   const today = getTodayStr()
   const start = getDateBefore(today, 400)
-  const _ = db.command
-  const { data: checkins } = await checkinsCol()
-    .where({
-      groupId,
-      date: _.and(_.gte(start), _.lte(today)),
-    })
-    .get()
+  const memberUserIds = (members as any[]).map(m => m.userId).filter(Boolean)
+  const checkins = await getCheckinsForUsersInRange(memberUserIds, start, today)
 
   return computeRank(members as any[], checkins as any[])
 }
@@ -141,18 +130,42 @@ export async function getMonthRank(groupId: string): Promise<RankUser[]> {
 
   if (members.length === 0) return []
 
-  // 获取所有成员最近400天的打卡记录
+  // 获取所有成员最近400天的打卡记录（打卡与群组无关：按用户维度聚合）
   const today = getTodayStr()
   const start = getDateBefore(today, 400)
-  const _ = db.command
-  const { data: checkins } = await checkinsCol()
-    .where({
-      groupId,
-      date: _.and(_.gte(start), _.lte(today)),
-    })
-    .get()
+  const memberUserIds = (members as any[]).map(m => m.userId).filter(Boolean)
+  const checkins = await getCheckinsForUsersInRange(memberUserIds, start, today)
 
   return computeRank(members as any[], checkins as any[])
+}
+
+/** 获取一组用户在日期区间内的打卡记录（分批 + 分页） */
+async function getCheckinsForUsersInRange(userIds: string[], start: string, end: string): Promise<any[]> {
+  if (!userIds || userIds.length === 0) return []
+  const _ = db.command
+  const all: any[] = []
+  const batchSize = 10
+  const limit = 100
+
+  for (let i = 0; i < userIds.length; i += batchSize) {
+    const batch = userIds.slice(i, i + batchSize)
+    let skip = 0
+    while (true) {
+      const { data } = await checkinsCol()
+        .where({
+          userId: _.in(batch),
+          date: _.and(_.gte(start), _.lte(end)),
+        })
+        .orderBy('date', 'asc')
+        .skip(skip)
+        .limit(limit)
+        .get()
+      all.push(...(data || []))
+      if (!data || data.length < limit) break
+      skip += limit
+    }
+  }
+  return all
 }
 
 /** 计算排行榜（根据连续打卡天数排序） */
@@ -192,15 +205,20 @@ async function computeRank(members: any[], checkins: any[]): Promise<RankUser[]>
 
   // 获取用户信息
   const userIds = members.map(m => m.userId)
-  const { data: users } = await db.collection('users')
-    .where({
-      _openid: db.command.in(userIds)
-    })
-    .get()
+  const _ = db.command
+  const users: any[] = []
+  const batchSize = 10
+  for (let i = 0; i < userIds.length; i += batchSize) {
+    const batch = userIds.slice(i, i + batchSize)
+    const { data } = await usersCol()
+      .where({ openid: _.in(batch) })
+      .get()
+    users.push(...((data || []) as any[]))
+  }
 
   const userInfoMap: Record<string, any> = {}
   for (const u of users as any[]) {
-    userInfoMap[u._openid] = u
+    userInfoMap[u.openid] = u
   }
 
   // 构建结果并按连续天数排序

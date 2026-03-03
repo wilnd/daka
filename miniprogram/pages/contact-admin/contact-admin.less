@@ -1,0 +1,54 @@
+@import '../../styles/theme.less';
+
+.page { flex: 1; height: 100%; }
+.container { padding: 32rpx; }
+
+.card {
+  background: @color-bg-card;
+  border-radius: 24rpx;
+  padding: 48rpx;
+}
+
+.title {
+  display: block;
+  font-size: @font-size-title;
+  font-weight: @font-weight-bold;
+  color: @color-text-title;
+  margin-bottom: 16rpx;
+}
+
+.desc {
+  display: block;
+  font-size: @font-size-caption;
+  color: @color-text-hint;
+  margin-bottom: 40rpx;
+  line-height: 1.6;
+}
+
+.wxid-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 0;
+  border-top: 1rpx solid fade(@color-text-hint, 15%);
+  border-bottom: 1rpx solid fade(@color-text-hint, 15%);
+  margin-bottom: 40rpx;
+}
+
+.label {
+  font-size: @font-size-body;
+  color: @color-text-body;
+}
+
+.wxid {
+  font-size: @font-size-body;
+  font-weight: @font-weight-bold;
+  color: @color-primary;
+}
+
+.actions {
+  display: flex;
+  gap: 24rpx;
+  button { flex: 1; }
+}
+

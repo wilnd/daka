@@ -1,7 +1,7 @@
 // checkin.ts
-import { doCheckinWithContent, CheckinContent } from '../../services/checkin'
+import { doCheckinWithContent, updateTodayCheckinWithContent, getTodayCheckin, CheckinContent } from '../../services/checkin'
 import { getMyGroups } from '../../services/group'
-import { getOpenid } from '../../services/auth'
+import { getOpenid, getOrCreateUser } from '../../services/auth'
 
 const app = getApp<IAppOption>()
 
@@ -12,6 +12,7 @@ Page({
     groupId: '',
     groupName: '',
     groups: [] as any[],
+    mode: 'create' as 'create' | 'edit',
     text: '',
     photos: [] as string[],
     maxPhotos: 9,
@@ -25,7 +26,8 @@ Page({
   onLoad(options) {
     const groupId = options.groupId || ''
     const groupName = options.groupName || ''
-    this.setData({ groupId, groupName })
+    const mode = options.mode === 'edit' ? 'edit' : 'create'
+    this.setData({ groupId, groupName, mode })
     this.init()
   },
 
@@ -36,16 +38,29 @@ Page({
     const openid = app.globalData.openid || wx.getStorageSync('openid')
     if (!openid) {
       try {
-        const openid = await getOpenid()
-        app.globalData.openid = openid
-        wx.setStorageSync('openid', openid)
+        const newOpenid = await getOpenid()
+        app.globalData.openid = newOpenid
+        wx.setStorageSync('openid', newOpenid)
       } catch (e) {
         wx.showToast({ title: '获取用户信息失败', icon: 'none' })
         return
       }
     }
 
-    this.loadGroups()
+    const finalOpenid = app.globalData.openid || wx.getStorageSync('openid')
+    if (finalOpenid && userInfo?.nickName && userInfo?.avatarUrl) {
+      try {
+        await getOrCreateUser(finalOpenid, userInfo.nickName, userInfo.avatarUrl)
+      } catch (e) {
+        console.warn('同步用户信息失败', e)
+      }
+    }
+
+    await this.loadGroups()
+
+    if (this.data.mode === 'edit') {
+      await this.loadTodayCheckin()
+    }
   },
 
   async loadGroups() {
@@ -65,6 +80,36 @@ Page({
       }
     } catch (e) {
       console.error('加载群组失败', e)
+    }
+  },
+
+  async loadTodayCheckin() {
+    const openid = app.globalData.openid || wx.getStorageSync('openid')
+    if (!openid) return
+
+    try {
+      const ck = await getTodayCheckin(openid)
+      if (!ck) {
+        wx.showToast({ title: '今日还未打卡', icon: 'none' })
+        this.setData({ mode: 'create' })
+        return
+      }
+
+      const content = (ck as any).content || {}
+      const groupId = (ck as any).groupId || this.data.groupId
+      const group = this.data.groups.find((g: any) => g._id === groupId)
+
+      this.setData({
+        groupId,
+        groupName: group?.name || this.data.groupName,
+        text: content.text || '',
+        photos: content.photos || [],
+        sportType: content.sportType || '',
+        isPublishToMoments: content.isPublishToMoments !== false
+      })
+    } catch (e) {
+      console.error('加载今日打卡失败', e)
+      wx.showToast({ title: '加载失败', icon: 'none' })
     }
   },
 
@@ -132,7 +177,7 @@ Page({
 
   // 提交打卡
   async onSubmit() {
-    const { groupId, text, photos, sportType, isPublishToMoments, submitting } = this.data
+    const { groupId, text, photos, sportType, isPublishToMoments, submitting, mode } = this.data
     const openid = app.globalData.openid
 
     if (!openid) {
@@ -153,14 +198,21 @@ Page({
     if (submitting) return
 
     this.setData({ submitting: true })
-    wx.showLoading({ title: '打卡中...' })
+    wx.showLoading({ title: mode === 'edit' ? '更新中...' : '打卡中...' })
 
     try {
-      let uploadedPhotos: string[] = []
+      const cloudPhotos: string[] = []
+      const localPhotos: string[] = []
+      for (const p of (photos || [])) {
+        if (typeof p === 'string' && p.startsWith('cloud://')) cloudPhotos.push(p)
+        else localPhotos.push(p)
+      }
+
+      let uploadedPhotos: string[] = [...cloudPhotos]
 
       // 上传照片到云存储
-      if (photos.length > 0) {
-        for (const photo of photos) {
+      if (localPhotos.length > 0) {
+        for (const photo of localPhotos) {
           const cloudPath = `checkins/${openid}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.jpg`
           const uploadRes = await wx.cloud.uploadFile({
             cloudPath,
@@ -177,11 +229,17 @@ Page({
         sportType
       }
 
-      const result = await doCheckinWithContent(openid, groupId, content)
+      const result =
+        mode === 'edit'
+          ? await updateTodayCheckinWithContent(openid, groupId, content)
+          : await doCheckinWithContent(openid, groupId, content)
 
       if (result.ok) {
         wx.showToast({ 
-          title: isPublishToMoments ? '打卡成功，已发布到朋友圈' : '打卡成功', 
+          title:
+            mode === 'edit'
+              ? (isPublishToMoments ? '更新成功，已同步朋友圈' : '更新成功')
+              : (isPublishToMoments ? '打卡成功，已发布到朋友圈' : '打卡成功'),
           icon: 'none' 
         })
         setTimeout(() => {

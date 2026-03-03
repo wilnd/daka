@@ -53,7 +53,7 @@
               class="btn-primary checkin-btn {{checkedToday ? 'checked' : ''}} {{checkinAnimating ? 'animating' : ''}}"
               hover-class="btn-hover"
               bindtap="onCheckin"
-              disabled="{{checkedToday || !currentGroup || checkinAnimating}}"
+              disabled="{{!currentGroup || checkinAnimating}}"
             >
               <text wx:if="{{checkinAnimating}}">提交中...</text>
               <text wx:elif="{{checkedToday}}">✓ 已打卡</text>
@@ -62,6 +62,9 @@
             <view wx:if="{{checkedToday}}" class="success-badge">
               <text class="badge-icon">✓</text>
             </view>
+          </view>
+          <view wx:if="{{checkedToday}}" class="checkin-update-link">
+            <text class="link" bindtap="onUpdateCheckin">更新打卡</text>
           </view>
         </view>
         <view wx:if="{{stats}}" class="stats-card">

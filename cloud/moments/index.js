@@ -9,6 +9,50 @@ exports.main = async (event, context) => {
   const userId = wxContext.OPENID
   const { action, groupId, momentId, limit = 20, lastId, content } = event
 
+  const pickUserInfo = (u) => {
+    if (!u) return undefined
+    return {
+      _id: u._id,
+      nickName: u.nickName,
+      avatarUrl: u.avatarUrl
+    }
+  }
+
+  // 兼容老数据：users 可能只有系统字段 _openid，没有自定义 openid
+  const getUsersByIds = async (ids) => {
+    const list = [...new Set((ids || []).filter(Boolean))]
+    const map = new Map()
+    if (list.length === 0) return map
+
+    const users = []
+    try {
+      const res1 = await db.collection('users')
+        .where({ openid: _.in(list) })
+        .get()
+      users.push(...(res1.data || []))
+    } catch (e) {
+      // ignore
+    }
+    try {
+      const res2 = await db.collection('users')
+        .where({ _openid: _.in(list) })
+        .get()
+      users.push(...(res2.data || []))
+    } catch (e) {
+      // ignore
+    }
+
+    for (const u of users) {
+      const key = u.openid || u._openid
+      if (!key) continue
+      // 如果同一个 key 出现两份，优先选择带 openid 的那份
+      if (!map.has(key) || (u.openid && !map.get(key)?.openid)) {
+        map.set(key, u)
+      }
+    }
+    return map
+  }
+
   try {
     switch (action) {
       case 'getMoments': {
@@ -19,32 +63,25 @@ exports.main = async (event, context) => {
           .limit(limit)
 
         if (lastId) {
-          const lastMoment = await db.collection('moments').doc(lastId).get()
-          if (lastMoment.data) {
-            query = db.collection('moments')
-              .where({ 
-                groupId,
-                createTime: _.lt(lastMoment.data.createTime)
-              })
-              .orderBy('createTime', 'desc')
-              .limit(limit)
+          try {
+            const lastMoment = await db.collection('moments').doc(lastId).get()
+            if (lastMoment.data) {
+              query = db.collection('moments')
+                .where({
+                  groupId,
+                  createTime: _.lt(lastMoment.data.createTime)
+                })
+                .orderBy('createTime', 'desc')
+                .limit(limit)
+            }
+          } catch (e) {
+            // lastId 不存在：按第一页逻辑返回即可
           }
         }
 
         const { data: moments } = await query.get()
         if (moments.length === 0) {
           return { success: true, data: [] }
-        }
-
-        // 获取发布者信息
-        const userIds = [...new Set(moments.map(m => m.userId))]
-        const { data: users } = await db.collection('users')
-          .where({ _id: _.in(userIds) })
-          .get()
-
-        const userMap = new Map()
-        for (const user of users) {
-          userMap.set(user._id, user)
         }
 
         // 获取群组信息
@@ -68,15 +105,10 @@ exports.main = async (event, context) => {
           })
           .get()
 
+        // 获取发布者/评论者信息（兼容 openid 与 _openid）
+        const momentUserIds = [...new Set(moments.map(m => m.userId))]
         const commentUserIds = [...new Set(allComments.map(c => c.userId))]
-        const { data: commentUsers } = await db.collection('users')
-          .where({ _id: _.in(commentUserIds) })
-          .get()
-
-        const commentUserMap = new Map()
-        for (const user of commentUsers) {
-          commentUserMap.set(user._id, user)
-        }
+        const userMap = await getUsersByIds([...momentUserIds, ...commentUserIds])
 
         const result = moments.map(moment => {
           const userInfo = userMap.get(moment.userId)
@@ -84,17 +116,13 @@ exports.main = async (event, context) => {
             .filter(c => c.momentId === moment._id)
             .map(c => ({
               ...c,
-              userInfo: commentUserMap.get(c.userId)
+              userInfo: pickUserInfo(userMap.get(c.userId))
             }))
 
           return {
             ...moment,
             groupName,
-            userInfo: userInfo ? {
-              _id: userInfo._id,
-              nickName: userInfo.nickName,
-              avatarUrl: userInfo.avatarUrl
-            } : undefined,
+            userInfo: pickUserInfo(userInfo),
             isLiked: likedSet.has(moment._id),
             comments: momentComments
           }
@@ -118,11 +146,12 @@ exports.main = async (event, context) => {
         })
 
         // 更新点赞数
-        const { data: moment } = await db.collection('moments').doc(momentId).get()
-        if (moment) {
+        try {
           await db.collection('moments').doc(momentId).update({
-            data: { likeCount: moment.likeCount + 1 }
+            data: { likeCount: _.inc(1) }
           })
+        } catch (e) {
+          // 动态不存在或计数字段异常时忽略（点赞记录已写入）
         }
 
         return { success: true }
@@ -141,12 +170,12 @@ exports.main = async (event, context) => {
         await db.collection('momentLikes').doc(existing[0]._id).remove()
 
         // 更新点赞数
-        const { data: moment } = await db.collection('moments').doc(momentId).get()
-        if (moment) {
-          const newCount = Math.max(0, moment.likeCount - 1)
+        try {
           await db.collection('moments').doc(momentId).update({
-            data: { likeCount: newCount }
+            data: { likeCount: _.inc(-1) }
           })
+        } catch (e) {
+          // ignore
         }
 
         return { success: true }
@@ -154,12 +183,27 @@ exports.main = async (event, context) => {
 
       case 'comment': {
         // 评论朋友圈
+        if (!momentId) {
+          return { success: false, msg: '参数错误：缺少momentId' }
+        }
         if (!content || content.trim().length === 0) {
           return { success: false, msg: '评论内容不能为空' }
         }
 
         if (content.length > 200) {
           return { success: false, msg: '评论内容不能超过200字' }
+        }
+
+        // 先校验动态是否存在，避免写入评论后更新计数时报错
+        let momentExists = true
+        try {
+          const { data: moment } = await db.collection('moments').doc(momentId).get()
+          if (!moment) momentExists = false
+        } catch (e) {
+          momentExists = false
+        }
+        if (!momentExists) {
+          return { success: false, msg: '动态不存在或已删除' }
         }
 
         const { _id } = await db.collection('momentComments').add({
@@ -172,15 +216,19 @@ exports.main = async (event, context) => {
         })
 
         // 更新评论数
-        const { data: moment } = await db.collection('moments').doc(momentId).get()
-        if (moment) {
+        await db.collection('moments').doc(momentId).update({
+          data: { commentCount: _.inc(1) }
+        })
+        .catch(async () => {
+          // 兼容历史数据：commentCount 可能是 null/非数字，inc 会失败
           await db.collection('moments').doc(momentId).update({
-            data: { commentCount: moment.commentCount + 1 }
+            data: { commentCount: 1 }
           })
-        }
+        })
 
         // 获取评论者信息
-        const { data: commentUser } = await db.collection('users').doc(userId).get()
+        const commentUserMap = await getUsersByIds([userId])
+        const commentUser = commentUserMap.get(userId)
 
         return { 
           success: true, 
@@ -189,18 +237,22 @@ exports.main = async (event, context) => {
             momentId, 
             userId, 
             content: content.trim(), 
-            userInfo: commentUser ? {
-              _id: commentUser._id,
-              nickName: commentUser.nickName,
-              avatarUrl: commentUser.avatarUrl
-            } : undefined
+            userInfo: pickUserInfo(commentUser)
           }
         }
       }
 
       case 'deleteComment': {
         // 删除评论
-        const { data: comment } = await db.collection('momentComments').doc(momentId).get()
+        const commentId = event.commentId || momentId
+        if (!commentId) return { success: false, msg: '参数错误：缺少commentId' }
+        let commentRes
+        try {
+          commentRes = await db.collection('momentComments').doc(commentId).get()
+        } catch (e) {
+          return { success: false, msg: '评论不存在' }
+        }
+        const comment = commentRes.data
         
         if (!comment) {
           return { success: false, msg: '评论不存在' }
@@ -210,15 +262,15 @@ exports.main = async (event, context) => {
           return { success: false, msg: '只能删除自己的评论' }
         }
 
-        await db.collection('momentComments').doc(momentId).remove()
+        await db.collection('momentComments').doc(commentId).remove()
 
         // 更新评论数
-        const { data: moment } = await db.collection('moments').doc(comment.momentId).get()
-        if (moment) {
-          const newCount = Math.max(0, moment.commentCount - 1)
+        try {
           await db.collection('moments').doc(comment.momentId).update({
-            data: { commentCount: newCount }
+            data: { commentCount: _.inc(-1) }
           })
+        } catch (e) {
+          // ignore
         }
 
         return { success: true }
@@ -237,18 +289,11 @@ exports.main = async (event, context) => {
 
         // 获取评论者信息
         const userIds = [...new Set(comments.map(c => c.userId))]
-        const { data: users } = await db.collection('users')
-          .where({ _id: _.in(userIds) })
-          .get()
-
-        const userMap = new Map()
-        for (const user of users) {
-          userMap.set(user._id, user)
-        }
+        const userMap = await getUsersByIds(userIds)
 
         const result = comments.map(c => ({
           ...c,
-          userInfo: userMap.get(c.userId)
+          userInfo: pickUserInfo(userMap.get(c.userId))
         }))
 
         return { success: true, data: result }
@@ -272,15 +317,19 @@ exports.main = async (event, context) => {
           .limit(limit)
 
         if (lastId) {
-          const lastMoment = await db.collection('moments').doc(lastId).get()
-          if (lastMoment.data) {
-            query = db.collection('moments')
-              .where({ 
-                groupId: _.in(groupIds),
-                createTime: _.lt(lastMoment.data.createTime)
-              })
-              .orderBy('createTime', 'desc')
-              .limit(limit)
+          try {
+            const lastMoment = await db.collection('moments').doc(lastId).get()
+            if (lastMoment.data) {
+              query = db.collection('moments')
+                .where({
+                  groupId: _.in(groupIds),
+                  createTime: _.lt(lastMoment.data.createTime)
+                })
+                .orderBy('createTime', 'desc')
+                .limit(limit)
+            }
+          } catch (e) {
+            // lastId 不存在：按第一页逻辑返回即可
           }
         }
 
@@ -291,14 +340,7 @@ exports.main = async (event, context) => {
 
         // 获取发布者信息
         const userIds = [...new Set(moments.map(m => m.userId))]
-        const { data: users } = await db.collection('users')
-          .where({ _id: _.in(userIds) })
-          .get()
-
-        const userMap = new Map()
-        for (const user of users) {
-          userMap.set(user._id, user)
-        }
+        const userMap = await getUsersByIds(userIds)
 
         // 获取群组信息
         const { data: groups } = await db.collection('groups')
@@ -327,11 +369,7 @@ exports.main = async (event, context) => {
           return {
             ...moment,
             groupName: groupInfo?.name || '',
-            userInfo: userInfo ? {
-              _id: userInfo._id,
-              nickName: userInfo.nickName,
-              avatarUrl: userInfo.avatarUrl
-            } : undefined,
+            userInfo: pickUserInfo(userInfo),
             isLiked: likedSet.has(moment._id)
           }
         })
