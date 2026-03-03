@@ -62,3 +62,43 @@
 | updateTime | date | 更新时间 |
 
 权限：用户仅可读写自己的记录
+
+## 6. moments（朋友圈）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| _id | string | 自动生成 |
+| userId | string | 发布者 openid |
+| groupId | string | 小组 _id |
+| checkinId | string | 关联的打卡记录 _id |
+| content | object | 朋友圈内容 |
+| - photos | array | 照片云存储路径列表 |
+| - text | string | 文字内容 |
+| - sportType | string | 运动类型 |
+| - score | number | 评分 |
+| - tags | array | 内容标签 |
+| likeCount | number | 点赞数 |
+| commentCount | number | 评论数 |
+| createTime | date | 创建时间 |
+
+权限：同组成员可读，仅发布者可写
+
+## 7. momentLikes（朋友圈点赞）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| _id | string | 自动生成 |
+| momentId | string | 朋友圈 _id |
+| userId | string | 点赞用户 openid |
+| createTime | date | 创建时间 |
+
+权限：用户仅可读写自己的点赞记录
+
+## 8. momentComments（朋友圈评论）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| _id | string | 自动生成 |
+| momentId | string | 朋友圈 _id |
+| userId | string | 评论用户 openid |
+| content | string | 评论内容 |
+| createTime | date | 创建时间 |
+
+权限：用户仅可读写自己的评论记录

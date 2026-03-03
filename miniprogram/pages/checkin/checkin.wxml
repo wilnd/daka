@@ -1,0 +1,95 @@
+<view class="page">
+  <!-- 打卡表单 -->
+  <view class="form">
+    <!-- 小组选择 -->
+    <view class="form-item">
+      <text class="label">打卡小组</text>
+      <picker 
+        wx:if="{{groups.length > 0}}" 
+        range="{{groups}}" 
+        range-key="name" 
+        value="{{groupId}}"
+        bindchange="onGroupChange"
+      >
+        <view class="picker-value">
+          <text>{{groupName || '请选择小组'}}</text>
+          <text class="arrow">></text>
+        </view>
+      </picker>
+      <view wx:else class="picker-value">
+        <text>暂无小组</text>
+      </view>
+    </view>
+
+    <!-- 运动类型 -->
+    <view class="form-item">
+      <text class="label">运动类型</text>
+      <picker 
+        range="{{sportTypes}}" 
+        value="{{sportType}}"
+        bindchange="onSportTypeChange"
+      >
+        <view class="picker-value">
+          <text>{{sportType || '请选择运动类型'}}</text>
+          <text class="arrow">></text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 打卡内容 -->
+    <view class="form-item">
+      <text class="label">打卡内容</text>
+      <textarea 
+        class="content-input"
+        placeholder="记录一下今天的运动感受..." 
+        maxlength="500"
+        bindinput="onTextInput"
+        value="{{text}}"
+      ></textarea>
+      <text class="word-count">{{text.length}}/500</text>
+    </view>
+
+    <!-- 照片上传 -->
+    <view class="form-item">
+      <text class="label">上传照片</text>
+      <view class="photos-grid">
+        <view 
+          wx:for="{{photos}}" 
+          wx:key="index"
+          class="photo-item"
+        >
+          <image src="{{item}}" mode="aspectFill" bindtap="onPreviewPhoto" data-url="{{item}}" data-index="{{index}}"></image>
+          <view class="remove-btn" bindtap="onRemovePhoto" data-index="{{index}}">×</view>
+        </view>
+        <view class="add-photo" bindtap="onChoosePhoto" wx:if="{{photos.length < maxPhotos}}">
+          <text class="plus">+</text>
+          <text class="desc">添加照片</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 发布到朋友圈 -->
+    <view class="form-item switch-item">
+      <view class="switch-left">
+        <text class="label">发布到朋友圈</text>
+        <text class="desc">同小组可见</text>
+      </view>
+      <switch 
+        checked="{{isPublishToMoments}}" 
+        color="#2E8B57"
+        bindchange="onToggleMomentsPublish"
+      />
+    </view>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="submit-bar">
+    <button 
+      class="submit-btn {{submitting ? 'disabled' : ''}}"
+      bindtap="onSubmit"
+      disabled="{{submitting}}"
+    >
+      {{submitting ? '提交中...' : '确认打卡'}}
+    </button>
+  </view>
+</view>

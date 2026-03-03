@@ -1,0 +1,18 @@
+{
+  "name": "scoreCheckin",
+  "version": "1.0.0",
+  "description": "打卡内容评分云函数",
+  "main": "index.js",
+  "permissions": {
+    "openapi": []
+  },
+  "config": {
+    "timeout": 60,
+    "memory": 512,
+    "envVars": [
+      "LLM_API_KEY",
+      "LLM_BASE_URL",
+      "LLM_MODEL"
+    ]
+  }
+}

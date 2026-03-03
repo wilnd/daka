@@ -1,7 +1,7 @@
 /**
  * 打卡服务
  */
-import { db, checkinsCol, makeupQuotaCol, getTodayStr, getCurrentMonth, getServerMonth } from './db'
+import { db, checkinsCol, makeupQuotaCol, momentsCol, getTodayStr, getCurrentMonth, getServerMonth } from './db'
 
 export interface Checkin {
   _id: string
@@ -10,21 +10,113 @@ export interface Checkin {
   date: string
   isMakeup: boolean
   createTime: Date
+  /** 打卡内容 */
+  content?: CheckinContent
+  /** 评分结果 */
+  score?: ScoreResult
 }
 
-/** 每日打卡 */
-export async function doCheckin(userId: string, groupId: string): Promise<{ ok: boolean; msg?: string }> {
+/** 打卡内容 */
+export interface CheckinContent {
+  /** 照片云存储路径列表 */
+  photos?: string[]
+  /** 文字内容 */
+  text?: string
+  /** 是否发布朋友圈 */
+  isPublishToMoments: boolean
+  /** 运动类型 */
+  sportType?: string
+}
+
+/** 评分结果 */
+export interface ScoreResult {
+  /** 总分 (0-100) */
+  totalScore: number
+  /** 照片得分 (0-100) */
+  photoScore: number
+  /** 文字得分 (0-100) */
+  textScore: number
+  /** 内容质量分 (0-100) */
+  contentScore: number
+  /** 朋友圈发布奖励分 (0-100) */
+  publishScore: number
+  /** 评语/建议 */
+  feedback: string
+  /** 内容标签 */
+  tags?: string[]
+}
+
+/** 每日打卡（支持内容） */
+export async function doCheckinWithContent(
+  userId: string,
+  groupId: string,
+  content?: CheckinContent
+): Promise<{ ok: boolean; msg?: string; score?: ScoreResult }> {
   const today = getTodayStr()
   const { data: existing } = await checkinsCol()
     .where({ userId, groupId, date: today })
     .get()
   if (existing.length > 0) return { ok: false, msg: '今日已打卡，无需重复操作' }
 
+  // 如果有内容，先调用评分云函数
+  let score: ScoreResult | undefined
+  if (content && (content.text || (content.photos && content.photos.length > 0))) {
+    try {
+      const scoreRes = await wx.cloud.callFunction({
+        name: 'scoreCheckin',
+        data: {
+          text: content.text,
+          photos: content.photos,
+          isPublishToMoments: content.isPublishToMoments
+        }
+      })
+      if (scoreRes.result?.success) {
+        score = scoreRes.result.data
+      }
+    } catch (e) {
+      console.warn('评分失败，使用默认分', e)
+    }
+  }
+
   const now = new Date()
-  await checkinsCol().add({
-    data: { userId, groupId, date: today, isMakeup: false, createTime: now }
+  const { _id: checkinId } = await checkinsCol().add({
+    data: { 
+      userId, 
+      groupId, 
+      date: today, 
+      isMakeup: false, 
+      createTime: now,
+      content: content || null,
+      score: score || null
+    }
   })
-  return { ok: true }
+
+  // 如果需要发布到朋友圈，自动发布
+  if (content?.isPublishToMoments && (content.text || (content.photos && content.photos.length > 0))) {
+    try {
+      await momentsCol().add({
+        data: {
+          userId,
+          groupId,
+          checkinId,
+          content: {
+            photos: content.photos || [],
+            text: content.text || '',
+            sportType: content.sportType || '',
+            score: score?.totalScore,
+            tags: score?.tags || []
+          },
+          likeCount: 0,
+          commentCount: 0,
+          createTime: now
+        }
+      })
+    } catch (e) {
+      console.warn('发布朋友圈失败', e)
+    }
+  }
+
+  return { ok: true, score }
 }
 
 /** 补卡：仅可补今天往前 3 天（不含今天），每月 2 次 */

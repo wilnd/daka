@@ -1,0 +1,122 @@
+<page-meta>
+  <navigation-bar title="朋友圈" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
+</page-meta>
+<scroll-view class="page" scroll-y refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="refreshMoments">
+  <!-- 群组选择器 -->
+  <view class="group-selector" wx:if="{{groups.length > 1}}">
+    <picker range="{{groups}}" range-key="name" value="{{currentGroupIndex}}" bindchange="onGroupChange">
+      <view class="selector-content">
+        <text class="current-group-name">{{currentGroupId ? (groups[currentGroupIndex].name || '请选择') : '请选择'}}</text>
+        <text class="arrow">▼</text>
+      </view>
+    </picker>
+  </view>
+
+  <!-- 加载中 -->
+  <view wx:if="{{loading && moments.length === 0}}" class="loading-wrap">
+    <text>加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{!loading && moments.length === 0}}" class="empty-state">
+    <view class="empty-icon">📷</view>
+    <text class="empty-title">还没有朋友圈动态</text>
+    <text class="empty-desc">打卡后会自动发布到朋友圈</text>
+  </view>
+
+  <!-- 朋友圈列表 -->
+  <view wx:else class="moments-list">
+    <view wx:for="{{moments}}" wx:key="_id" class="moment-item">
+      <!-- 用户信息 -->
+      <view class="moment-header">
+        <image 
+          class="avatar" 
+          src="{{item.userInfo && item.userInfo.avatarUrl || 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'}}" 
+          mode="aspectFill"
+          bindtap="onPreviewAvatar"
+          data-url="{{item.userInfo && item.userInfo.avatarUrl}}"
+        ></image>
+        <view class="user-info">
+          <text class="nickname">{{item.userInfo && item.userInfo.nickName || '匿名用户'}}</text>
+          <text class="moment-time">{{formatTime(item.createTime)}}</text>
+        </view>
+        <view class="sport-tag" wx:if="{{item.content.sportType}}">
+          <text>{{item.content.sportType}}</text>
+        </view>
+      </view>
+
+      <!-- 打卡内容 -->
+      <view class="moment-content">
+        <text class="text" wx:if="{{item.content.text}}">{{item.content.text}}</text>
+        
+        <!-- 照片网格 -->
+        <view class="photos-grid" wx:if="{{item.content.photos && item.content.photos.length > 0}}">
+          <view 
+            wx:for="{{item.content.photos}}" 
+            wx:for-item="photo" 
+            wx:key="index"
+            class="photo-item {{item.content.photos.length === 1 ? 'single' : ''}}"
+            bindtap="onPreviewImage"
+            data-url="{{photo}}"
+            data-urls="{{item.content.photos}}"
+          >
+            <image src="{{photo}}" mode="aspectFill"></image>
+          </view>
+        </view>
+
+        <!-- 运动得分 -->
+        <view class="score-tag" wx:if="{{item.content.score !== undefined}}">
+          <text class="score-value">{{item.content.score}}</text>
+          <text class="score-label">分</text>
+        </view>
+      </view>
+
+      <!-- 互动操作 -->
+      <view class="moment-actions">
+        <view class="action-item" bindtap="onLike" data-moment-id="{{item._id}}" data-liked="{{item.isLiked}}">
+          <text class="action-icon {{item.isLiked ? 'liked' : ''}}">{{item.isLiked ? '❤️' : '🤍'}}</text>
+          <text class="action-count" wx:if="{{item.likeCount > 0}}">{{item.likeCount}}</text>
+        </view>
+        <view class="action-item" bindtap="onComment" data-moment-id="{{item._id}}">
+          <text class="action-icon">💬</text>
+          <text class="action-count" wx:if="{{item.commentCount > 0}}">{{item.commentCount}}</text>
+        </view>
+      </view>
+
+      <!-- 评论列表 -->
+      <view class="comments-section" wx:if="{{item.comments && item.comments.length > 0}}">
+        <view wx:for="{{item.comments}}" wx:key="_id" wx:for-item="comment" class="comment-item">
+          <text class="comment-user">{{comment.userInfo && comment.userInfo.nickName || '匿名用户'}}：</text>
+          <text class="comment-content">{{comment.content}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载更多 -->
+  <view class="loading-more" wx:if="{{loadingMore}}">
+    <text>加载中...</text>
+  </view>
+  <view class="no-more" wx:if="{{noMore && moments.length > 0}}">
+    <text>没有更多了</text>
+  </view>
+</scroll-view>
+
+<!-- 评论输入弹窗 -->
+<view class="comment-popup {{showCommentInput ? 'show' : ''}}" wx:if="{{showCommentInput}}">
+  <view class="comment-mask" bindtap="onCloseComment"></view>
+  <view class="comment-input-wrap">
+    <form bindsubmit="onSendComment">
+      <input 
+        class="comment-input" 
+        name="content" 
+        placeholder="说点什么..." 
+        focus="{{showCommentInput}}"
+        maxlength="200"
+        confirm-type="send"
+        bindconfirm="onSendComment"
+      />
+      <button class="send-btn" form-type="submit">发送</button>
+    </form>
+  </view>
+</view>

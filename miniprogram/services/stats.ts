@@ -48,6 +48,10 @@ export async function getMissStreak(
   groupId: string
 ): Promise<number> {
   const checkins = await getRecentCheckins(userId, groupId)
+  // 没有打卡记录时，返回0
+  if (!checkins || checkins.length === 0) {
+    return 0
+  }
   const checkedDates = new Set(checkins.map((c) => c.date))
   let miss = 0
   let d = getTodayStr()

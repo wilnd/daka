@@ -1,7 +1,7 @@
 // index.ts
 import { getOrCreateUser, getOpenid } from '../../services/auth'
 import { getMyGroups } from '../../services/group'
-import { doCheckin, isCheckedToday } from '../../services/checkin'
+import { doCheckinWithContent, isCheckedToday } from '../../services/checkin'
 import { getStreak, getMissStreak, getTotalDays, getDayRank, getWeekRank, getMonthRank, RankUser } from '../../services/stats'
 
 const app = getApp<IAppOption>()
@@ -207,27 +207,10 @@ Component({
     async onCheckin() {
       const { currentGroup, checkinAnimating } = this.data
       if (!currentGroup || checkinAnimating) return
-      wx.showModal({
-        title: '确认打卡',
-        content: '确认今日已运动打卡？',
-        success: async (res) => {
-          if (!res.confirm) return
-          this.setData({ checkinAnimating: true })
-          try {
-            const r = await doCheckin(app.globalData.openid!, currentGroup._id)
-            if (r.ok) {
-              this.setData({ checkedToday: true })
-              wx.showToast({ title: '打卡成功', icon: 'none' })
-              await this.loadData()
-            } else {
-              wx.showToast({ title: r.msg || '打卡失败', icon: 'none' })
-            }
-          } catch {
-            wx.showToast({ title: '打卡失败，请稍后重试', icon: 'none' })
-          } finally {
-            this.setData({ checkinAnimating: false })
-          }
-        },
+      
+      // 跳转到带内容的打卡页面
+      wx.navigateTo({
+        url: `/pages/checkin/checkin?groupId=${currentGroup._id}&groupName=${encodeURIComponent(currentGroup.name)}`
       })
     },
   },

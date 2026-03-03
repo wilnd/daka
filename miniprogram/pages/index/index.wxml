@@ -46,7 +46,7 @@
         </view>
         <view class="checkin-card">
           <view class="checkin-status {{checkedToday ? 'checked' : ''}}">
-            <text class="status-text">{{checkedToday ? '今日已打卡' : '立即打卡'}}</text>
+            <text class="status-text">{{checkedToday ? '今日已打卡' : '发布动态'}}</text>
           </view>
           <view class="checkin-btn-wrapper">
             <button
@@ -55,9 +55,9 @@
               bindtap="onCheckin"
               disabled="{{checkedToday || !currentGroup || checkinAnimating}}"
             >
-              <text wx:if="{{checkinAnimating}}">打卡中...</text>
+              <text wx:if="{{checkinAnimating}}">提交中...</text>
               <text wx:elif="{{checkedToday}}">✓ 已打卡</text>
-              <text wx:else>立即打卡</text>
+              <text wx:else>发布打卡</text>
             </button>
             <view wx:if="{{checkedToday}}" class="success-badge">
               <text class="badge-icon">✓</text>

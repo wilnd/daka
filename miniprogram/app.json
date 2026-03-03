@@ -1,6 +1,8 @@
 {
   "pages": [
     "pages/index/index",
+    "pages/moments/moments",
+    "pages/checkin/checkin",
     "pages/group/group",
     "pages/group-detail/group-detail",
     "pages/profile/profile",
@@ -22,6 +24,10 @@
       {
         "pagePath": "pages/index/index",
         "text": "首页"
+      },
+      {
+        "pagePath": "pages/moments/moments",
+        "text": "朋友圈"
       },
       {
         "pagePath": "pages/group/group",

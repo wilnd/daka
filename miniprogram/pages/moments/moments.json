@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "朋友圈",
+  "navigationBarBackgroundColor": "#2E8B57",
+  "navigationBarTextStyle": "white",
+  "enablePullDownRefresh": true
+}

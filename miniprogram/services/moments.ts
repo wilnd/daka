@@ -1,0 +1,342 @@
+/**
+ * 朋友圈服务
+ * 打卡内容默认发布到朋友圈，同一群组成员可见
+ */
+import { db, momentsCol, momentLikesCol, momentCommentsCol, membersCol, groupsCol } from './db'
+import { getTodayStr } from './db'
+
+export interface Moment {
+  _id: string
+  userId: string
+  groupId: string
+  checkinId: string
+  content: MomentContent
+  likeCount: number
+  commentCount: number
+  createTime: Date
+}
+
+export interface MomentContent {
+  photos?: string[]
+  text?: string
+  sportType?: string
+  score?: number
+  tags?: string[]
+}
+
+export interface MomentLike {
+  _id: string
+  momentId: string
+  userId: string
+  createTime: Date
+}
+
+export interface MomentComment {
+  _id: string
+  momentId: string
+  userId: string
+  content: string
+  createTime: Date
+}
+
+/** 打卡时自动发布到朋友圈 */
+export async function publishMomentFromCheckin(
+  userId: string,
+  groupId: string,
+  checkinId: string,
+  content: MomentContent
+): Promise<string> {
+  const now = new Date()
+  const { _id } = await momentsCol().add({
+    data: {
+      userId,
+      groupId,
+      checkinId,
+      content,
+      likeCount: 0,
+      commentCount: 0,
+      createTime: now
+    }
+  })
+  return _id
+}
+
+/** 获取用户在某个群组的朋友圈列表 */
+export async function getMomentsByGroup(
+  groupId: string,
+  limit = 20,
+  lastId?: string
+): Promise<Moment[]> {
+  let query = momentsCol().where({ groupId }).orderBy('createTime', 'desc').limit(limit)
+  
+  if (lastId) {
+    const lastMoment = await momentsCol().doc(lastId).get()
+    if (lastMoment.data) {
+      query = momentsCol()
+        .where({ groupId, createTime: db.command.lt(lastMoment.data.createTime) })
+        .orderBy('createTime', 'desc')
+        .limit(limit)
+    }
+  }
+
+  const { data } = await query.get()
+  return (data || []) as Moment[]
+}
+
+/** 获取用户在所有群组的朋友圈列表（首页展示） */
+export async function getAllMomentsByUserId(
+  userId: string,
+  limit = 20,
+  lastId?: string
+): Promise<Moment[]> {
+  // 获取用户加入的所有群组
+  const { data: members } = await membersCol()
+    .where({ userId, status: 'normal' })
+    .get()
+  
+  if (members.length === 0) return []
+
+  const groupIds = (members as any[]).map(m => m.groupId)
+  
+  let query = momentsCol()
+    .where({ groupId: db.command.in(groupIds) })
+    .orderBy('createTime', 'desc')
+    .limit(limit)
+
+  if (lastId) {
+    const lastMoment = await momentsCol().doc(lastId).get()
+    if (lastMoment.data) {
+      query = momentsCol()
+        .where({ 
+          groupId: db.command.in(groupIds),
+          createTime: db.command.lt(lastMoment.data.createTime)
+        })
+        .orderBy('createTime', 'desc')
+        .limit(limit)
+    }
+  }
+
+  const { data } = await query.get()
+  return (data || []) as Moment[]
+}
+
+/** 获取单条朋友圈详情 */
+export async function getMomentById(momentId: string): Promise<Moment | null> {
+  const { data } = await momentsCol().doc(momentId).get()
+  return data as Moment | null
+}
+
+/** 点赞朋友圈 */
+export async function likeMoment(momentId: string, userId: string): Promise<{ ok: boolean; msg?: string }> {
+  // 检查是否已点赞
+  const { data: existing } = await momentLikesCol()
+    .where({ momentId, userId })
+    .get()
+  
+  if (existing.length > 0) {
+    return { ok: false, msg: '已点赞' }
+  }
+
+  const now = new Date()
+  await momentLikesCol().add({
+    data: { momentId, userId, createTime: now }
+  })
+
+  // 更新点赞数
+  const moment = await momentsCol().doc(momentId).get()
+  if (moment.data) {
+    await momentsCol().doc(momentId).update({
+      data: { likeCount: (moment.data as any).likeCount + 1 }
+    })
+  }
+
+  return { ok: true }
+}
+
+/** 取消点赞 */
+export async function unlikeMoment(momentId: string, userId: string): Promise<{ ok: boolean; msg?: string }> {
+  const { data: existing } = await momentLikesCol()
+    .where({ momentId, userId })
+    .get()
+
+  if (existing.length === 0) {
+    return { ok: false, msg: '未点赞' }
+  }
+
+  await momentLikesCol().doc((existing[0] as any)._id).remove()
+
+  // 更新点赞数
+  const moment = await momentsCol().doc(momentId).get()
+  if (moment.data) {
+    const newCount = Math.max(0, (moment.data as any).likeCount - 1)
+    await momentsCol().doc(momentId).update({
+      data: { likeCount: newCount }
+    })
+  }
+
+  return { ok: true }
+}
+
+/** 获取用户对某条朋友圈的点赞状态 */
+export async function getLikeStatus(momentId: string, userId: string): Promise<boolean> {
+  const { data } = await momentLikesCol()
+    .where({ momentId, userId })
+    .get()
+  return data.length > 0
+}
+
+/** 获取朋友圈的所有点赞用户 */
+export async function getMomentLikes(momentId: string): Promise<MomentLike[]> {
+  const { data } = await momentLikesCol()
+    .where({ momentId })
+    .orderBy('createTime', 'desc')
+    .get()
+  return data as MomentLike[]
+}
+
+/** 评论朋友圈 */
+export async function commentMoment(
+  momentId: string,
+  userId: string,
+  content: string
+): Promise<{ ok: boolean; msg?: string; commentId?: string }> {
+  if (!content || content.trim().length === 0) {
+    return { ok: false, msg: '评论内容不能为空' }
+  }
+
+  if (content.length > 200) {
+    return { ok: false, msg: '评论内容不能超过200字' }
+  }
+
+  const now = new Date()
+  const { _id } = await momentCommentsCol().add({
+    data: { momentId, userId, content: content.trim(), createTime: now }
+  })
+
+  // 更新评论数
+  const moment = await momentsCol().doc(momentId).get()
+  if (moment.data) {
+    await momentsCol().doc(momentId).update({
+      data: { commentCount: (moment.data as any).commentCount + 1 }
+    })
+  }
+
+  return { ok: true, commentId: _id }
+}
+
+/** 删除评论（仅评论者本人可删除） */
+export async function deleteComment(
+  commentId: string,
+  userId: string
+): Promise<{ ok: boolean; msg?: string }> {
+  const { data: comment } = await momentCommentsCol().doc(commentId).get()
+  
+  if (!comment) {
+    return { ok: false, msg: '评论不存在' }
+  }
+
+  if ((comment as any).userId !== userId) {
+    return { ok: false, msg: '只能删除自己的评论' }
+  }
+
+  await momentCommentsCol().doc(commentId).remove()
+
+  // 更新评论数
+  const moment = await momentsCol().doc((comment as any).momentId).get()
+  if (moment.data) {
+    const newCount = Math.max(0, (moment.data as any).commentCount - 1)
+    await momentsCol().doc((comment as any).momentId).update({
+      data: { commentCount: newCount }
+    })
+  }
+
+  return { ok: true }
+}
+
+/** 获取朋友圈的所有评论 */
+export async function getMomentComments(momentId: string): Promise<MomentComment[]> {
+  const { data } = await momentCommentsCol()
+    .where({ momentId })
+    .orderBy('createTime', 'asc')
+    .get()
+  return data as MomentComment[]
+}
+
+/** 删除朋友圈（仅发布者本人可删除） */
+export async function deleteMoment(
+  momentId: string,
+  userId: string
+): Promise<{ ok: boolean; msg?: string }> {
+  const { data: moment } = await momentsCol().doc(momentId).get()
+  
+  if (!moment) {
+    return { ok: false, msg: '朋友圈不存在' }
+  }
+
+  if ((moment as any).userId !== userId) {
+    return { ok: false, msg: '只能删除自己的朋友圈' }
+  }
+
+  // 删除所有相关点赞
+  const { data: likes } = await momentLikesCol().where({ momentId }).get()
+  for (const like of likes) {
+    await momentLikesCol().doc((like as any)._id).remove()
+  }
+
+  // 删除所有相关评论
+  const { data: comments } = await momentCommentsCol().where({ momentId }).get()
+  for (const comment of comments) {
+    await momentCommentsCol().doc((comment as any)._id).remove()
+  }
+
+  await momentsCol().doc(momentId).remove()
+
+  return { ok: true }
+}
+
+/** 批量获取朋友圈列表（带发布者信息） */
+export interface MomentWithUser extends Moment {
+  userInfo?: {
+    nickName: string
+    avatarUrl: string
+  }
+  isLiked?: boolean
+}
+
+export async function getMomentsWithUserInfo(
+  groupId: string,
+  userId: string,
+  limit = 20,
+  lastId?: string
+): Promise<MomentWithUser[]> {
+  const moments = await getMomentsByGroup(groupId, limit, lastId)
+  if (moments.length === 0) return []
+
+  // 获取发布者信息
+  const userIds = [...new Set(moments.map(m => m.userId))]
+  const { data: users } = await wx.cloud.database().collection('users')
+    .where({ _id: db.command.in(userIds) })
+    .get()
+
+  const userMap = new Map()
+  for (const user of users) {
+    userMap.set(user._id, user)
+  }
+
+  // 获取当前用户对每条朋友圈的点赞状态
+  const result: MomentWithUser[] = []
+  for (const moment of moments) {
+    const isLiked = await getLikeStatus(moment._id, userId)
+    const userInfo = userMap.get(moment.userId)
+    result.push({
+      ...moment,
+      userInfo: userInfo ? {
+        nickName: userInfo.nickName,
+        avatarUrl: userInfo.avatarUrl
+      } : undefined,
+      isLiked
+    })
+  }
+
+  return result
+}

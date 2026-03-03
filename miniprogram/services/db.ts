@@ -8,6 +8,9 @@ export const groupsCol = () => db.collection('groups')
 export const membersCol = () => db.collection('members')
 export const checkinsCol = () => db.collection('checkins')
 export const makeupQuotaCol = () => db.collection('makeupQuota')
+export const momentsCol = () => db.collection('moments')
+export const momentLikesCol = () => db.collection('momentLikes')
+export const momentCommentsCol = () => db.collection('momentComments')
 
 /** 生成唯一邀请码 6 位（避免重复） */
 export async function genInviteCode(): Promise<string> {
