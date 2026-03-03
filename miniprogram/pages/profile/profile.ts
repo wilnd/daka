@@ -30,7 +30,14 @@ Component({
     init() {
       const ui = wx.getStorageSync('userInfo')
       if (ui?.nickName && ui?.avatarUrl) {
-        this.setData({ hasUserInfo: true, userInfo: ui })
+        let avatarUrl = ui.avatarUrl
+        // 如果不是有效的网络头像，使用默认头像
+        if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
+          avatarUrl = defaultAvatar
+        }
+        const userInfo = { ...ui, avatarUrl }
+        wx.setStorageSync('userInfo', userInfo)
+        this.setData({ hasUserInfo: true, userInfo })
         this.loadData()
         this.loadSubscriptionStatus()
       }
@@ -120,6 +127,29 @@ Component({
       const nickName = e.detail.value || ''
       this.setData({ 'editingInfo.nickName': nickName })
     },
+    async uploadAvatarIfNeeded(avatarUrl: string, openid: string): Promise<string> {
+      // 如果已经是云存储路径，直接返回
+      if (avatarUrl.startsWith('cloud://')) {
+        return avatarUrl
+      }
+      // 如果是本地临时路径，需要上传到云存储
+      if (avatarUrl.startsWith('/tmp/') || avatarUrl.startsWith('http://tmp/') || avatarUrl.startsWith('wxfile://')) {
+        try {
+          const cloudPath = `avatars/${openid}/${Date.now()}.jpg`
+          const uploadRes = await wx.cloud.uploadFile({
+            cloudPath,
+            filePath: avatarUrl,
+          })
+          return uploadRes.fileID
+        } catch (e) {
+          console.error('头像上传失败', e)
+          // 上传失败时返回原路径
+          return avatarUrl
+        }
+      }
+      return avatarUrl
+    },
+
     async saveUserInfo() {
       const { nickName, avatarUrl } = this.data.editingInfo
       if (!nickName || !avatarUrl) {
@@ -130,11 +160,13 @@ Component({
       if (!openid) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
       wx.showLoading({ title: '保存中' })
       try {
-        await updateUserInfo(openid, nickName, avatarUrl)
-        wx.setStorageSync('userInfo', { nickName, avatarUrl })
+        // 如果选择了新头像，先上传到云存储
+        const savedAvatarUrl = await this.uploadAvatarIfNeeded(avatarUrl, openid)
+        await updateUserInfo(openid, nickName, savedAvatarUrl)
+        wx.setStorageSync('userInfo', { nickName, avatarUrl: savedAvatarUrl })
         this.setData({
           hasUserInfo: true,
-          userInfo: { nickName, avatarUrl },
+          userInfo: { nickName, avatarUrl: savedAvatarUrl },
           showEditModal: false
         })
         wx.showToast({ title: '保存成功' })

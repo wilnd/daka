@@ -35,7 +35,14 @@ Component({
     async init() {
       const ui = wx.getStorageSync('userInfo')
       if (ui && ui.nickName && ui.avatarUrl) {
-        this.setData({ hasUserInfo: true, userInfo: ui, loading: true })
+        let avatarUrl = ui.avatarUrl
+        // 如果不是有效的网络头像，使用默认头像
+        if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
+          avatarUrl = defaultAvatar
+        }
+        const userInfo = { ...ui, avatarUrl }
+        wx.setStorageSync('userInfo', userInfo)
+        this.setData({ hasUserInfo: true, userInfo, loading: true })
         await this.ensureOpenid()
         this.loadData()
         return
@@ -119,6 +126,28 @@ Component({
       const nickName = e.detail.value || ''
       this.setData({ 'userInfo.nickName': nickName })
     },
+    async uploadAvatarIfNeeded(avatarUrl: string, openid: string): Promise<string> {
+      // 如果已经是云存储路径，直接返回
+      if (avatarUrl.startsWith('cloud://')) {
+        return avatarUrl
+      }
+      // 如果是本地临时路径，需要上传到云存储
+      if (avatarUrl.startsWith('/tmp/') || avatarUrl.startsWith('http://tmp/') || avatarUrl.startsWith('wxfile://')) {
+        try {
+          const cloudPath = `avatars/${openid}/${Date.now()}.jpg`
+          const uploadRes = await wx.cloud.uploadFile({
+            cloudPath,
+            filePath: avatarUrl,
+          })
+          return uploadRes.fileID
+        } catch (e) {
+          console.error('头像上传失败', e)
+          return avatarUrl
+        }
+      }
+      return avatarUrl
+    },
+
     async onConfirmAuth() {
       const { nickName, avatarUrl } = this.data.userInfo
       if (!nickName || !avatarUrl) {
@@ -129,13 +158,17 @@ Component({
       try {
         const openid = await this.ensureOpenid()
         if (!openid) throw new Error('获取 openid 失败')
-        await getOrCreateUser(openid, nickName, avatarUrl)
-        wx.setStorageSync('userInfo', { nickName, avatarUrl })
-        this.setData({ hasUserInfo: true })
+        // 如果选择了新头像，先上传到云存储
+        const savedAvatarUrl = await this.uploadAvatarIfNeeded(avatarUrl, openid)
+        await getOrCreateUser(openid, nickName, savedAvatarUrl)
+        wx.setStorageSync('userInfo', { nickName, avatarUrl: savedAvatarUrl })
+        this.setData({ hasUserInfo: true, userInfo: { ...this.data.userInfo, avatarUrl: savedAvatarUrl } })
         this.loadData()
         wx.showToast({ title: '登录成功' })
       } catch (e) {
         wx.showToast({ title: '授权失败，请稍后重试', icon: 'none' })
+      } finally {
+        wx.hideLoading()
       }
     },
     showSwitchGroup() {

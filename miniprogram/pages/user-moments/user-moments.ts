@@ -40,7 +40,15 @@ Page({
   onLoad(options: any) {
     const userId = options.userId || ''
     const nickName = options.nickName || ''
-    const avatarUrl = options.avatarUrl || defaultAvatar
+    let avatarUrl = (options.avatarUrl || defaultAvatar)
+
+    // URL 解码
+    try { avatarUrl = decodeURIComponent(avatarUrl) } catch {}
+
+    // 如果不是有效的网络头像，使用默认头像
+    if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
+      avatarUrl = defaultAvatar
+    }
 
     if (userId) {
       this.setData({
@@ -87,8 +95,13 @@ Page({
 
       const result = res.result as any
       if (result.success && result.data) {
+        let avatarUrl = result.data.avatarUrl || defaultAvatar
+        // 如果不是有效的网络头像，使用默认头像
+        if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
+          avatarUrl = defaultAvatar
+        }
         this.setData({
-          userInfo: result.data
+          userInfo: { ...result.data, avatarUrl }
         })
       }
     } catch (e) {

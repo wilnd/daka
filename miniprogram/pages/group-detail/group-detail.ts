@@ -37,14 +37,55 @@ Component({
   },
   lifetimes: {
     attached() {
-      const pages = getCurrentPages()
-      const cur = pages[pages.length - 1] as any
-      const id = cur?.options?.id || cur?.options?.groupId || ''
-      this.setData({ groupId: id, loading: true })
-      this.load()
+      // 页面加载时调用 onLoad（使用 nextTick 确保路由参数已注入）
+      wx.nextTick(() => {
+        this.onLoadInternal()
+      })
+    },
+  },
+  pageLifetimes: {
+    show() {
+      // 页面显示时刷新数据（可选）
     },
   },
   methods: {
+    onLoadInternal() {
+      // 从页面 options 中获取 groupId
+      // 优先使用 this.options，其次使用 getCurrentPages() 获取当前页面参数
+      let id = ''
+
+      // 1. 组件化页面场景：this.options 中可能带有路由参数
+      const selfAny = this as any
+      const selfOptions = selfAny.options || {}
+      if (selfOptions) {
+        id = selfOptions.id || selfOptions.groupId || ''
+      }
+
+      // 2. 兜底：从当前页面栈中读取
+      if (!id) {
+        const pages = getCurrentPages()
+        const cur = pages[pages.length - 1] as any
+        const pageOptions = (cur && cur.options) ? cur.options : {}
+        id = pageOptions.id || pageOptions.groupId || ''
+        console.log('group-detail attached, this.options:', selfOptions, 'page options:', pageOptions, 'id:', id)
+      } else {
+        console.log('group-detail attached, this.options:', selfOptions, 'id:', id)
+      }
+
+      // 3. 再兜底：使用全局当前小组 ID
+      if (!id && app.globalData.currentGroupId) {
+        id = app.globalData.currentGroupId
+      }
+
+      if (!id) {
+        wx.showToast({ title: '参数错误', icon: 'none' })
+        this.setData({ loading: false })
+        return
+      }
+
+      this.setData({ groupId: id, loading: true })
+      this.load()
+    },
     async ensureOpenid() {
       let openid = app.globalData.openid || wx.getStorageSync('openid')
       if (openid && !app.globalData.openid) {
@@ -77,10 +118,13 @@ Component({
         const group = await getGroupById(groupId)
         if (!group) { wx.showToast({ title: '小组不存在', icon: 'none' }); wx.navigateBack(); return }
         const members = await getGroupMembers(groupId)
+        if (!Array.isArray(members)) {
+          wx.showToast({ title: '数据错误', icon: 'none' })
+          return
+        }
+        const userIds = members.map((m: any) => m.userId).filter(Boolean)
         const isAdmin = members.some((m: any) => m.userId === openid && m.role === 'admin')
-
-        const userIds = members.map((m: any) => m.userId)
-        // 打卡与群组无关：只要用户今天打过卡，在其加入的任意群都视为已打卡
+        
         const today = getTodayStr()
         const checkedIds = new Set<string>()
         const batchSize = 10
@@ -97,21 +141,30 @@ Component({
         let membersWithUser: any[] = []
         if (userIds.length > 0) {
           const users: any[] = []
-          for (let i = 0; i < userIds.length; i += batchSize) {
-            const batch = userIds.slice(i, i + batchSize)
-            const { data } = await usersCol()
-              .where({ openid: _.in(batch) })
-              .get()
-            users.push(...((data || []) as any[]))
+          try {
+            for (let i = 0; i < userIds.length; i += batchSize) {
+              const batch = userIds.slice(i, i + batchSize)
+              const { data } = await usersCol()
+                .where({ openid: _.in(batch) })
+                .get()
+              users.push(...((data || []) as any[]))
+            }
+          } catch (e) {
+            console.error('query users error:', e)
           }
           const userMap = new Map(users.map((u: any) => [u.openid, u]))
           membersWithUser = members.map((m: any) => {
             const u = userMap.get(m.userId)
+            let avatarUrl = u?.avatarUrl || defaultAvatar
+            // 如果不是有效的网络头像，使用默认头像
+            if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
+              avatarUrl = defaultAvatar
+            }
             return {
               ...m,
               _id: m._id,
               nickName: u?.nickName || '未知',
-              avatarUrl: u?.avatarUrl || defaultAvatar,
+              avatarUrl,
               checked: checkedIds.has(m.userId),
               isSelf: m.userId === openid
             }
@@ -160,7 +213,7 @@ Component({
           isAdmin,
           inviteEnabled: (group as any).inviteEnabled !== false
         })
-      } catch (e) {
+      } catch (e: any) {
         console.error('load error:', e)
         this.setData({ loading: false })
         wx.showToast({ title: '加载失败', icon: 'none' })
