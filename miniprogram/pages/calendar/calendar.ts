@@ -6,30 +6,32 @@ const app = getApp<IAppOption>()
 
 Component({
   data: {
-    currentGroup: null as any,
     yearMonth: '',
     displayMonth: '',
     days: [] as any[],
     weekdays: ['日', '一', '二', '三', '四', '五', '六'],
     makeupRemain: 0,
     isCurrentMonth: true,
+    hasOpenid: false,
   },
   lifetimes: {
     attached() { this.init() },
-    show() { if (this.data.currentGroup) this.load() },
+    show() { if (this.data.hasOpenid) this.load() },
   },
   methods: {
     init() {
-      const gid = app.globalData.currentGroupId
+      const openid = app.globalData.openid
       const now = new Date()
       const ym = `${now.getFullYear()}-${this.pad(now.getMonth() + 1)}`
       this.setData({
-        currentGroup: gid ? { _id: gid } : null as any,
+        hasOpenid: !!openid,
         yearMonth: ym,
         displayMonth: this.fmtMonth(ym),
         isCurrentMonth: true,
       })
-      this.load()
+      if (openid) {
+        this.load()
+      }
     },
     fmtMonth(ym: string) {
       const [y, m] = ym.split('-')
@@ -69,14 +71,12 @@ Component({
       this.setData({ isCurrentMonth: this.data.yearMonth === currentYm })
     },
     async load() {
-      const { currentGroup, yearMonth } = this.data
+      const { yearMonth } = this.data
       const openid = app.globalData.openid
-      if (!openid || !currentGroup) return
-      const gid = typeof currentGroup === 'object' ? currentGroup._id : currentGroup
-      if (!gid) return
+      if (!openid) return
       try {
         const [checkins, makeupRemain] = await Promise.all([
-          getCheckinsByMonth(openid, gid, yearMonth),
+          getCheckinsByMonth(openid, '', yearMonth),
           getMakeupRemain(openid),
         ])
         const checkMap = new Map<string, { isMakeup: boolean }>()
@@ -102,7 +102,6 @@ Component({
         this.setData({
           days,
           makeupRemain,
-          currentGroup: { _id: gid },
         })
       } catch (e) {
         wx.showToast({ title: '加载失败', icon: 'none' })
@@ -120,10 +119,8 @@ Component({
         content: `确认补卡 ${date}？`,
         success: async (res) => {
           if (!res.confirm) return
-          const gid = this.data.currentGroup?._id
-          if (!gid) return
           try {
-            const r = await doMakeup(app.globalData.openid!, gid, date)
+            const r = await doMakeup(app.globalData.openid!, date)
             if (r.ok) {
               wx.showToast({ title: '补卡成功' })
               this.load()

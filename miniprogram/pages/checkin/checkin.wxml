@@ -1,3 +1,4 @@
+<navigation-bar title="{{mode === 'edit' ? '更新打卡' : '打卡'}}" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
 <view class="page">
   <!-- 打卡表单 -->
   <view class="form">

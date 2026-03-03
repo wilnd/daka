@@ -1,7 +1,7 @@
 <navigation-bar title="打卡日历" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
-    <view wx:if="{{!currentGroup}}" class="empty-tip">请先选择或创建小组</view>
+    <view wx:if="{{!hasOpenid}}" class="empty-tip">请先登录</view>
     <view wx:else>
       <view class="month-nav">
         <text class="nav-btn" bindtap="prevMonth">＜</text>

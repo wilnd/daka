@@ -222,10 +222,9 @@ export async function updateTodayCheckinWithContent(
   return { ok: true, score }
 }
 
-/** 补卡：仅可补今天往前 3 天（不含今天），每月 2 次 */
+/** 补卡：仅可补今天往前 3 天（不含今天），每月 2 次（与群组无关） */
 export async function doMakeup(
   userId: string,
-  groupId: string,
   date: string
 ): Promise<{ ok: boolean; msg?: string }> {
   const today = getTodayStr()
@@ -260,15 +259,15 @@ export async function doMakeup(
   }
 
   await checkinsCol().add({
-    data: { userId, groupId, date, isMakeup: true, createTime: now }
+    data: { userId, date, isMakeup: true, createTime: now }
   })
   return { ok: true }
 }
 
-/** 获取某月打卡记录 */
+/** 获取某月打卡记录（与群组无关，按用户查询） */
 export async function getCheckinsByMonth(
   userId: string,
-  groupId: string,
+  _groupId: string, // 保留参数兼容性，但实际不使用
   yearMonth: string
 ): Promise<Checkin[]> {
   const [y, m] = yearMonth.split('-').map(Number)
