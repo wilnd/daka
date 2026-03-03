@@ -377,6 +377,129 @@ exports.main = async (event, context) => {
         return { success: true, data: result }
       }
 
+      case 'getUserInfo': {
+        // 获取指定用户的信息
+        if (!userId) {
+          return { success: false, msg: '参数错误：缺少userId' }
+        }
+
+        const userMap = await getUsersByIds([userId])
+        const user = userMap.get(userId)
+
+        if (!user) {
+          return { success: false, msg: '用户不存在' }
+        }
+
+        return { success: true, data: pickUserInfo(user) }
+      }
+
+      case 'getUserMoments': {
+        // 获取指定用户的朋友圈列表（不限制群组）
+        if (!userId) {
+          return { success: false, msg: '参数错误：缺少userId' }
+        }
+
+        // 获取用户所属的所有群组
+        const { data: members } = await db.collection('members')
+          .where({ userId, status: 'normal' })
+          .get()
+
+        let groupIds = members.map(m => m.groupId)
+        // 如果用户不属于任何群组，尝试从 moments 表直接查询
+        if (groupIds.length === 0) {
+          const { data: userMoments } = await db.collection('moments')
+            .where({ userId })
+            .get()
+          groupIds = [...new Set(userMoments.map(m => m.groupId))]
+        }
+
+        let query = db.collection('moments')
+          .where({ 
+            userId,
+            ...(groupIds.length > 0 ? { groupId: _.in(groupIds) } : {})
+          })
+          .orderBy('createTime', 'desc')
+          .limit(limit)
+
+        if (lastId) {
+          try {
+            const lastMoment = await db.collection('moments').doc(lastId).get()
+            if (lastMoment.data) {
+              query = db.collection('moments')
+                .where({
+                  userId,
+                  ...(groupIds.length > 0 ? { groupId: _.in(groupIds) } : {}),
+                  createTime: _.lt(lastMoment.data.createTime)
+                })
+                .orderBy('createTime', 'desc')
+                .limit(limit)
+            }
+          } catch (e) {
+            // lastId 不存在：按第一页逻辑返回即可
+          }
+        }
+
+        const { data: moments } = await query.get()
+        if (moments.length === 0) {
+          return { success: true, data: [] }
+        }
+
+        // 获取当前用户对每条朋友圈的点赞状态
+        const currentUserId = wxContext.OPENID
+        const { data: likes } = await db.collection('momentLikes')
+          .where({ 
+            momentId: _.in(moments.map(m => m._id)),
+            userId: currentUserId
+          })
+          .get()
+
+        const likedSet = new Set(likes.map(l => l.momentId))
+
+        // 获取每条朋友圈的评论
+        const { data: allComments } = await db.collection('momentComments')
+          .where({ 
+            momentId: _.in(moments.map(m => m._id))
+          })
+          .get()
+
+        // 获取评论者信息
+        const commentUserIds = [...new Set(allComments.map(c => c.userId))]
+        const commentUserMap = await getUsersByIds(commentUserIds)
+
+        // 获取群组信息
+        const { data: groups } = await db.collection('groups')
+          .where({ _id: _.in(groupIds) })
+          .get()
+
+        const groupMap = new Map()
+        for (const group of groups) {
+          groupMap.set(group._id, group)
+        }
+
+        // 获取用户信息（发布者）
+        const userMap = await getUsersByIds([userId])
+        const userInfo = userMap.get(userId)
+
+        const result = moments.map(moment => {
+          const momentComments = allComments
+            .filter(c => c.momentId === moment._id)
+            .map(c => ({
+              ...c,
+              userInfo: pickUserInfo(commentUserMap.get(c.userId))
+            }))
+
+          return {
+            ...moment,
+            groupName: groupMap.get(moment.groupId)?.name || '',
+            userInfo: pickUserInfo(userInfo),
+            isLiked: likedSet.has(moment._id),
+            comments: momentComments
+          }
+        })
+
+        return { success: true, data: result }
+      }
+
       default:
         return { success: false, msg: '未知操作' }
     }

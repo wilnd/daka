@@ -7,7 +7,8 @@
     "pages/group-detail/group-detail",
     "pages/profile/profile",
     "pages/contact-admin/contact-admin",
-    "pages/calendar/calendar"
+    "pages/calendar/calendar",
+    "pages/user-moments/user-moments"
   ],
   "window": {
     "navigationBarTextStyle": "white",

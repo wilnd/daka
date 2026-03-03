@@ -223,5 +223,24 @@ Component({
         url: `/pages/checkin/checkin?mode=edit&groupId=${currentGroup._id}&groupName=${encodeURIComponent(currentGroup.name)}`
       })
     },
+    // 查看用户朋友圈
+    onViewUserMoments(e: any) {
+      const { userId, nickName, avatarUrl } = e.currentTarget.dataset
+      if (!userId) {
+        wx.showToast({ title: '无法查看', icon: 'none' })
+        return
+      }
+
+      // 编码参数
+      const params = [
+        `userId=${encodeURIComponent(userId)}`,
+        `nickName=${encodeURIComponent(nickName || '')}`,
+        `avatarUrl=${encodeURIComponent(avatarUrl || '')}`
+      ].join('&')
+
+      wx.navigateTo({
+        url: `/pages/user-moments/user-moments?${params}`
+      })
+    },
   },
 })

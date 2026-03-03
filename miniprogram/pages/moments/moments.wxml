@@ -33,8 +33,10 @@
           class="avatar" 
           src="{{item.userInfo && item.userInfo.avatarUrl || 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'}}" 
           mode="aspectFill"
-          bindtap="onPreviewAvatar"
-          data-url="{{item.userInfo && item.userInfo.avatarUrl}}"
+          bindtap="onViewUserMoments"
+          data-user-id="{{item.userId}}"
+          data-nick-name="{{item.userInfo && item.userInfo.nickName}}"
+          data-avatar-url="{{item.userInfo && item.userInfo.avatarUrl}}"
         ></image>
         <view class="user-info">
           <text class="nickname">{{item.userInfo && item.userInfo.nickName || '匿名用户'}}</text>

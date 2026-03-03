@@ -92,6 +92,26 @@ Component({
     hideEditModal() {
       this.setData({ showEditModal: false })
     },
+
+    // 查看自己的朋友圈
+    onViewMyMoments(e: any) {
+      const { userInfo } = this.data
+      const openid = app.globalData.openid
+      if (!openid || !userInfo) {
+        wx.showToast({ title: '无法查看', icon: 'none' })
+        return
+      }
+
+      const params = [
+        `userId=${encodeURIComponent(openid)}`,
+        `nickName=${encodeURIComponent(userInfo.nickName || '')}`,
+        `avatarUrl=${encodeURIComponent(userInfo.avatarUrl || '')}`
+      ].join('&')
+
+      wx.navigateTo({
+        url: `/pages/user-moments/user-moments?${params}`
+      })
+    },
     onChooseAvatar(e: any) {
       const { avatarUrl } = e.detail
       this.setData({ 'editingInfo.avatarUrl': avatarUrl || this.data.editingInfo.avatarUrl })

@@ -95,7 +95,7 @@
           <view wx:if="{{rankLoading}}" class="rank-loading">加载中...</view>
           <view wx:elif="{{rankList.length === 0}}" class="rank-empty">暂无数据</view>
           <view wx:else class="rank-list">
-            <view wx:for="{{rankList}}" wx:key="userId" class="rank-item">
+            <view wx:for="{{rankList}}" wx:key="userId" class="rank-item" bindtap="onViewUserMoments" data-user-id="{{item.userId}}" data-nick-name="{{item.nickName}}" data-avatar-url="{{item.avatarUrl}}">
               <view class="rank-index {{index < 3 ? 'top' : ''}}">{{index + 1}}</view>
               <image class="rank-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
               <text class="rank-name">{{item.nickName}}</text>

@@ -7,7 +7,12 @@
     </view>
     <view wx:else class="content">
       <view class="user-card" bindtap="onEditUserInfo">
-        <image class="avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
+        <image 
+          class="avatar" 
+          src="{{userInfo.avatarUrl}}" 
+          mode="aspectFill"
+          catchtap="onViewMyMoments"
+        ></image>
         <view class="user-info">
           <text class="nick">{{userInfo.nickName}}</text>
           <text class="edit-hint">点击修改信息</text>

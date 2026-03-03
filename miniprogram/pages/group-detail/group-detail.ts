@@ -244,6 +244,21 @@ Component({
     onMemberTap(e: any) {
       const member = e.currentTarget.dataset.member
       if (!member) return
+
+      // 点击头像进入对方朋友圈
+      const { userId, nickName, avatarUrl } = member
+      if (userId) {
+        const params = [
+          `userId=${encodeURIComponent(userId)}`,
+          `nickName=${encodeURIComponent(nickName || '')}`,
+          `avatarUrl=${encodeURIComponent(avatarUrl || '')}`
+        ].join('&')
+        wx.navigateTo({
+          url: `/pages/user-moments/user-moments?${params}`
+        })
+        return
+      }
+
       const { isAdmin } = this.data
       this.setData({
         selectedMember: member,
