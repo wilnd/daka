@@ -4,20 +4,21 @@
 }
 
 .group-selector {
-  padding: 20rpx 30rpx;
-  background-color: #2E8B57;
-}
-
-.selector-content {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: #2E8B57;
   border-radius: 30rpx;
-  padding: 15rpx 30rpx;
+  padding: 20rpx 30rpx;
+  margin-bottom: 16rpx;
 }
 
 .current-group-name {
+  display: flex;
+  align-items: center;
   color: #fff;
   font-size: 28rpx;
   font-weight: 500;
@@ -25,8 +26,8 @@
 
 .arrow {
   color: #fff;
+  margin-left: 8rpx;
   font-size: 20rpx;
-  margin-left: 10rpx;
 }
 
 .loading-wrap {
@@ -282,4 +283,114 @@
 
 .send-btn:active {
   opacity: 0.8;
+}
+
+// 弹窗
+.modal {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 1000;
+}
+
+.modal.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-content {
+  width: 100%;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 48rpx;
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 32rpx;
+}
+
+.group-option {
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.group-option-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.group-option-info .meta {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 8rpx;
+}
+
+.group-option-actions {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.default-tag {
+  font-size: 24rpx;
+  color: #2E8B57;
+  padding: 8rpx 16rpx;
+  background: rgba(46, 139, 87, 0.1);
+  border-radius: 8rpx;
+}
+
+.btn-set-default {
+  font-size: 24rpx;
+  color: #2E8B57;
+  background: transparent;
+  border: 1rpx solid #2E8B57;
+  padding: 8rpx 16rpx;
+  border-radius: 8rpx;
+}
+
+.btn-set-default::after {
+  display: none;
+}
+
+.group-option.active {
+  background: rgba(46, 139, 87, 0.1);
+  margin: 0 -48rpx;
+  padding-left: 48rpx;
+  padding-right: 48rpx;
+  border-radius: 12rpx;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 32rpx;
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: #2E8B57;
+  font-size: 28rpx;
+  padding: 16rpx;
+}
+
+.btn-text::after {
+  display: none;
 }

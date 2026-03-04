@@ -1,12 +1,10 @@
-<page-meta>
-  <navigation-bar title="朋友圈" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
-</page-meta>
+<navigation-bar title="朋友圈" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
 <scroll-view class="page" scroll-y refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="refreshMoments">
   <!-- 群组选择器 -->
   <view class="group-selector" wx:if="{{groups.length > 1}}">
     <picker range="{{groups}}" range-key="name" value="{{currentGroupIndex}}" bindchange="onGroupChange">
-      <view class="selector-content">
-        <text class="current-group-name">{{currentGroupId ? (groups[currentGroupIndex].name || '请选择') : '请选择'}}</text>
+      <view class="current-group-name">
+        <text>{{currentGroupId ? (groups[currentGroupIndex].name || '请选择') : '请选择'}}</text>
         <text class="arrow">▼</text>
       </view>
     </picker>
@@ -120,5 +118,26 @@
       />
       <button class="send-btn" form-type="submit">发送</button>
     </form>
+  </view>
+</view>
+
+<!-- 切换小组弹窗 -->
+<view class="modal {{showSwitchModal ? 'show' : ''}}" bindtap="hideSwitchGroup" wx:if="{{showSwitchModal}}">
+  <view class="modal-content" catchtap="stopPropagation">
+    <text class="modal-title">切换小组</text>
+    <view wx:for="{{groups || []}}" wx:key="_id" class="group-option {{item._id === currentGroupId ? 'active' : ''}}" bindtap="selectGroup" data-id="{{item._id}}">
+      <view class="group-option-info">
+        <text>{{item.name}}</text>
+        <text class="meta">成员 {{item.memberCount || 0}} 人</text>
+      </view>
+      <view class="group-option-actions">
+        <text wx:if="{{item._id === currentGroupId}}" class="default-tag">当前</text>
+        <button wx:else class="btn-set-default" catchtap="setDefaultGroup" data-id="{{item._id}}">设为默认</button>
+      </view>
+    </view>
+    <view class="modal-actions">
+      <button class="btn-text" bindtap="goCreateGroup">创建新小组</button>
+      <button class="btn-secondary" bindtap="hideSwitchGroup">取消</button>
+    </view>
   </view>
 </view>

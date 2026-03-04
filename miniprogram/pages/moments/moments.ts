@@ -86,6 +86,7 @@ Page({
     showCommentInput: false,
     currentCommentMomentId: '',
     commentSubmitting: false,
+    showSwitchModal: false,
   },
 
   onLoad() {
@@ -292,13 +293,66 @@ Page({
   onGroupChange(e: any) {
     const groupIndex = e.detail.value
     const groupId = (this.data.groups[groupIndex] && this.data.groups[groupIndex]._id) || ''
-    this.setData({ 
+    this.setData({
       currentGroupId: groupId,
       currentGroupIndex: groupIndex,
       moments: [],
       noMore: false
     })
     this.loadMoments()
+  },
+
+  // 显示切换群组弹窗
+  showSwitchGroup() {
+    this.setData({ showSwitchModal: true })
+  },
+
+  // 隐藏切换群组弹窗
+  hideSwitchGroup() {
+    this.setData({ showSwitchModal: false })
+  },
+
+  // 跳转创建群组
+  goCreateGroup() {
+    this.setData({ showSwitchModal: false })
+    wx.navigateTo({ url: '/pages/group/group' })
+  },
+
+  // 阻止事件冒泡
+  stopPropagation() {},
+
+  // 选择群组
+  selectGroup(e: any) {
+    const groupId = e.currentTarget.dataset.id
+    const g = this.data.groups.find((x: any) => x._id === groupId)
+    if (!g) return
+
+    const groupIndex = this.data.groups.findIndex((x: any) => x._id === groupId)
+    this.setData({
+      currentGroupId: groupId,
+      currentGroupIndex: groupIndex >= 0 ? groupIndex : 0,
+      showSwitchModal: false,
+      moments: [],
+      noMore: false
+    })
+    this.loadMoments()
+  },
+
+  // 设置默认群组
+  setDefaultGroup(e: any) {
+    const groupId = e.currentTarget.dataset.id
+    wx.setStorageSync('defaultGroupId', groupId)
+    app.globalData.currentGroupId = groupId
+    const g = this.data.groups.find((x: any) => x._id === groupId)
+    if (!g) return
+
+    const groupIndex = this.data.groups.findIndex((x: any) => x._id === groupId)
+    this.setData({
+      currentGroupId: groupId,
+      currentGroupIndex: groupIndex >= 0 ? groupIndex : 0,
+      showSwitchModal: false,
+    })
+    wx.showToast({ title: '已设为默认', icon: 'none' })
   },
 
   // 点赞
