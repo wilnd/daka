@@ -95,7 +95,7 @@ Component({
           const date = `${yearMonth}-${this.pad(d)}`
           const info = checkMap.get(date)
           const checked = !!info
-          const makeup = info?.isMakeup || false
+          const makeup = (info && info.isMakeup) || false
           const canMakeup = !checked && date >= canMakeupStart && date <= canMakeupEnd
           days.push({ date, day: d, checked, makeup, canMakeup, empty: false })
         }
@@ -124,6 +124,16 @@ Component({
             if (r.ok) {
               wx.showToast({ title: '补卡成功' })
               this.load()
+              // 补卡成功后跳转到首页并刷新数据
+              const pages = getCurrentPages()
+              const indexPage = pages.find(p => p.route === 'pages/index/index')
+              if (indexPage) {
+                // 触发首页重新加载数据
+                (indexPage as any).loadData(true)
+              }
+              setTimeout(() => {
+                wx.switchTab({ url: '/pages/index/index' })
+              }, 500)
             } else {
               wx.showToast({ title: r.msg || '补卡失败', icon: 'none' })
             }

@@ -57,11 +57,11 @@ export async function getTodayCheckin(userId: string): Promise<Checkin | null> {
   return (data && data[0] ? (data[0] as Checkin) : null)
 }
 
-/** 每日打卡（支持内容） */
+/** 每日打卡（打卡与小组无关，用于查看排名对比时可选传 groupId） */
 export async function doCheckinWithContent(
   userId: string,
-  groupId: string,
-  content?: CheckinContent
+  content?: CheckinContent,
+  groupId?: string
 ): Promise<{ ok: boolean; msg?: string; score?: ScoreResult }> {
   const today = getTodayStr()
   const { data: existing } = await checkinsCol()
@@ -82,7 +82,7 @@ export async function doCheckinWithContent(
           isPublishToMoments: content.isPublishToMoments
         }
       })
-      if (scoreRes.result?.success) {
+      if (scoreRes.result && scoreRes.result.success) {
         score = scoreRes.result.data
       }
     } catch (e) {
@@ -104,7 +104,7 @@ export async function doCheckinWithContent(
   })
 
   // 如果需要发布到朋友圈，自动发布
-  if (content?.isPublishToMoments && (content.text || (content.photos && content.photos.length > 0))) {
+  if (content && content.isPublishToMoments && (content.text || (content.photos && content.photos.length > 0))) {
     try {
       await momentsCol().add({
         data: {
@@ -115,8 +115,8 @@ export async function doCheckinWithContent(
             photos: content.photos || [],
             text: content.text || '',
             sportType: content.sportType || '',
-            score: score?.totalScore,
-            tags: score?.tags || []
+            score: (score && score.totalScore),
+            tags: (score && score.tags) || []
           },
           likeCount: 0,
           commentCount: 0,
@@ -134,11 +134,11 @@ export async function doCheckinWithContent(
 /** 更新今日打卡内容（可同步更新/创建/删除朋友圈动态） */
 export async function updateTodayCheckinWithContent(
   userId: string,
-  groupId: string,
-  content: CheckinContent
+  content: CheckinContent,
+  groupId?: string
 ): Promise<{ ok: boolean; msg?: string; score?: ScoreResult }> {
   const existing = await getTodayCheckin(userId)
-  if (!existing?._id) return { ok: false, msg: '今日还未打卡，无法更新' }
+  if (!existing || !existing._id) return { ok: false, msg: '今日还未打卡，无法更新' }
 
   if (!content || (!content.text && (!content.photos || content.photos.length === 0))) {
     return { ok: false, msg: '请输入文字或上传照片' }
@@ -155,7 +155,7 @@ export async function updateTodayCheckinWithContent(
         isPublishToMoments: content.isPublishToMoments
       }
     })
-    if (scoreRes.result?.success) score = scoreRes.result.data
+    if (scoreRes.result && scoreRes.result.success) score = scoreRes.result.data
   } catch (e) {
     console.warn('评分失败，使用默认分', e)
   }
@@ -186,11 +186,11 @@ export async function updateTodayCheckinWithContent(
         photos: content.photos || [],
         text: content.text || '',
         sportType: content.sportType || '',
-        score: score?.totalScore,
-        tags: score?.tags || []
+        score: (score && score.totalScore),
+        tags: (score && score.tags) || []
       }
 
-      if (moment?._id) {
+      if (moment && moment._id) {
         await momentsCol().doc((moment as any)._id).update({
           data: {
             groupId,
@@ -211,7 +211,7 @@ export async function updateTodayCheckinWithContent(
           }
         })
       }
-    } else if (moment?._id) {
+    } else if (moment && moment._id) {
       // 用户取消发布：删除对应朋友圈动态
       await momentsCol().doc((moment as any)._id).remove()
     }

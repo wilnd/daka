@@ -13,7 +13,7 @@ export interface UserInfo {
 export async function getOpenid(): Promise<string> {
   const res = await wx.cloud.callFunction({ name: 'login' })
   const data = res.result as { openid?: string }
-  if (!data?.openid) throw new Error('获取 openid 失败')
+  if (!data || !data.openid) throw new Error('获取 openid 失败')
   return data.openid
 }
 

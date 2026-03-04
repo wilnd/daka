@@ -4,6 +4,51 @@ import { getMyGroups } from '../../services/group'
 
 const app = getApp<IAppOption>()
 
+const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
+
+/** 将云存储 fileID 转换为临时可访问的 HTTP URL */
+async function convertCloudUrl(fileId: string): Promise<string> {
+  if (!fileId) return defaultAvatar
+  if (!fileId.startsWith('cloud://')) return fileId
+  try {
+    const res = await wx.cloud.getTempFileURL({ fileList: [fileId] })
+    if (res.fileList && res.fileList[0]) {
+      // 检查是否有错误
+      if (res.fileList[0].status !== 0) {
+        console.warn('云存储文件获取失败:', res.fileList[0].errMsg || '未知错误')
+        return defaultAvatar  // 返回默认头像
+      }
+      if (res.fileList[0].tempFileURL) {
+        return res.fileList[0].tempFileURL
+      }
+    }
+  } catch (e) {
+    console.warn('转换云存储URL失败', e)
+  }
+  return defaultAvatar  // 转换失败返回默认头像
+}
+
+/** 批量转换云存储 URL */
+async function convertCloudUrls(fileIds: string[]): Promise<string[]> {
+  if (!fileIds || fileIds.length === 0) return []
+  const validIds = fileIds.filter(id => id && id.startsWith('cloud://'))
+  if (validIds.length === 0) return fileIds
+  try {
+    const res = await wx.cloud.getTempFileURL({ fileList: validIds })
+    const urlMap = new Map<string, string>()
+    for (const item of res.fileList || []) {
+      // 只处理成功的文件，失败的返回默认头像
+      if (item.status === 0 && item.fileID && item.tempFileURL) {
+        urlMap.set(item.fileID, item.tempFileURL)
+      }
+    }
+    return fileIds.map(id => urlMap.get(id) || defaultAvatar)
+  } catch (e) {
+    console.warn('批量转换云存储URL失败', e)
+    return fileIds.map(() => defaultAvatar)
+  }
+}
+
 interface MomentItem {
   _id: string
   userId: string
@@ -82,7 +127,7 @@ Page({
 
     // 确保 users 集合有当前用户信息，避免展示为“匿名用户”
     const userInfo = wx.getStorageSync('userInfo')
-    if (openid && userInfo?.nickName && userInfo?.avatarUrl) {
+    if (openid && userInfo && userInfo.nickName && userInfo.avatarUrl) {
       try {
         await getOrCreateUser(openid, userInfo.nickName, userInfo.avatarUrl)
       } catch (e) {
@@ -104,7 +149,7 @@ Page({
       this.setData({ groups })
       
       // 如果没有选择群组，使用第一个
-      const currentGroupId = this.data.currentGroupId || (groups[0]?._id || '')
+      const currentGroupId = this.data.currentGroupId || ((groups[0] && groups[0]._id) || '')
       if (currentGroupId && !this.data.currentGroupId) {
         this.setData({ 
           currentGroupId,
@@ -144,10 +189,30 @@ Page({
 
       const result = res.result as any
       if (result.success) {
+        // 转换云存储 URL 为临时 HTTP URL
+        const momentsData = result.data || []
+        for (const moment of momentsData) {
+          // 转换头像
+          if (moment.userInfo && moment.userInfo.avatarUrl) {
+            moment.userInfo.avatarUrl = await convertCloudUrl(moment.userInfo.avatarUrl)
+          }
+          // 转换朋友圈图片
+          if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
+            moment.content.photos = await convertCloudUrls(moment.content.photos)
+          }
+          // 转换评论中的头像
+          if (moment.comments && moment.comments.length > 0) {
+            for (const comment of moment.comments) {
+              if (comment.userInfo && comment.userInfo.avatarUrl) {
+                comment.userInfo.avatarUrl = await convertCloudUrl(comment.userInfo.avatarUrl)
+              }
+            }
+          }
+        }
         this.setData({
-          moments: result.data || [],
+          moments: momentsData,
           loading: false,
-          noMore: (result.data || []).length < 20
+          noMore: momentsData.length < 20
         })
       } else {
         wx.showToast({ title: result.msg || '加载失败', icon: 'none' })
@@ -189,7 +254,26 @@ Page({
 
       const result = res.result as any
       if (result.success) {
+        // 转换云存储 URL 为临时 HTTP URL
         const newMoments = result.data || []
+        for (const moment of newMoments) {
+          // 转换头像
+          if (moment.userInfo && moment.userInfo.avatarUrl) {
+            moment.userInfo.avatarUrl = await convertCloudUrl(moment.userInfo.avatarUrl)
+          }
+          // 转换朋友圈图片
+          if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
+            moment.content.photos = await convertCloudUrls(moment.content.photos)
+          }
+          // 转换评论中的头像
+          if (moment.comments && moment.comments.length > 0) {
+            for (const comment of moment.comments) {
+              if (comment.userInfo && comment.userInfo.avatarUrl) {
+                comment.userInfo.avatarUrl = await convertCloudUrl(comment.userInfo.avatarUrl)
+              }
+            }
+          }
+        }
         this.setData({
           moments: [...moments, ...newMoments],
           loadingMore: false,
@@ -207,7 +291,7 @@ Page({
   // 切换群组
   onGroupChange(e: any) {
     const groupIndex = e.detail.value
-    const groupId = this.data.groups[groupIndex]?._id || ''
+    const groupId = (this.data.groups[groupIndex] && this.data.groups[groupIndex]._id) || ''
     this.setData({ 
       currentGroupId: groupId,
       currentGroupIndex: groupIndex,
@@ -279,7 +363,7 @@ Page({
 
     // form submit: e.detail.value = { content: string }
     // input confirm: e.detail.value = string
-    const rawValue = e?.detail?.value
+    const rawValue = (e && e.detail && e.detail.value)
     const content =
       typeof rawValue === 'string'
         ? rawValue
@@ -302,7 +386,7 @@ Page({
 
       // 非阻塞兜底同步用户信息（避免同步失败/卡顿影响评论）
       const userInfo = wx.getStorageSync('userInfo')
-      if (userInfo?.nickName && userInfo?.avatarUrl) {
+      if (userInfo && userInfo.nickName && userInfo.avatarUrl) {
         try {
           // 不 await：同步失败不影响评论发送
           getOrCreateUser(openid, userInfo.nickName, userInfo.avatarUrl)
@@ -346,8 +430,8 @@ Page({
     } catch (e) {
       console.error('评论失败', e)
       const msg =
-        (e as any)?.errMsg ||
-        (e as any)?.message ||
+        ((e as any) && (e as any).errMsg) ||
+        ((e as any) && (e as any).message) ||
         '评论失败'
       wx.showToast({ title: msg, icon: 'none' })
     } finally {

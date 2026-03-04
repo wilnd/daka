@@ -6,8 +6,9 @@ const _ = db.command
 
 exports.main = async (event, context) => {
   const wxContext = cloud.getWXContext()
-  const userId = wxContext.OPENID
-  const { action, groupId, momentId, limit = 20, lastId, content } = event
+  const currentUserId = wxContext.OPENID  // 当前登录用户，用于点赞、评论等操作
+  // 从 event 中解构 userId（这是传入的目标用户，用于获取指定用户的朋友圈等）
+  const { action, groupId, momentId, limit = 20, lastId, content, userId: targetUserId } = event
 
   const pickUserInfo = (u) => {
     if (!u) return undefined
@@ -92,7 +93,7 @@ exports.main = async (event, context) => {
         const { data: likes } = await db.collection('momentLikes')
           .where({ 
             momentId: _.in(moments.map(m => m._id)),
-            userId 
+            userId: currentUserId
           })
           .get()
 
@@ -134,7 +135,7 @@ exports.main = async (event, context) => {
       case 'like': {
         // 点赞朋友圈
         const { data: existing } = await db.collection('momentLikes')
-          .where({ momentId, userId })
+          .where({ momentId, userId: currentUserId })
           .get()
 
         if (existing.length > 0) {
@@ -142,7 +143,7 @@ exports.main = async (event, context) => {
         }
 
         await db.collection('momentLikes').add({
-          data: { momentId, userId, createTime: db.serverDate() }
+          data: { momentId, userId: currentUserId, createTime: db.serverDate() }
         })
 
         // 更新点赞数
@@ -160,7 +161,7 @@ exports.main = async (event, context) => {
       case 'unlike': {
         // 取消点赞
         const { data: existing } = await db.collection('momentLikes')
-          .where({ momentId, userId })
+          .where({ momentId, userId: currentUserId })
           .get()
 
         if (existing.length === 0) {
@@ -207,11 +208,11 @@ exports.main = async (event, context) => {
         }
 
         const { _id } = await db.collection('momentComments').add({
-          data: { 
-            momentId, 
-            userId, 
-            content: content.trim(), 
-            createTime: db.serverDate() 
+          data: {
+            momentId,
+            userId: currentUserId,
+            content: content.trim(),
+            createTime: db.serverDate()
           }
         })
 
@@ -227,16 +228,16 @@ exports.main = async (event, context) => {
         })
 
         // 获取评论者信息
-        const commentUserMap = await getUsersByIds([userId])
-        const commentUser = commentUserMap.get(userId)
+        const commentUserMap = await getUsersByIds([currentUserId])
+        const commentUser = commentUserMap.get(currentUserId)
 
-        return { 
-          success: true, 
-          data: { 
-            _id, 
-            momentId, 
-            userId, 
-            content: content.trim(), 
+        return {
+          success: true,
+          data: {
+            _id,
+            momentId,
+            userId: currentUserId,
+            content: content.trim(),
             userInfo: pickUserInfo(commentUser)
           }
         }
@@ -253,12 +254,12 @@ exports.main = async (event, context) => {
           return { success: false, msg: '评论不存在' }
         }
         const comment = commentRes.data
-        
+
         if (!comment) {
           return { success: false, msg: '评论不存在' }
         }
 
-        if (comment.userId !== userId) {
+        if (comment.userId !== currentUserId) {
           return { success: false, msg: '只能删除自己的评论' }
         }
 
@@ -302,7 +303,7 @@ exports.main = async (event, context) => {
       case 'getAllMoments': {
         // 获取用户在所有群组的朋友圈列表（首页展示）
         const { data: members } = await db.collection('members')
-          .where({ userId, status: 'normal' })
+          .where({ userId: currentUserId, status: 'normal' })
           .get()
 
         if (members.length === 0) {
@@ -356,7 +357,7 @@ exports.main = async (event, context) => {
         const { data: likes } = await db.collection('momentLikes')
           .where({ 
             momentId: _.in(moments.map(m => m._id)),
-            userId 
+            userId: currentUserId
           })
           .get()
 
@@ -379,12 +380,12 @@ exports.main = async (event, context) => {
 
       case 'getUserInfo': {
         // 获取指定用户的信息
-        if (!userId) {
+        if (!targetUserId) {
           return { success: false, msg: '参数错误：缺少userId' }
         }
 
-        const userMap = await getUsersByIds([userId])
-        const user = userMap.get(userId)
+        const userMap = await getUsersByIds([targetUserId])
+        const user = userMap.get(targetUserId)
 
         if (!user) {
           return { success: false, msg: '用户不存在' }
@@ -395,27 +396,27 @@ exports.main = async (event, context) => {
 
       case 'getUserMoments': {
         // 获取指定用户的朋友圈列表（不限制群组）
-        if (!userId) {
+        if (!targetUserId) {
           return { success: false, msg: '参数错误：缺少userId' }
         }
 
         // 获取用户所属的所有群组
         const { data: members } = await db.collection('members')
-          .where({ userId, status: 'normal' })
+          .where({ userId: targetUserId, status: 'normal' })
           .get()
 
         let groupIds = members.map(m => m.groupId)
         // 如果用户不属于任何群组，尝试从 moments 表直接查询
         if (groupIds.length === 0) {
           const { data: userMoments } = await db.collection('moments')
-            .where({ userId })
+            .where({ userId: targetUserId })
             .get()
           groupIds = [...new Set(userMoments.map(m => m.groupId))]
         }
 
         let query = db.collection('moments')
           .where({ 
-            userId,
+            userId: targetUserId,
             ...(groupIds.length > 0 ? { groupId: _.in(groupIds) } : {})
           })
           .orderBy('createTime', 'desc')
@@ -427,7 +428,7 @@ exports.main = async (event, context) => {
             if (lastMoment.data) {
               query = db.collection('moments')
                 .where({
-                  userId,
+                  userId: targetUserId,
                   ...(groupIds.length > 0 ? { groupId: _.in(groupIds) } : {}),
                   createTime: _.lt(lastMoment.data.createTime)
                 })
@@ -445,7 +446,6 @@ exports.main = async (event, context) => {
         }
 
         // 获取当前用户对每条朋友圈的点赞状态
-        const currentUserId = wxContext.OPENID
         const { data: likes } = await db.collection('momentLikes')
           .where({ 
             momentId: _.in(moments.map(m => m._id)),
@@ -477,8 +477,8 @@ exports.main = async (event, context) => {
         }
 
         // 获取用户信息（发布者）
-        const userMap = await getUsersByIds([userId])
-        const userInfo = userMap.get(userId)
+        const userMap = await getUsersByIds([targetUserId])
+        const userInfo = userMap.get(targetUserId)
 
         const result = moments.map(moment => {
           const momentComments = allComments

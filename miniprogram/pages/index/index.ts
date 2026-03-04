@@ -7,6 +7,59 @@ import { getStreak, getMissStreak, getTotalDays, getDayRank, getWeekRank, getMon
 const app = getApp<IAppOption>()
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
+/** 将云存储 fileID 转换为临时可访问的 HTTP URL */
+async function convertCloudUrl(fileId: string): Promise<string> {
+  if (!fileId) return defaultAvatar
+  if (!fileId.startsWith('cloud://')) return fileId
+  try {
+    const res = await wx.cloud.getTempFileURL({ fileList: [fileId] })
+    if (res.fileList && res.fileList[0]) {
+      // 检查是否有错误
+      if (res.fileList[0].status !== 0) {
+        console.warn('云存储文件获取失败:', res.fileList[0].errMsg || '未知错误')
+        return defaultAvatar  // 返回默认头像
+      }
+      if (res.fileList[0].tempFileURL) {
+        return res.fileList[0].tempFileURL
+      }
+    }
+  } catch (e) {
+    console.warn('转换云存储URL失败', e)
+  }
+  return defaultAvatar  // 转换失败返回默认头像
+}
+
+/** 批量转换排行榜头像 URL */
+async function convertRankAvatarUrls(rankList: RankUser[]): Promise<RankUser[]> {
+  if (!rankList || rankList.length === 0) return rankList
+  // 收集需要转换的 cloud:// URL
+  const cloudUrls: string[] = []
+  const urlIndexMap = new Map<string, number>()
+  for (let i = 0; i < rankList.length; i++) {
+    const url = rankList[i].avatarUrl
+    if (url && url.startsWith('cloud://')) {
+      cloudUrls.push(url)
+      urlIndexMap.set(url, i)
+    }
+  }
+  if (cloudUrls.length === 0) return rankList
+  try {
+    const res = await wx.cloud.getTempFileURL({ fileList: cloudUrls })
+    for (const item of res.fileList || []) {
+      // 只处理成功的文件，失败的返回默认头像
+      if (item.status === 0 && item.fileID && item.tempFileURL) {
+        const idx = urlIndexMap.get(item.fileID)
+        if (idx !== undefined) {
+          rankList[idx].avatarUrl = item.tempFileURL
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('批量转换排行榜头像URL失败', e)
+  }
+  return rankList
+}
+
 Component({
   data: {
     showSwitchModal: false,
@@ -28,7 +81,8 @@ Component({
       this.init()
     },
     show() {
-      if (this.data.hasUserInfo) this.loadData()
+      // 每次页面显示时都强制刷新数据，确保补卡后能更新
+      this.loadData(true)
     },
   },
   methods: {
@@ -39,6 +93,9 @@ Component({
         // 如果不是有效的网络头像，使用默认头像
         if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
           avatarUrl = defaultAvatar
+        } else if (avatarUrl.startsWith('cloud://')) {
+          // 转换云存储 URL 为临时 HTTP URL
+          avatarUrl = await convertCloudUrl(avatarUrl)
         }
         const userInfo = { ...ui, avatarUrl }
         wx.setStorageSync('userInfo', userInfo)
@@ -60,7 +117,7 @@ Component({
           app.globalData.openid = openid
           wx.setStorageSync('openid', openid)
         } catch (e: any) {
-          const msg = e?.errMsg || ''
+          const msg = (e && e.errMsg) || ''
           if (msg.includes('-601034') || msg.includes('没有权限')) {
             wx.showModal({
               title: '请先开通云开发',
@@ -73,9 +130,15 @@ Component({
       }
       return openid
     },
-    async loadData() {
+    async loadData(forceRefresh = false) {
       const openid = app.globalData.openid
       if (!openid) return
+
+      // 如果不是强制刷新，且已有数据，则跳过（用于 attached 初始化）
+      if (!forceRefresh && this.data.currentGroup && this.data.stats) {
+        return
+      }
+
       this.setData({ loading: true })
       try {
         const groups = await getMyGroups(openid)
@@ -103,6 +166,8 @@ Component({
           ])
           stats = { streak, totalDays, missStreak }
           rankList = await getDayRank(cur._id)
+          // 转换排行榜头像 URL
+          rankList = await convertRankAvatarUrls(rankList)
         }
         this.setData({
           groups,
@@ -197,6 +262,8 @@ Component({
         if (type === 'day') rankList = await getDayRank(this.data.currentGroup._id)
         else if (type === 'week') rankList = await getWeekRank(this.data.currentGroup._id)
         else rankList = await getMonthRank(this.data.currentGroup._id)
+        // 转换排行榜头像 URL
+        rankList = await convertRankAvatarUrls(rankList)
         this.setData({ rankList, rankLoading: false })
       } catch (e) {
         this.setData({ rankLoading: false })
@@ -238,22 +305,29 @@ Component({
       this.loadData()
     },
     async onCheckin() {
-      const { currentGroup, checkinAnimating, checkedToday } = this.data
-      if (!currentGroup || checkinAnimating) return
-      
-      // 已打卡：进入更新模式；未打卡：进入发布模式
+      const { currentGroup, checkinAnimating, checkedToday, groups } = this.data
+      if (checkinAnimating) return
+
+      // 构建打卡URL，可选传入当前选中的小组用于排名对比
+      const groupId = currentGroup ? currentGroup._id : (groups[0] ? groups[0]._id : '')
+      const groupName = currentGroup ? currentGroup.name : (groups[0] ? groups[0].name : '')
+
       wx.navigateTo({
         url: checkedToday
-          ? `/pages/checkin/checkin?mode=edit&groupId=${currentGroup._id}&groupName=${encodeURIComponent(currentGroup.name)}`
-          : `/pages/checkin/checkin?groupId=${currentGroup._id}&groupName=${encodeURIComponent(currentGroup.name)}`
+          ? `/pages/checkin/checkin?mode=edit&groupId=${groupId}&groupName=${encodeURIComponent(groupName)}`
+          : `/pages/checkin/checkin?groupId=${groupId}&groupName=${encodeURIComponent(groupName)}`
       })
     },
 
     onUpdateCheckin() {
-      const { currentGroup, checkedToday, checkinAnimating } = this.data
-      if (!currentGroup || !checkedToday || checkinAnimating) return
+      const { currentGroup, checkedToday, checkinAnimating, groups } = this.data
+      if (!checkedToday || checkinAnimating) return
+
+      const groupId = currentGroup ? currentGroup._id : (groups[0] ? groups[0]._id : '')
+      const groupName = currentGroup ? currentGroup.name : (groups[0] ? groups[0].name : '')
+
       wx.navigateTo({
-        url: `/pages/checkin/checkin?mode=edit&groupId=${currentGroup._id}&groupName=${encodeURIComponent(currentGroup.name)}`
+        url: `/pages/checkin/checkin?mode=edit&groupId=${groupId}&groupName=${encodeURIComponent(groupName)}`
       })
     },
     // 查看用户朋友圈

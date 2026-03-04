@@ -17,13 +17,13 @@ Component({
   },
   lifetimes: {
     attached() { this.init() },
-    show() { if (this.data.hasUserInfo) this.loadGroups() },
+    show() { this.loadGroups() },
   },
   methods: {
     async init() {
       const ui = wx.getStorageSync('userInfo')
       this.setData({ userInfoStr: JSON.stringify(ui) })
-      if (ui?.nickName && ui?.avatarUrl) {
+      if (ui && ui.nickName && ui.avatarUrl) {
         this.setData({ hasUserInfo: true })
         await this.ensureOpenid()
         this.loadGroups()
@@ -85,7 +85,7 @@ Component({
       } catch (e: any) {
         wx.hideLoading()
         console.error('创建小组失败', e)
-        const msg = e?.errMsg || e?.message || ''
+        const msg = ((e && e.errMsg) || (e && e.message) || '')
         if (msg.includes('-1') || msg.includes('system error')) {
           wx.showToast({ title: '云函数未上传或数据库未配置', icon: 'none', duration: 3000 })
         } else {

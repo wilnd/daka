@@ -61,17 +61,11 @@ export function getCurrentMonth(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
 }
 
-/** 从服务器获取当前月份（更可靠） */
-let serverMonthCache: { month: string; expire: number } | null = null
+/** 从服务器获取当前月份（每次都实时获取，不缓存） */
 export async function getServerMonth(): Promise<string> {
-  const now = Date.now()
-  if (serverMonthCache && serverMonthCache.expire > now) {
-    return serverMonthCache.month
-  }
   try {
     const res = await wx.cloud.callFunction({ name: 'getServerTime' })
     const data = res.result as { currentMonth: string }
-    serverMonthCache = { month: data.currentMonth, expire: now + 60000 }
     return data.currentMonth
   } catch (e) {
     console.warn('getServerMonth failed, fallback to local', e)

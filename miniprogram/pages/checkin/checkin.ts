@@ -1,6 +1,5 @@
 // checkin.ts
 import { doCheckinWithContent, updateTodayCheckinWithContent, getTodayCheckin, CheckinContent } from '../../services/checkin'
-import { getMyGroups } from '../../services/group'
 import { getOpenid, getOrCreateUser } from '../../services/auth'
 
 const app = getApp<IAppOption>()
@@ -9,10 +8,9 @@ const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQ
 
 Page({
   data: {
+    mode: 'create' as 'create' | 'edit',
     groupId: '',
     groupName: '',
-    groups: [] as any[],
-    mode: 'create' as 'create' | 'edit',
     text: '',
     photos: [] as string[],
     maxPhotos: 9,
@@ -24,10 +22,10 @@ Page({
   },
 
   onLoad(options) {
-    const groupId = options.groupId || ''
-    const groupName = options.groupName || ''
     const mode = options.mode === 'edit' ? 'edit' : 'create'
-    this.setData({ groupId, groupName, mode })
+    const groupId = options.groupId || ''
+    const groupName = options.groupName ? decodeURIComponent(options.groupName) : ''
+    this.setData({ mode, groupId, groupName })
     this.init()
   },
 
@@ -48,7 +46,7 @@ Page({
     }
 
     const finalOpenid = app.globalData.openid || wx.getStorageSync('openid')
-    if (finalOpenid && userInfo?.nickName && userInfo?.avatarUrl) {
+    if (finalOpenid && userInfo && userInfo.nickName && userInfo.avatarUrl) {
       try {
         await getOrCreateUser(finalOpenid, userInfo.nickName, userInfo.avatarUrl)
       } catch (e) {
@@ -56,31 +54,7 @@ Page({
       }
     }
 
-    await this.loadGroups()
-
-    if (this.data.mode === 'edit') {
-      await this.loadTodayCheckin()
-    }
-  },
-
-  async loadGroups() {
-    const openid = app.globalData.openid
-    if (!openid) return
-
-    try {
-      const groups = await getMyGroups(openid)
-      if (groups.length > 0) {
-        const currentGroupId = this.data.groupId || (groups[0] as any)._id
-        const currentGroup = groups.find((g: any) => g._id === currentGroupId)
-        this.setData({
-          groups,
-          groupId: currentGroupId,
-          groupName: currentGroup?.name || ''
-        })
-      }
-    } catch (e) {
-      console.error('加载群组失败', e)
-    }
+    await this.loadTodayCheckin()
   },
 
   async loadTodayCheckin() {
@@ -96,12 +70,8 @@ Page({
       }
 
       const content = (ck as any).content || {}
-      const groupId = (ck as any).groupId || this.data.groupId
-      const group = this.data.groups.find((g: any) => g._id === groupId)
 
       this.setData({
-        groupId,
-        groupName: group?.name || this.data.groupName,
         text: content.text || '',
         photos: content.photos || [],
         sportType: content.sportType || '',
@@ -111,15 +81,6 @@ Page({
       console.error('加载今日打卡失败', e)
       wx.showToast({ title: '加载失败', icon: 'none' })
     }
-  },
-
-  onGroupChange(e: any) {
-    const index = e.detail.value
-    const group = this.data.groups[index]
-    this.setData({
-      groupId: group._id,
-      groupName: group.name
-    })
   },
 
   onTextInput(e: any) {
@@ -177,16 +138,11 @@ Page({
 
   // 提交打卡
   async onSubmit() {
-    const { groupId, text, photos, sportType, isPublishToMoments, submitting, mode } = this.data
+    const { text, photos, sportType, isPublishToMoments, submitting, mode, groupId } = this.data
     const openid = app.globalData.openid
 
     if (!openid) {
       wx.showToast({ title: '请先登录', icon: 'none' })
-      return
-    }
-
-    if (!groupId) {
-      wx.showToast({ title: '请选择小组', icon: 'none' })
       return
     }
 
@@ -231,8 +187,8 @@ Page({
 
       const result =
         mode === 'edit'
-          ? await updateTodayCheckinWithContent(openid, groupId, content)
-          : await doCheckinWithContent(openid, groupId, content)
+          ? await updateTodayCheckinWithContent(openid, content, groupId)
+          : await doCheckinWithContent(openid, content, groupId)
 
       if (result.ok) {
         wx.showToast({ 

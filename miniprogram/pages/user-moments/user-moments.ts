@@ -2,6 +2,49 @@ const app = getApp<IAppOption>()
 
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
+/** 将云存储 fileID 转换为临时可访问的 HTTP URL */
+async function convertCloudUrl(fileId: string): Promise<string> {
+  if (!fileId) return defaultAvatar
+  if (!fileId.startsWith('cloud://')) return fileId
+  try {
+    const res = await wx.cloud.getTempFileURL({ fileList: [fileId] })
+    if (res.fileList && res.fileList[0]) {
+      // 检查是否有错误
+      if (res.fileList[0].status !== 0) {
+        console.warn('云存储文件获取失败:', res.fileList[0].errMsg || '未知错误')
+        return defaultAvatar  // 返回默认头像
+      }
+      if (res.fileList[0].tempFileURL) {
+        return res.fileList[0].tempFileURL
+      }
+    }
+  } catch (e) {
+    console.warn('转换云存储URL失败', e)
+  }
+  return defaultAvatar  // 转换失败返回默认头像
+}
+
+/** 批量转换云存储 URL */
+async function convertCloudUrls(fileIds: string[]): Promise<string[]> {
+  if (!fileIds || fileIds.length === 0) return []
+  const validIds = fileIds.filter(id => id && id.startsWith('cloud://'))
+  if (validIds.length === 0) return fileIds
+  try {
+    const res = await wx.cloud.getTempFileURL({ fileList: validIds })
+    const urlMap = new Map<string, string>()
+    for (const item of res.fileList || []) {
+      // 只处理成功的文件，失败的返回默认头像
+      if (item.status === 0 && item.fileID && item.tempFileURL) {
+        urlMap.set(item.fileID, item.tempFileURL)
+      }
+    }
+    return fileIds.map(id => urlMap.get(id) || defaultAvatar)
+  } catch (e) {
+    console.warn('批量转换云存储URL失败', e)
+    return fileIds.map(() => defaultAvatar)
+  }
+}
+
 interface MomentItem {
   _id: string
   userId: string
@@ -99,6 +142,9 @@ Page({
         // 如果不是有效的网络头像，使用默认头像
         if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
           avatarUrl = defaultAvatar
+        } else if (avatarUrl.startsWith('cloud://')) {
+          // 转换云存储 URL 为临时 HTTP URL
+          avatarUrl = await convertCloudUrl(avatarUrl)
         }
         this.setData({
           userInfo: { ...result.data, avatarUrl }
@@ -128,10 +174,26 @@ Page({
 
       const result = res.result as any
       if (result.success) {
+        // 转换云存储 URL 为临时 HTTP URL
+        const momentsData = result.data || []
+        for (const moment of momentsData) {
+          // 转换朋友圈图片
+          if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
+            moment.content.photos = await convertCloudUrls(moment.content.photos)
+          }
+          // 转换评论中的头像
+          if (moment.comments && moment.comments.length > 0) {
+            for (const comment of moment.comments) {
+              if (comment.userInfo && comment.userInfo.avatarUrl) {
+                comment.userInfo.avatarUrl = await convertCloudUrl(comment.userInfo.avatarUrl)
+              }
+            }
+          }
+        }
         this.setData({
-          moments: result.data || [],
+          moments: momentsData,
           loading: false,
-          noMore: (result.data || []).length < 20
+          noMore: momentsData.length < 20
         })
       } else {
         wx.showToast({ title: result.msg || '加载失败', icon: 'none' })
@@ -171,7 +233,22 @@ Page({
 
       const result = res.result as any
       if (result.success) {
+        // 转换云存储 URL 为临时 HTTP URL
         const newMoments = result.data || []
+        for (const moment of newMoments) {
+          // 转换朋友圈图片
+          if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
+            moment.content.photos = await convertCloudUrls(moment.content.photos)
+          }
+          // 转换评论中的头像
+          if (moment.comments && moment.comments.length > 0) {
+            for (const comment of moment.comments) {
+              if (comment.userInfo && comment.userInfo.avatarUrl) {
+                comment.userInfo.avatarUrl = await convertCloudUrl(comment.userInfo.avatarUrl)
+              }
+            }
+          }
+        }
         this.setData({
           moments: [...moments, ...newMoments],
           loadingMore: false,

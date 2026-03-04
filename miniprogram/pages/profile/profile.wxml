@@ -6,6 +6,15 @@
       <navigator url="/pages/index/index" class="link">去首页</navigator>
     </view>
     <view wx:else class="content">
+      <!-- 群组选择器 -->
+      <view class="group-selector" wx:if="{{groups.length > 0}}">
+        <picker range="{{groups}}" range-key="name" value="{{currentGroupIndex}}" bindchange="onGroupChange">
+          <view class="selector-content">
+            <text class="current-group-name">{{currentGroup ? currentGroup.name : '请选择群组'}}</text>
+            <text class="arrow">▼</text>
+          </view>
+        </picker>
+      </view>
       <view class="user-card" bindtap="onEditUserInfo">
         <image 
           class="avatar" 
@@ -112,5 +121,19 @@
       <button class="btn-secondary" bindtap="hideTimePickerModal">取消</button>
       <button class="btn-primary" bindtap="saveRemindTime">保存</button>
     </view>
+  </view>
+</view>
+
+<!-- 群组选择弹窗 -->
+<view class="modal {{showGroupPickerModal ? 'show' : ''}}" catchtap="hideGroupPickerModal" wx:if="{{showGroupPickerModal}}">
+  <view class="modal-content" catchtap="">
+    <text class="modal-title">选择群组</text>
+    <view class="group-list">
+      <view class="group-item" wx:for="{{groups}}" wx:key="_id" data-index="{{index}}" bindtap="onSelectGroupForCopy">
+        <text class="group-name">{{item.name}}</text>
+        <text class="arrow">></text>
+      </view>
+    </view>
+    <button class="btn-secondary" bindtap="hideGroupPickerModal">取消</button>
   </view>
 </view>

@@ -22,14 +22,32 @@ async function getRecentCheckins(
   return (data || []) as { date: string; isMakeup: boolean }[]
 }
 
-/** 计算连胜天数（不含补卡） */
+/** 计算连胜天数（不含补卡）
+ * 逻辑：
+ * - 昨天打卡了，今天还没打 → 显示昨天之前的连续天数
+ * - 昨天没打，今天打了 → 显示1
+ * - 昨天今天都没打 → 显示0
+ */
 export async function getStreak(userId: string, groupId: string): Promise<number> {
   const checkins = await getRecentCheckins(userId, groupId)
+  if (!checkins || checkins.length === 0) return 0
+
   const normalDates = new Set(
-    checkins.filter((c) => !c.isMakeup).map((c) => c.date)
+    checkins.map((c) => c.date)  // 包含补卡
   )
+
+  const today = getTodayStr()
+  const yesterday = getDateBefore(today, 1)
+
+  // 昨天没打卡
+  if (!normalDates.has(yesterday)) {
+    // 今天打了，返回1；今天没打，返回0
+    return normalDates.has(today) ? 1 : 0
+  }
+
+  // 昨天打卡了，从昨天往前连续统计
   let streak = 0
-  let d = getTodayStr()
+  let d = yesterday
   for (let i = 0; i < 365; i++) {
     if (normalDates.has(d)) {
       streak++
@@ -38,6 +56,11 @@ export async function getStreak(userId: string, groupId: string): Promise<number
       break
     }
   }
+  // 如果今天也打卡了，需要把今天算上
+  if (normalDates.has(today)) {
+    streak++
+  }
+
   return streak
 }
 
@@ -63,6 +86,16 @@ export async function getMissStreak(
     }
   }
   return miss
+}
+
+/** 判断昨天是否已打卡 */
+export async function wasCheckedInYesterday(userId: string): Promise<boolean> {
+  const yesterday = getDateBefore(getTodayStr(), 1)
+  const { data } = await checkinsCol()
+    .where({ userId, date: yesterday })
+    .limit(1)
+    .get()
+  return (data && data.length > 0) || false
 }
 
 /** 总打卡天数（含补卡） */
@@ -182,6 +215,7 @@ async function computeRank(members: any[], checkins: any[]): Promise<RankUser[]>
   // 计算每个用户的连续打卡天数
   const userStreaks: Record<string, number> = {}
   const today = getTodayStr()
+  const yesterday = getDateBefore(today, 1)
   for (const member of members) {
     const uid = member.userId
     const dates = userCheckins[uid]
@@ -189,9 +223,17 @@ async function computeRank(members: any[], checkins: any[]): Promise<RankUser[]>
       userStreaks[uid] = 0
       continue
     }
-    // 计算连续打卡天数（从今天往前数）
+
+    // 昨天没打卡
+    if (!dates.has(yesterday)) {
+      // 今天打了，返回1；今天没打，返回0
+      userStreaks[uid] = dates.has(today) ? 1 : 0
+      continue
+    }
+
+    // 昨天打卡了，从昨天往前连续统计
     let streak = 0
-    let d = today
+    let d = yesterday
     for (let i = 0; i < 400; i++) {
       if (dates.has(d)) {
         streak++
@@ -200,6 +242,11 @@ async function computeRank(members: any[], checkins: any[]): Promise<RankUser[]>
         break
       }
     }
+    // 如果今天也打卡了，需要把今天算上
+    if (dates.has(today)) {
+      streak++
+    }
+
     userStreaks[uid] = streak
   }
 
@@ -224,8 +271,8 @@ async function computeRank(members: any[], checkins: any[]): Promise<RankUser[]>
   // 构建结果并按连续天数排序
   const result: RankUser[] = members.map(m => ({
     userId: m.userId,
-    nickName: userInfoMap[m.userId]?.nickName || '未知',
-    avatarUrl: userInfoMap[m.userId]?.avatarUrl || '',
+    nickName: (userInfoMap[m.userId] && userInfoMap[m.userId].nickName) || '未知',
+    avatarUrl: (userInfoMap[m.userId] && userInfoMap[m.userId].avatarUrl) || '',
     streak: userStreaks[m.userId] || 0,
   }))
 

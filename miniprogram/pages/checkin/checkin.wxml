@@ -2,27 +2,6 @@
 <view class="page">
   <!-- 打卡表单 -->
   <view class="form">
-    <!-- 小组选择 -->
-    <view class="form-item">
-      <text class="label">打卡小组</text>
-      <picker 
-        wx:if="{{groups.length > 0}}" 
-        range="{{groups}}" 
-        range-key="name" 
-        value="{{groupId}}"
-        bindchange="onGroupChange"
-        disabled="{{mode === 'edit'}}"
-      >
-        <view class="picker-value">
-          <text>{{groupName || '请选择小组'}}</text>
-          <text class="arrow">></text>
-        </view>
-      </picker>
-      <view wx:else class="picker-value">
-        <text>暂无小组</text>
-      </view>
-    </view>
-
     <!-- 运动类型 -->
     <view class="form-item">
       <text class="label">运动类型</text>
@@ -74,7 +53,7 @@
     <view class="form-item switch-item">
       <view class="switch-left">
         <text class="label">发布到朋友圈</text>
-        <text class="desc">同小组可见</text>
+        <text class="desc">开启后朋友圈可见</text>
       </view>
       <switch 
         checked="{{isPublishToMoments}}" 

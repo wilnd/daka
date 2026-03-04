@@ -3,6 +3,26 @@
 .need-auth { text-align: center; padding: 80rpx; .link { color: @color-primary; margin-top: 24rpx; display: block; } }
 
 .content {
+  .group-selector {
+    margin-bottom: 32rpx;
+    .selector-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #2E8B57;
+      border-radius: 30rpx;
+      padding: 20rpx 30rpx;
+      .current-group-name {
+        color: #fff;
+        font-size: 28rpx;
+        font-weight: 500;
+      }
+      .arrow {
+        color: #fff;
+        margin-left: 8rpx;
+      }
+    }
+  }
   .user-card {
     display: flex; align-items: center; background: @color-bg-card; border-radius: 24rpx; padding: 48rpx; margin-bottom: 32rpx;
     .avatar { width: 120rpx; height: 120rpx; border-radius: 50%; margin-right: 32rpx; }
@@ -55,5 +75,21 @@
     display: flex; flex-direction: column; align-items: center; padding: 48rpx; background: @color-bg-card; border-radius: 16rpx;
     .time-value { font-size: 64rpx; font-weight: bold; color: @color-primary; }
     .time-hint { font-size: @font-size-caption; color: @color-text-hint; margin-top: 16rpx; }
+  }
+}
+
+// 群组选择弹窗
+.group-list {
+  margin-bottom: 32rpx;
+  .group-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 32rpx;
+    background: @color-bg-card;
+    border-radius: 16rpx;
+    margin-bottom: 16rpx;
+    .group-name { font-size: @font-size-body; color: @color-text-title; }
+    .arrow { color: @color-text-hint; }
   }
 }

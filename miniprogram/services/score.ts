@@ -168,7 +168,7 @@ export function calculateActivityScore(activities: SportActivity[]): number {
   for (const activity of activities) {
     const minutes = convertToMinutes(activity)
     totalMinutes += minutes
-    sportTypes.push(SPORT_CONFIG[activity.type]?.name || activity.type)
+    sportTypes.push((SPORT_CONFIG[activity.type] && SPORT_CONFIG[activity.type].name) || activity.type)
   }
 
   // 计算完成度得分
@@ -285,7 +285,7 @@ function generateFeedback(
   if (!activities || activities.length === 0) {
     feedbacks.push('未识别到运动内容')
   } else {
-    const sportNames = activities.map(a => SPORT_CONFIG[a.type]?.name || a.type)
+    const sportNames = activities.map(a => (SPORT_CONFIG[a.type] && SPORT_CONFIG[a.type].name) || a.type)
     const uniqueSports = [...new Set(sportNames)]
 
     if (activityScore >= 80) {
@@ -368,7 +368,7 @@ export function calculateScore(
     content
   )
 
-  const sportTypes = activities.map(a => SPORT_CONFIG[a.type]?.name || a.type)
+  const sportTypes = activities.map(a => (SPORT_CONFIG[a.type] && SPORT_CONFIG[a.type].name) || a.type)
   const totalMinutes = activities.reduce((sum, a) => sum + convertToMinutes(a), 0)
 
   return {
@@ -424,7 +424,7 @@ export async function callScoreCheckin(
       }
     })
 
-    if (scoreRes.result?.success) {
+    if (scoreRes.result && scoreRes.result.success) {
       return scoreRes.result.data as ScoreResult
     }
     return null

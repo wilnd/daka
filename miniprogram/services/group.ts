@@ -49,7 +49,7 @@ export async function joinByInviteCode(inviteCode: string, userId: string): Prom
   const { data: list } = await groupsCol().where({ inviteCode }).get()
   if (list.length === 0) return { ok: false, msg: '邀请码无效', group: null }
   const group = list[0] as any
-  if (group?.inviteEnabled === false) return { ok: false, msg: '邀请已关闭', group: null }
+  if (group && group.inviteEnabled === false) return { ok: false, msg: '邀请已关闭', group: null }
   const { data: members } = await membersCol()
     .where({ groupId: group._id, userId, status: 'normal' })
     .get()

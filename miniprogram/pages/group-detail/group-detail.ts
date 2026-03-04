@@ -6,6 +6,28 @@ import { usersCol, checkinsCol, getTodayStr, getCurrentMonth } from '../../servi
 const app = getApp<IAppOption>()
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
+/** 将云存储 fileID 转换为临时可访问的 HTTP URL */
+async function convertCloudUrl(fileId: string): Promise<string> {
+  if (!fileId) return defaultAvatar
+  if (!fileId.startsWith('cloud://')) return fileId
+  try {
+    const res = await wx.cloud.getTempFileURL({ fileList: [fileId] })
+    if (res.fileList && res.fileList[0]) {
+      // 检查是否有错误
+      if (res.fileList[0].status !== 0) {
+        console.warn('云存储文件获取失败:', res.fileList[0].errMsg || '未知错误')
+        return defaultAvatar  // 返回默认头像
+      }
+      if (res.fileList[0].tempFileURL) {
+        return res.fileList[0].tempFileURL
+      }
+    }
+  } catch (e) {
+    console.warn('转换云存储URL失败', e)
+  }
+  return defaultAvatar  // 转换失败返回默认头像
+}
+
 Component({
   data: {
     groupId: '',
@@ -134,7 +156,7 @@ Component({
             .where({ userId: _.in(batch), date: today })
             .get()
           for (const c of (todayCheckins || []) as any[]) {
-            if (c?.userId) checkedIds.add(c.userId)
+            if (c && c.userId) checkedIds.add(c.userId)
           }
         }
 
@@ -153,22 +175,25 @@ Component({
             console.error('query users error:', e)
           }
           const userMap = new Map(users.map((u: any) => [u.openid, u]))
-          membersWithUser = members.map((m: any) => {
+          membersWithUser = await Promise.all(members.map(async (m: any) => {
             const u = userMap.get(m.userId)
-            let avatarUrl = u?.avatarUrl || defaultAvatar
+            let avatarUrl = (u && u.avatarUrl) || defaultAvatar
             // 如果不是有效的网络头像，使用默认头像
             if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
               avatarUrl = defaultAvatar
+            } else if (avatarUrl.startsWith('cloud://')) {
+              // 转换云存储 URL 为临时 HTTP URL
+              avatarUrl = await convertCloudUrl(avatarUrl)
             }
             return {
               ...m,
               _id: m._id,
-              nickName: u?.nickName || '未知',
+              nickName: (u && u.nickName) || '未知',
               avatarUrl,
               checked: checkedIds.has(m.userId),
               isSelf: m.userId === openid
             }
-          })
+          }))
         }
 
         // 打卡排行 - 统计本月打卡天数

@@ -21,7 +21,7 @@ App<IAppOption>({
       this.globalData.openid = openid
       wx.setStorageSync('openid', openid)
     } catch (e: any) {
-      const msg = e?.errMsg || ''
+      const msg = (e && e.errMsg) || ''
       if (msg.includes('-601034') || msg.includes('没有权限')) {
         wx.showModal({
           title: '请先开通云开发',

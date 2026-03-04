@@ -1,7 +1,7 @@
 // profile.ts
 import { getMyGroups } from '../../services/group'
 import { getCheckinRecordsWithGroup } from '../../services/checkin'
-import { getStreak, getMissStreak, getTotalDays } from '../../services/stats'
+import { getStreak, getMissStreak, getTotalDays, wasCheckedInYesterday } from '../../services/stats'
 import { checkinsCol, membersCol, usersCol, SUBSCRIBE_TEMPLATE_ID, getTodayStr } from '../../services/db'
 import { updateUserInfo } from '../../services/auth'
 
@@ -13,11 +13,14 @@ Component({
     hasUserInfo: false,
     userInfo: {} as any,
     currentGroup: null as any,
+    currentGroupIndex: 0,
+    groups: [] as any[],
     stats: {} as any,
     records: [] as any[],
     showRecordsModal: false,
     showEditModal: false,
     showTimePickerModal: false,
+    showGroupPickerModal: false,
     editingInfo: { nickName: '', avatarUrl: defaultAvatar },
     isSubscribed: false,
     remindTime: '21:00',
@@ -29,7 +32,7 @@ Component({
   methods: {
     init() {
       const ui = wx.getStorageSync('userInfo')
-      if (ui?.nickName && ui?.avatarUrl) {
+      if (ui && ui.nickName && ui.avatarUrl) {
         let avatarUrl = ui.avatarUrl
         // 如果不是有效的网络头像，使用默认头像
         if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
@@ -48,8 +51,8 @@ Component({
       try {
         const { data: users } = await usersCol().where({ openid }).get()
         const user = users[0] as any
-        const isSubscribed = user?.subscribeRemindEnabled === true
-        const remindTime = user?.remindTime || '21:00'
+        const isSubscribed = (user && user.subscribeRemindEnabled) === true
+        const remindTime = (user && user.remindTime) || '21:00'
         this.setData({ isSubscribed, remindTime })
       } catch (e) {
         console.error('loadSubscriptionStatus error', e)
@@ -62,6 +65,7 @@ Component({
       try {
         const groups = await getMyGroups(openid)
         const cur = groups.find((g: any) => g._id === gid) || groups[0] || null
+        const currentGroupIndex = groups.findIndex((g: any) => g._id === (cur && cur._id))
         let stats = {}
         if (cur) {
           const [streak, totalDays, missStreak] = await Promise.all([
@@ -71,7 +75,36 @@ Component({
           ])
           stats = { streak, totalDays, missStreak }
         }
-        this.setData({ currentGroup: cur, stats })
+        this.setData({ currentGroup: cur, stats, groups, currentGroupIndex })
+      } catch (e) {
+        console.error(e)
+      }
+    },
+    // 切换群组
+    onGroupChange(e: any) {
+      const groupIndex = parseInt(e.detail.value)
+      const group = this.data.groups[groupIndex]
+      if (!group) return
+      this.setData({
+        currentGroup: group,
+        currentGroupIndex: groupIndex,
+      })
+      // 更新全局当前群组
+      app.globalData.currentGroupId = group._id
+      // 重新加载统计数据
+      this.loadStats()
+    },
+    async loadStats() {
+      const openid = app.globalData.openid
+      const gid = this.data.currentGroup && this.data.currentGroup._id
+      if (!openid || !gid) return
+      try {
+        const [streak, totalDays, missStreak] = await Promise.all([
+          getStreak(openid, gid),
+          getTotalDays(openid, gid),
+          getMissStreak(openid, gid),
+        ])
+        this.setData({ stats: { streak, totalDays, missStreak } })
       } catch (e) {
         console.error(e)
       }
@@ -253,8 +286,19 @@ Component({
       }
     },
     async genRemindCopy() {
-      const gid = this.data.currentGroup?._id
-      if (!gid) { wx.showToast({ title: '请先选择小组', icon: 'none' }); return }
+      // 先弹出群组选择弹窗
+      this.setData({ showGroupPickerModal: true })
+    },
+    onSelectGroupForCopy(e: any) {
+      const groupIndex = parseInt(e.currentTarget.dataset.index)
+      const group = this.data.groups[groupIndex]
+      this.setData({ showGroupPickerModal: false })
+      this.doGenRemindCopy(group._id)
+    },
+    hideGroupPickerModal() {
+      this.setData({ showGroupPickerModal: false })
+    },
+    async doGenRemindCopy(gid: string) {
       try {
         const today = getTodayStr()
         const { data: members } = await membersCol().where({ groupId: gid, status: 'normal' }).get()
@@ -267,23 +311,32 @@ Component({
           const batch = userIds.slice(i, i + batchSize)
           const { data: checked } = await checkinsCol().where({ userId: _.in(batch), date: today }).get()
           for (const c of (checked || []) as any[]) {
-            if (c?.userId) checkedSet.add(c.userId)
+            if (c && c.userId) checkedSet.add(c.userId)
           }
         }
         const missList: any[] = []
         for (const m of members || []) {
           if (!checkedSet.has(m.userId)) {
             const { data: u } = await usersCol().where({ openid: m.userId }).get()
-            const nick = (u?.[0] as any)?.nickName || '未知'
-            const missDays = await (await import('../../services/stats')).getMissStreak(m.userId, gid)
-            missList.push({ nick, missDays })
+            const nick = ((u && u[0]) as any && (u[0] as any).nickName) || '未知'
+            const missDays = await getMissStreak(m.userId, gid)
+            const wasYesterday = await wasCheckedInYesterday(m.userId)
+            const streak = wasYesterday ? await getStreak(m.userId, gid) : 0
+            missList.push({ nick, missDays, wasYesterday, streak })
           }
         }
         if (missList.length === 0) {
           wx.showToast({ title: '今日全员已打卡' })
           return
         }
-        const txt = missList.map(x => `@${x.nick} 已连续${x.missDays}天未打卡`).join('，')
+        // 生成文案：昨天打卡→显示连续天数+断掉风险；昨天未打卡→显示未打卡+鼓励
+        const txt = missList.map(x => {
+          if (x.wasYesterday && x.streak > 0) {
+            return `@${x.nick} 已经连续运动${x.streak}天，今天还不运动会断掉连胜哦`
+          } else {
+            return `@${x.nick} 已连续${x.missDays}天未运动了，快快运动起来吧`
+          }
+        }).join('，')
         wx.setClipboardData({ data: txt, success: () => wx.showToast({ title: '已复制' }) })
       } catch (e) {
         wx.showToast({ title: '生成失败', icon: 'none' })
