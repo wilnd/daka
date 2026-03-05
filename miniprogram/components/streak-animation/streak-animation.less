@@ -1,0 +1,211 @@
+// streak-animation.less
+.streak-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+// 彩色纸屑
+.confetti-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti {
+  position: absolute;
+  top: -20rpx;
+  border-radius: 2rpx;
+  animation: confettiFall linear forwards;
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+// 火焰动画
+.flame-container {
+  position: absolute;
+  bottom: 28%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.flame {
+  width: 40rpx;
+  height: 60rpx;
+  background: linear-gradient(to top, #ff6b6b, #ffd700, transparent);
+  border-radius: 50% 50% 20% 20%;
+  margin: 0 4rpx;
+  animation: flame 0.5s ease-in-out infinite alternate;
+  opacity: 0;
+}
+
+.flame-1 {
+  animation-delay: 0s;
+  height: 80rpx;
+}
+
+.flame-2 {
+  animation-delay: 0.1s;
+  height: 60rpx;
+}
+
+.flame-3 {
+  animation-delay: 0.2s;
+  height: 50rpx;
+}
+
+@keyframes flame {
+  0% {
+    transform: scaleY(1) scaleX(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scaleY(1.2) scaleX(0.8);
+    opacity: 1;
+  }
+}
+
+// 连胜数字
+.streak-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.streak-number.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.streak-text {
+  font-size: 180rpx;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 
+    0 0 20rpx rgba(255, 215, 0, 0.8),
+    0 0 40rpx rgba(255, 215, 0, 0.6),
+    0 0 60rpx rgba(255, 215, 0, 0.4),
+    4rpx 4rpx 0 #ff6b6b,
+    -4rpx -4rpx 0 #ff6b6b;
+  line-height: 1;
+}
+
+.streak-suffix {
+  font-size: 80rpx;
+  margin-left: 10rpx;
+  animation: pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.2);
+  }
+}
+
+// 星星闪烁
+.sparkles {
+  position: absolute;
+  top: 25%;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.sparkle {
+  position: absolute;
+  font-size: 48rpx;
+  opacity: 0;
+  animation: sparkle 1s ease-in-out infinite;
+}
+
+.sparkle-1 {
+  left: 20%;
+  animation-delay: 0s;
+}
+
+.sparkle-2 {
+  left: 35%;
+  animation-delay: 0.2s;
+}
+
+.sparkle-3 {
+  left: 50%;
+  transform: translateX(-50%);
+  animation-delay: 0.4s;
+}
+
+.sparkle-4 {
+  right: 35%;
+  animation-delay: 0.1s;
+}
+
+.sparkle-5 {
+  right: 20%;
+  animation-delay: 0.3s;
+}
+
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.5) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(180deg);
+  }
+}
+
+// 提示文字
+.streak-message {
+  position: absolute;
+  bottom: 18%;
+  font-size: 36rpx;
+  color: #fff;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(20rpx);
+  transition: all 0.5s ease-out;
+}
+
+.streak-message.show {
+  opacity: 1;
+  transform: translateY(0);
+}

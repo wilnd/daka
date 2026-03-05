@@ -26,6 +26,8 @@ export interface CheckinContent {
   isPublishToMoments: boolean
   /** 运动类型 */
   sportType?: string
+  /** 朋友圈可见范围：'' 或空表示所有群组可见，指定 groupId 表示仅指定群组可见 */
+  momentsGroupId?: string
 }
 
 /** 评分结果 */
@@ -91,12 +93,13 @@ export async function doCheckinWithContent(
   }
 
   const now = new Date()
+  const momentsGroupId = content?.momentsGroupId || ''
   const { _id: checkinId } = await checkinsCol().add({
-    data: { 
-      userId, 
+    data: {
+      userId,
       groupId,
-      date: today, 
-      isMakeup: false, 
+      date: today,
+      isMakeup: false,
       createTime: now,
       content: content || null,
       score: score || null
@@ -104,12 +107,15 @@ export async function doCheckinWithContent(
   })
 
   // 如果需要发布到朋友圈，自动发布
+  // momentsGroupId 表示朋友圈可见范围：'' 表示所有群组可见，指定 groupId 表示仅指定群组可见
   if (content && content.isPublishToMoments && (content.text || (content.photos && content.photos.length > 0))) {
+    // 使用 momentsGroupId，如果未指定则为空字符串（表示全局可见）
+    const momentsGroupId = content.momentsGroupId || ''
     try {
       await momentsCol().add({
         data: {
           userId,
-          groupId,
+          groupId: momentsGroupId, // 可能是空字符串（全局可见）或指定群组（仅该群组可见）
           checkinId,
           content: {
             photos: content.photos || [],
@@ -189,11 +195,13 @@ export async function updateTodayCheckinWithContent(
         score: (score && score.totalScore),
         tags: (score && score.tags) || []
       }
+      // 使用 momentsGroupId，如果未指定则为空字符串（表示全局可见）
+      const momentsGroupId = content.momentsGroupId || ''
 
       if (moment && moment._id) {
         await momentsCol().doc((moment as any)._id).update({
           data: {
-            groupId,
+            groupId: momentsGroupId, // 可能是空字符串（全局可见）或指定群组
             content: momentContent,
             updateTime: now
           } as any
@@ -202,7 +210,7 @@ export async function updateTodayCheckinWithContent(
         await momentsCol().add({
           data: {
             userId,
-            groupId,
+            groupId: '', // 空字符串表示全局动态
             checkinId: existing._id,
             content: momentContent,
             likeCount: 0,

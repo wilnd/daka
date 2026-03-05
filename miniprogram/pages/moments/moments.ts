@@ -162,7 +162,7 @@ Page({
     }
   },
 
-  async loadMoments() {
+  async loadMoments(groupId?: string) {
     // 兜底：有些场景 globalData 还没恢复，但本地缓存已存在
     const cachedOpenid = wx.getStorageSync('openid')
     if (!app.globalData.openid && cachedOpenid) {
@@ -170,8 +170,10 @@ Page({
     }
     const openid = app.globalData.openid
     if (!openid) return
-    
-    const { currentGroupId, loading, noMore } = this.data
+
+    // 如果传入了 groupId 则使用，否则使用 data 中的
+    const currentGroupId = groupId || this.data.currentGroupId
+    const { loading, noMore } = this.data
     if (!currentGroupId) return
     if (loading || noMore) return
 
@@ -293,13 +295,16 @@ Page({
   onGroupChange(e: any) {
     const groupIndex = e.detail.value
     const groupId = (this.data.groups[groupIndex] && this.data.groups[groupIndex]._id) || ''
+    if (!groupId) return
+
     this.setData({
       currentGroupId: groupId,
       currentGroupIndex: groupIndex,
       moments: [],
       noMore: false
     })
-    this.loadMoments()
+    // 直接传递 groupId 给 loadMoments，确保使用正确的群组 ID
+    this.loadMoments(groupId)
   },
 
   // 显示切换群组弹窗
@@ -335,7 +340,8 @@ Page({
       moments: [],
       noMore: false
     })
-    this.loadMoments()
+    // 直接传递 groupId 给 loadMoments，确保使用正确的群组 ID
+    this.loadMoments(groupId)
   },
 
   // 设置默认群组

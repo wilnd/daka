@@ -64,7 +64,7 @@ export async function getStreak(userId: string, groupId: string): Promise<number
   return streak
 }
 
-/** 计算连续未打卡天数 */
+/** 计算连续未打卡天数（只算到昨天为止，今天未打卡不算） */
 export async function getMissStreak(
   userId: string,
   groupId: string
@@ -76,7 +76,8 @@ export async function getMissStreak(
   }
   const checkedDates = new Set(checkins.map((c) => c.date))
   let miss = 0
-  let d = getTodayStr()
+  // 从昨天开始计算连续未打卡，不包含今天
+  let d = getDateBefore(getTodayStr(), 1)
   for (let i = 0; i < 365; i++) {
     if (!checkedDates.has(d)) {
       miss++

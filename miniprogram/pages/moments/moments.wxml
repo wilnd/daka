@@ -1,13 +1,15 @@
 <navigation-bar title="朋友圈" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
 <scroll-view class="page" scroll-y refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="refreshMoments">
   <!-- 群组选择器 -->
-  <view class="group-selector" wx:if="{{groups.length > 1}}">
-    <picker range="{{groups}}" range-key="name" value="{{currentGroupIndex}}" bindchange="onGroupChange">
-      <view class="current-group-name">
-        <text>{{currentGroupId ? (groups[currentGroupIndex].name || '请选择') : '请选择'}}</text>
-        <text class="arrow">▼</text>
-      </view>
-    </picker>
+  <view class="group-header" wx:if="{{groups.length > 1}}">
+    <view class="group-selector">
+      <picker range="{{groups}}" range-key="name" value="{{currentGroupIndex}}" bindchange="onGroupChange">
+        <view class="selector-content">
+          <text class="current-group-name">{{currentGroupId ? (groups[currentGroupIndex].name || '请选择') : '请选择'}}</text>
+          <text class="arrow">▼</text>
+        </view>
+      </picker>
+    </view>
   </view>
 
   <!-- 加载中 -->

@@ -1,0 +1,44 @@
+<view class="poster-overlay" wx:if="{{visible}}" catchtap="onClose">
+  <view class="poster-container" catchtap="preventTap">
+    <view class="poster-header">
+      <text class="title">分享到朋友圈</text>
+      <view class="close-btn" bindtap="onClose">×</view>
+    </view>
+
+    <view class="poster-content">
+      <canvas 
+        canvas-id="poster-canvas" 
+        class="poster-canvas"
+        style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
+      ></canvas>
+      <image 
+        wx:if="{{posterUrl}}" 
+        src="{{posterUrl}}" 
+        mode="aspectFit" 
+        class="poster-image"
+      ></image>
+    </view>
+
+    <view class="poster-actions">
+      <button 
+        class="action-btn save-btn"
+        bindtap="onShareToFriends"
+        wx:if="{{posterUrl}}"
+      >
+        保存到相册
+      </button>
+      <button 
+        class="action-btn timeline-btn"
+        open-type="share"
+        bindtap="onShareTimeline"
+      >
+        分享给朋友
+      </button>
+    </view>
+
+    <view class="poster-tips">
+      <text>保存图片后，打开微信朋友圈</text>
+      <text>点击右上角「...」选择相册图片发布</text>
+    </view>
+  </view>
+</view>

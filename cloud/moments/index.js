@@ -47,7 +47,7 @@ exports.main = async (event, context) => {
       const key = u.openid || u._openid
       if (!key) continue
       // 如果同一个 key 出现两份，优先选择带 openid 的那份
-      if (!map.has(key) || (u.openid && !map.get(key)?.openid)) {
+      if (!map.has(key) || (u.openid && map.get(key) && !map.get(key).openid)) {
         map.set(key, u)
       }
     }
@@ -58,8 +58,14 @@ exports.main = async (event, context) => {
     switch (action) {
       case 'getMoments': {
         // 获取用户在某个群组的朋友圈列表（带发布者信息）
+        // 同时返回：1. 当前群组专属动态 2. 全局动态（groupId 为空，表示所有群组可见）
+        const _ = db.command
         let query = db.collection('moments')
-          .where({ groupId })
+          .where(_.or(
+            { groupId },  // 当前群组的动态
+            { groupId: '' },  // 全局动态（所有群组可见）
+            { groupId: _.eq(null) }  // 兼容 null 的全局动态
+          ))
           .orderBy('createTime', 'desc')
           .limit(limit)
 
@@ -68,10 +74,11 @@ exports.main = async (event, context) => {
             const lastMoment = await db.collection('moments').doc(lastId).get()
             if (lastMoment.data) {
               query = db.collection('moments')
-                .where({
-                  groupId,
-                  createTime: _.lt(lastMoment.data.createTime)
-                })
+                .where(_.or(
+                  { groupId },  // 当前群组的动态
+                  { groupId: '' },  // 全局动态
+                  { groupId: _.eq(null) }  // 兼容 null
+                ))
                 .orderBy('createTime', 'desc')
                 .limit(limit)
             }
@@ -85,9 +92,31 @@ exports.main = async (event, context) => {
           return { success: true, data: [] }
         }
 
-        // 获取群组信息
-        const { data: group } = await db.collection('groups').doc(groupId).get()
-        const groupName = group?.name || ''
+        // 获取当前群组信息
+        let currentGroupName = ''
+        try {
+          const { data: group } = await db.collection('groups').doc(groupId).get()
+          currentGroupName = group && group.name ? group.name : ''
+        } catch (e) {
+          // ignore
+        }
+
+        // 收集所有相关的群组 ID（包括当前群组和动态本身的群组），用于获取群组名称
+        const allGroupIds = [...new Set(moments.map(m => m.groupId).filter(gid => gid && gid !== ''))]
+        if (!allGroupIds.includes(groupId)) {
+          allGroupIds.push(groupId)
+        }
+
+        // 批量获取群组名称
+        const groupNameMap = new Map()
+        if (allGroupIds.length > 0) {
+          const { data: groups } = await db.collection('groups')
+            .where({ _id: _.in(allGroupIds) })
+            .get()
+          for (const g of groups) {
+            groupNameMap.set(g._id, g.name || '')
+          }
+        }
 
         // 获取当前用户对每条朋友圈的点赞状态
         const { data: likes } = await db.collection('momentLikes')
@@ -120,9 +149,14 @@ exports.main = async (event, context) => {
               userInfo: pickUserInfo(userMap.get(c.userId))
             }))
 
+          // 全局动态（groupId 为空或 null）不显示群组名称
+          // 专属动态显示其实际所属的群组名称
+          const isGlobalMoment = !moment.groupId || moment.groupId === ''
+          const momentGroupName = isGlobalMoment ? '' : (groupNameMap.get(moment.groupId) || '')
+
           return {
             ...moment,
-            groupName,
+            groupName: momentGroupName,
             userInfo: pickUserInfo(userInfo),
             isLiked: likedSet.has(moment._id),
             comments: momentComments
@@ -369,7 +403,7 @@ exports.main = async (event, context) => {
 
           return {
             ...moment,
-            groupName: groupInfo?.name || '',
+            groupName: groupInfo && groupInfo.name ? groupInfo.name : '',
             userInfo: pickUserInfo(userInfo),
             isLiked: likedSet.has(moment._id)
           }
@@ -490,7 +524,7 @@ exports.main = async (event, context) => {
 
           return {
             ...moment,
-            groupName: groupMap.get(moment.groupId)?.name || '',
+            groupName: groupMap.get(moment.groupId) && groupMap.get(moment.groupId).name ? groupMap.get(moment.groupId).name : '',
             userInfo: pickUserInfo(userInfo),
             isLiked: likedSet.has(moment._id),
             comments: momentComments

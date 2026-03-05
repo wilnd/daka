@@ -3,31 +3,34 @@
   background-color: #f5f5f5;
 }
 
-.group-selector {
+.group-header {
   position: sticky;
   top: 0;
   z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #2E8B57;
-  border-radius: 30rpx;
-  padding: 20rpx 30rpx;
-  margin-bottom: 16rpx;
+  margin-bottom: 32rpx;
+  padding-top: 16rpx;
 }
 
-.current-group-name {
-  display: flex;
-  align-items: center;
-  color: #fff;
-  font-size: 28rpx;
-  font-weight: 500;
-}
-
-.arrow {
-  color: #fff;
-  margin-left: 8rpx;
-  font-size: 20rpx;
+.group-selector {
+  width: 100%;
+  .selector-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #2E8B57;
+    border-radius: 30rpx;
+    padding: 20rpx 30rpx;
+    .current-group-name {
+      color: #fff;
+      font-size: 28rpx;
+      font-weight: 500;
+    }
+    .arrow {
+      color: #fff;
+      font-size: 20rpx;
+      margin-left: 8rpx;
+    }
+  }
 }
 
 .loading-wrap {

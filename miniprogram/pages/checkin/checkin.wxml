@@ -55,11 +55,27 @@
         <text class="label">发布到朋友圈</text>
         <text class="desc">开启后朋友圈可见</text>
       </view>
-      <switch 
-        checked="{{isPublishToMoments}}" 
+      <switch
+        checked="{{isPublishToMoments}}"
         color="#2E8B57"
         bindchange="onToggleMomentsPublish"
       />
+    </view>
+
+    <!-- 朋友圈可见范围 -->
+    <view class="form-item" wx:if="{{isPublishToMoments && momentsGroupRange.length > 1}}">
+      <text class="label">朋友圈可见</text>
+      <picker
+        range="{{momentsGroupRange}}"
+        range-key="name"
+        value="{{momentsGroupIndex}}"
+        bindchange="onMomentsGroupChange"
+      >
+        <view class="picker-value">
+          <text>{{momentsGroupName || '所有群组'}}</text>
+          <text class="arrow">></text>
+        </view>
+      </picker>
     </view>
   </view>
 
@@ -74,3 +90,17 @@
     </button>
   </view>
 </view>
+
+<!-- 连胜动画 -->
+<streak-animation 
+  visible="{{showStreakAnimation}}" 
+  streak="{{currentStreak}}"
+  bind:complete="onStreakAnimationComplete"
+/>
+
+<!-- 分享海报 -->
+<share-poster 
+  visible="{{showSharePoster}}" 
+  checkinData="{{checkinResult}}"
+  bind:close="onClosePoster"
+/>

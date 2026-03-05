@@ -1,0 +1,49 @@
+<view class="streak-overlay" wx:if="{{visible}}" catchtap="preventTap">
+  <!-- 彩色纸屑 -->
+  <view class="confetti-container">
+    <view 
+      wx:for="{{particles}}" 
+      wx:key="id"
+      class="confetti"
+      style="
+        left: {{item.left}}%;
+        background-color: {{item.color}};
+        animation-delay: {{item.delay}}s;
+        animation-duration: {{item.duration}}s;
+        width: {{item.size}}rpx;
+        height: {{item.size}}rpx;
+        transform: rotate({{item.rotate}}deg);
+      "
+    ></view>
+  </view>
+
+  <!-- 火焰动画 -->
+  <view class="flame-container" wx:if="{{showFlame}}">
+    <view class="flame flame-1"></view>
+    <view class="flame flame-2"></view>
+    <view class="flame flame-3"></view>
+  </view>
+
+  <!-- 连胜数字 -->
+  <view class="streak-number {{showStreakNumber ? 'show' : ''}}">
+    <text class="streak-text">{{streak}}</text>
+    <text class="streak-suffix" wx:if="{{streak >= 7}}">🔥</text>
+  </view>
+
+  <!-- 星星闪烁 -->
+  <view class="sparkles" wx:if="{{showSparkles}}">
+    <view class="sparkle sparkle-1">✨</view>
+    <view class="sparkle sparkle-2">⭐</view>
+    <view class="sparkle sparkle-3">🌟</view>
+    <view class="sparkle sparkle-4">✨</view>
+    <view class="sparkle sparkle-5">⭐</view>
+  </view>
+
+  <!-- 提示文字 -->
+  <view class="streak-message {{showStreakNumber ? 'show' : ''}}">
+    <text wx:if="{{streak === 1}}">开始你的连胜之旅！</text>
+    <text wx:elif="{{streak < 7}}">继续保持！</text>
+    <text wx:elif="{{streak < 30}}">太棒了！{{streak}}天连胜！</text>
+    <text wx:else>{{streak}}天超级连胜！</text>
+  </view>
+</view>
