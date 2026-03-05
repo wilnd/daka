@@ -2,10 +2,29 @@
 import { getOrCreateUser, getOpenid } from '../../services/auth'
 import { getMyGroups } from '../../services/group'
 import { doCheckinWithContent, isCheckedToday } from '../../services/checkin'
-import { getStreak, getMissStreak, getTotalDays, getDayRank, getWeekRank, getMonthRank, RankUser } from '../../services/stats'
+import { getStreak, getMissStreak, getTotalDays, getTotalCount, getDayRank, getWeekRank, getMonthRank, RankUser } from '../../services/stats'
+import { getYesterdayCheckin } from '../../services/theme'
 
-const app = getApp<IAppOption>()
+const app = getApp() as IAppOption
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
+
+/** 本地缓存的群组列表 key */
+const GROUPS_CACHE_KEY = 'cachedGroups'
+
+/** 从本地缓存获取群组列表 */
+function getCachedGroups(): any[] {
+  try {
+    const cached = wx.getStorageSync(GROUPS_CACHE_KEY)
+    return cached || []
+  } catch {
+    return []
+  }
+}
+
+/** 保存群组列表到本地缓存 */
+function setCachedGroups(groups: any[]): void {
+  wx.setStorageSync(GROUPS_CACHE_KEY, groups)
+}
 
 /** 将云存储 fileID 转换为临时可访问的 HTTP URL */
 async function convertCloudUrl(fileId: string): Promise<string> {
@@ -68,19 +87,35 @@ Component({
     currentGroup: null as any,
     groups: [] as any[],
     checkedToday: false,
-    stats: null as { streak: number; totalDays: number; missStreak: number } | null,
+    stats: null as { streak: number; totalDays: number; totalCount: number; missStreak: number } | null,
     loading: false,
     checkinAnimating: false,
     // 排行榜
     rankType: 'day' as 'day' | 'week' | 'month',
     rankList: [] as RankUser[],
     rankLoading: false,
+    // 动态主题色
+    themeColor: '#34A853',
+    // 定时刷新
+    rankTimer: null as any,
   },
   lifetimes: {
     attached() {
       this.init()
+      // 启动排行榜定时刷新（每5秒）
+      this.startRankAutoRefresh()
     },
+    detached() {
+      // 页面销毁时清除定时器
+      this.stopRankAutoRefresh()
+    },
+  },
+  pageLifetimes: {
     show() {
+      // 同步主题色
+      this.setData({
+        themeColor: app.globalData.themeColor
+      })
       // 每次页面显示时都强制刷新数据，确保补卡后能更新
       this.loadData(true)
     },
@@ -139,9 +174,30 @@ Component({
         return
       }
 
+      // 优先从本地缓存加载群组列表
+      const cachedGroups = getCachedGroups()
+      if (cachedGroups.length > 0) {
+        const defaultGroupId = wx.getStorageSync('defaultGroupId')
+        const globalGroupId = app.globalData.currentGroupId
+        let cur = cachedGroups.find((g: any) => g._id === defaultGroupId)
+          || cachedGroups.find((g: any) => g._id === globalGroupId)
+          || cachedGroups[0]
+          || null
+        if (cur) {
+          this.setData({
+            groups: cachedGroups,
+            currentGroup: cur,
+          })
+        }
+      }
+
       this.setData({ loading: true })
       try {
+        // 从服务器获取最新群组列表
         const groups = await getMyGroups(openid)
+        // 保存到本地缓存
+        setCachedGroups(groups)
+
         // 优先使用本地存储的默认群组ID，否则使用全局选中的，再否则使用第一个加入的群组
         const defaultGroupId = wx.getStorageSync('defaultGroupId')
         const globalGroupId = app.globalData.currentGroupId
@@ -159,15 +215,20 @@ Component({
         let rankList: RankUser[] = []
         if (cur) {
           checkedToday = await isCheckedToday(openid, cur._id)
-          const [streak, totalDays, missStreak] = await Promise.all([
+          const [streak, totalDays, totalCount, missStreak] = await Promise.all([
             getStreak(openid, cur._id),
             getTotalDays(openid, cur._id),
+            getTotalCount(openid, cur._id),
             getMissStreak(openid, cur._id),
           ])
-          stats = { streak, totalDays, missStreak }
+          stats = { streak, totalDays, totalCount, missStreak }
           rankList = await getDayRank(cur._id)
           // 转换排行榜头像 URL
           rankList = await convertRankAvatarUrls(rankList)
+
+          // 更新全局主题
+          const checkedYesterday = await getYesterdayCheckin(openid)
+          app.updateTheme(checkedToday, checkedYesterday)
         }
         this.setData({
           groups,
@@ -176,6 +237,7 @@ Component({
           stats,
           rankList,
           loading: false,
+          themeColor: app.globalData.themeColor,
         })
       } catch (e) {
         console.error(e)
@@ -245,14 +307,48 @@ Component({
     },
     goCreateGroup() {
       this.setData({ showSwitchModal: false })
-      wx.navigateTo({ url: '/pages/group/group' })
+      wx.switchTab({ url: '/pages/group/group' })
     },
     goJoinGroup() {
       this.setData({ showSwitchModal: false })
-      wx.navigateTo({ url: '/pages/group/group?tab=join' })
+      // 设置标志位，通知小组页面打开加入弹窗
+      const app = getApp() as IAppOption
+      app.globalData.shouldOpenJoinModal = true
+      wx.switchTab({ url: '/pages/group/group' })
     },
     hideSwitchGroup() { this.setData({ showSwitchModal: false }) },
     stopPropagation() {},
+    // 启动排行榜定时刷新
+    startRankAutoRefresh() {
+      this.stopRankAutoRefresh()
+      this.data.rankTimer = setInterval(() => {
+        this.refreshRankList()
+      }, 5000)
+    },
+    // 停止排行榜定时刷新
+    stopRankAutoRefresh() {
+      if (this.data.rankTimer) {
+        clearInterval(this.data.rankTimer)
+        this.data.rankTimer = null
+      }
+    },
+    // 刷新排行榜数据
+    async refreshRankList() {
+      const { currentGroup, rankType } = this.data
+      if (!currentGroup) return
+
+      try {
+        let rankList: RankUser[] = []
+        if (rankType === 'day') rankList = await getDayRank(currentGroup._id)
+        else if (rankType === 'week') rankList = await getWeekRank(currentGroup._id)
+        else rankList = await getMonthRank(currentGroup._id)
+        // 转换排行榜头像 URL
+        rankList = await convertRankAvatarUrls(rankList)
+        this.setData({ rankList })
+      } catch (e) {
+        console.error('刷新排行榜失败', e)
+      }
+    },
     async switchRank(e: any) {
       const type = e.currentTarget.dataset.type as 'day' | 'week' | 'month'
       if (!this.data.currentGroup) return
@@ -305,29 +401,16 @@ Component({
       this.loadData()
     },
     async onCheckin() {
-      const { currentGroup, checkinAnimating, checkedToday, groups } = this.data
+      const { currentGroup, checkinAnimating, groups } = this.data
       if (checkinAnimating) return
 
       // 构建打卡URL，可选传入当前选中的小组用于排名对比
       const groupId = currentGroup ? currentGroup._id : (groups[0] ? groups[0]._id : '')
       const groupName = currentGroup ? currentGroup.name : (groups[0] ? groups[0].name : '')
 
+      // 支持多次打卡，始终使用创建模式
       wx.navigateTo({
-        url: checkedToday
-          ? `/pages/checkin/checkin?mode=edit&groupId=${groupId}&groupName=${encodeURIComponent(groupName)}`
-          : `/pages/checkin/checkin?groupId=${groupId}&groupName=${encodeURIComponent(groupName)}`
-      })
-    },
-
-    onUpdateCheckin() {
-      const { currentGroup, checkedToday, checkinAnimating, groups } = this.data
-      if (!checkedToday || checkinAnimating) return
-
-      const groupId = currentGroup ? currentGroup._id : (groups[0] ? groups[0]._id : '')
-      const groupName = currentGroup ? currentGroup.name : (groups[0] ? groups[0].name : '')
-
-      wx.navigateTo({
-        url: `/pages/checkin/checkin?mode=edit&groupId=${groupId}&groupName=${encodeURIComponent(groupName)}`
+        url: `/pages/checkin/checkin?groupId=${groupId}&groupName=${encodeURIComponent(groupName)}`
       })
     },
     // 查看用户朋友圈

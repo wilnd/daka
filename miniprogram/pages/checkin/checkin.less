@@ -1,24 +1,33 @@
+@import '../../styles/theme.less';
+
 .page {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: @color-bg-page;
   padding-bottom: 120rpx;
 }
 
 .form {
-  background-color: #fff;
+  background-color: @color-white;
   padding: 0 30rpx;
+  border-radius: @radius-xl;
+  margin: @spacing-lg;
+  box-shadow: @shadow-sm;
 }
 
 .form-item {
   padding: 30rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid @color-border-light;
   position: relative;
+
+  &:last-child {
+    border-bottom: none;
+  }
 }
 
 .label {
   font-size: 28rpx;
-  color: #333;
-  font-weight: 500;
+  color: @color-text-title;
+  font-weight: @font-weight-medium;
   display: block;
   margin-bottom: 20rpx;
 }
@@ -28,12 +37,12 @@
   justify-content: space-between;
   align-items: center;
   font-size: 28rpx;
-  color: #666;
+  color: @color-text-body;
   padding: 15rpx 0;
 }
 
 .arrow {
-  color: #ccc;
+  color: @color-text-hint;
   font-size: 24rpx;
 }
 
@@ -41,7 +50,7 @@
   width: 100%;
   min-height: 200rpx;
   font-size: 28rpx;
-  color: #333;
+  color: @color-text-title;
   line-height: 1.6;
 }
 
@@ -50,7 +59,7 @@
   right: 0;
   bottom: 35rpx;
   font-size: 24rpx;
-  color: #999;
+  color: @color-text-hint;
 }
 
 .photos-grid {
@@ -64,7 +73,7 @@
   height: 160rpx;
   margin-right: 20rpx;
   margin-bottom: 20rpx;
-  border-radius: 12rpx;
+  border-radius: @radius-md;
   overflow: hidden;
   position: relative;
 }
@@ -85,7 +94,7 @@
   width: 36rpx;
   height: 36rpx;
   background-color: rgba(0, 0, 0, 0.5);
-  color: #fff;
+  color: @color-white;
   border-radius: 50%;
   font-size: 28rpx;
   display: flex;
@@ -96,23 +105,23 @@
 .add-photo {
   width: 160rpx;
   height: 160rpx;
-  background-color: #f5f5f5;
-  border-radius: 12rpx;
+  background-color: @color-bg-page;
+  border-radius: @radius-md;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 2rpx dashed #ddd;
+  border: 2rpx dashed @color-border;
 }
 
 .add-photo .plus {
   font-size: 48rpx;
-  color: #999;
+  color: @color-text-hint;
 }
 
 .add-photo .desc {
   font-size: 22rpx;
-  color: #999;
+  color: @color-text-hint;
   margin-top: 8rpx;
 }
 
@@ -132,7 +141,7 @@
 
 .switch-left .desc {
   font-size: 24rpx;
-  color: #999;
+  color: @color-text-hint;
 }
 
 .submit-bar {
@@ -142,21 +151,28 @@
   right: 0;
   padding: 20rpx 30rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
-  background-color: #fff;
+  background-color: @color-white;
   box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
 }
 
 .submit-btn {
   width: 100%;
   height: 88rpx;
-  background-color: #2E8B57;
-  color: #fff;
+  background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+  color: @color-white;
   font-size: 32rpx;
-  font-weight: 500;
-  border-radius: 44rpx;
+  font-weight: @font-weight-medium;
+  border-radius: @radius-full;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: @shadow-primary;
+  transition: all 0.3s ease;
+
+  &:active {
+    transform: scale(0.98);
+    box-shadow: @shadow-sm;
+  }
 }
 
 .submit-btn.disabled {

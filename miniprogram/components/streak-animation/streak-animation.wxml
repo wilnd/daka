@@ -5,15 +5,7 @@
       wx:for="{{particles}}" 
       wx:key="id"
       class="confetti"
-      style="
-        left: {{item.left}}%;
-        background-color: {{item.color}};
-        animation-delay: {{item.delay}}s;
-        animation-duration: {{item.duration}}s;
-        width: {{item.size}}rpx;
-        height: {{item.size}}rpx;
-        transform: rotate({{item.rotate}}deg);
-      "
+      style="left: {{item.left}}%; background-color: {{item.color}}; animation-delay: {{item.delay}}s; animation-duration: {{item.duration}}s; width: {{item.size}}rpx; height: {{item.size}}rpx; transform: rotate({{item.rotate}}deg); opacity: {{item.opacity}};"
     ></view>
   </view>
 
@@ -26,8 +18,16 @@
 
   <!-- 连胜数字 -->
   <view class="streak-number {{showStreakNumber ? 'show' : ''}}">
-    <text class="streak-text">{{streak}}</text>
+    <text class="streak-text">{{displayStreak}}</text>
     <text class="streak-suffix" wx:if="{{streak >= 7}}">🔥</text>
+  </view>
+
+  <!-- 徽章 -->
+  <view class="badge-container {{showBadge ? 'show' : ''}}" wx:if="{{badge}}">
+    <view class="badge" style="background: linear-gradient(135deg, {{badge.color}}, {{badge.color}}99);">
+      <text class="badge-icon">{{badge.icon}}</text>
+    </view>
+    <text class="badge-name">{{badge.name}}</text>
   </view>
 
   <!-- 星星闪烁 -->
@@ -37,13 +37,21 @@
     <view class="sparkle sparkle-3">🌟</view>
     <view class="sparkle sparkle-4">✨</view>
     <view class="sparkle sparkle-5">⭐</view>
+    <view class="sparkle sparkle-6">🌟</view>
   </view>
 
   <!-- 提示文字 -->
-  <view class="streak-message {{showStreakNumber ? 'show' : ''}}">
-    <text wx:if="{{streak === 1}}">开始你的连胜之旅！</text>
-    <text wx:elif="{{streak < 7}}">继续保持！</text>
-    <text wx:elif="{{streak < 30}}">太棒了！{{streak}}天连胜！</text>
-    <text wx:else>{{streak}}天超级连胜！</text>
+  <view class="streak-message {{showMessage ? 'show' : ''}}">
+    <text wx:if="{{streak === 1}}">恭喜完成今日打卡！</text>
+    <text wx:elif="{{streak < 7}}">再接再厉，继续保持！</text>
+    <text wx:elif="{{streak < 14}}">太棒了！{{streak}}天连续打卡！</text>
+    <text wx:elif="{{streak < 30}}">厉害！{{streak}}天坚持不懈！</text>
+    <text wx:elif="{{streak < 100}}">惊人！{{streak}}天超级连胜！</text>
+    <text wx:else>传奇！{{streak}}天永恒坚持！</text>
+  </view>
+
+  <!-- 跳过按钮 -->
+  <view class="skip-btn {{canSkip ? 'show' : ''}}" bindtap="onSkip">
+    <text>跳过</text>
   </view>
 </view>

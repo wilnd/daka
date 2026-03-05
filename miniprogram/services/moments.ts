@@ -19,7 +19,8 @@ export interface Moment {
 export interface MomentContent {
   photos?: string[]
   text?: string
-  sportType?: string
+  categoryId?: string
+  subCategoryId?: string
   score?: number
   tags?: string[]
 }

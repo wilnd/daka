@@ -1,56 +1,204 @@
 @import '../../styles/theme.less';
 
-.page { flex: 1; height: 100%; }
-.container { padding: 32rpx; }
+.page {
+  flex: 1;
+  height: 100%;
+  background: @color-bg-page;
+  min-height: 100vh;
+}
+.container {
+  padding: @spacing-lg;
+}
 
 .need-auth {
-  text-align: center; padding: 80rpx;
-  .link { color: @color-primary; margin-top: 24rpx; display: block; }
+  text-align: center;
+  padding: 80rpx;
+  .link {
+    color: @color-primary;
+    margin-top: 24rpx;
+    display: block;
+  }
 }
 
 .actions {
-  display: flex; gap: 24rpx; margin-bottom: 48rpx;
-  .action-btn { 
-    flex: 1; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    gap: 8rpx; 
+  display: flex;
+  gap: 24rpx;
+  margin-bottom: 48rpx;
+  .action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8rpx;
     padding: 24rpx 32rpx;
-    .btn-icon { font-size: 32rpx; } 
+    color: @color-white;
+    border-radius: @radius-lg;
+    box-shadow: @shadow-primary;
+    transition: all 0.3s ease;
+    &:active {
+      transform: scale(0.98);
+      box-shadow: @shadow-sm;
+    }
+    .btn-icon {
+      font-size: 32rpx;
+    }
+  }
+  // 创建小组 - 森林绿渐变
+  .action-btn.create {
+    background: linear-gradient(135deg, @color-primary 0%, @color-primary-dark 100%);
+  }
+  // 加入小组 - 浅绿渐变
+  .action-btn.join {
+    background: linear-gradient(135deg, #81C784 0%, #4CAF50 100%);
+    box-shadow: 0 4rpx 16rpx rgba(76, 175, 80, 0.3);
+    &:active {
+      box-shadow: @shadow-sm;
+    }
   }
 }
 
 .section-header {
-  display: flex; justify-content: space-between; align-items: center; margin-bottom: 24rpx;
-  .title-row { display: flex; align-items: baseline; gap: 12rpx; }
-  .section-title { font-size: @font-size-title; font-weight: @font-weight-bold; color: @color-text-title; }
-  .section-count { font-size: @font-size-caption; color: @color-text-hint; }
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+  .title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12rpx;
+  }
+  .section-title {
+    font-size: @font-size-title;
+    font-weight: @font-weight-bold;
+    color: @color-text-title;
+  }
+  .section-count {
+    font-size: @font-size-caption;
+    color: @color-text-hint;
+  }
   .refresh-btn {
-    font-size: @font-size-caption; color: @color-primary; padding: 8rpx 16rpx;
+    font-size: @font-size-caption;
+    color: @color-primary;
+    padding: 8rpx 16rpx;
   }
 }
 
 .group-list {
   .group-item {
-    display: flex; align-items: center; background: @color-bg-card; border-radius: 16rpx; padding: 32rpx; margin-bottom: 24rpx;
-    .group-icon { font-size: 48rpx; margin-right: 24rpx; }
-    .group-info { flex: 1; .group-name { font-size: @font-size-title; font-weight: @font-weight-bold; color: @color-text-title; display: block; } .group-meta { font-size: @font-size-caption; color: @color-text-hint; margin-top: 8rpx; } }
-    .invite-code-wrap { font-size: @font-size-caption; color: @color-text-hint; margin-right: 16rpx; }
-    .invite-code-text { color: @color-text-hint; font-size: 24rpx; }
-    .arrow { color: @color-text-hint; }
+    display: flex;
+    align-items: center;
+    background: @color-white;
+    border-radius: @radius-lg;
+    padding: 32rpx;
+    margin-bottom: 24rpx;
+    box-shadow: @shadow-sm;
+    transition: all 0.3s ease;
+    &:active {
+      background: @color-bg-card-hover;
+    }
+    .group-icon {
+      font-size: 48rpx;
+      margin-right: 24rpx;
+    }
+    .group-info {
+      flex: 1;
+      .group-name {
+        font-size: @font-size-title;
+        font-weight: @font-weight-bold;
+        color: @color-text-title;
+        display: block;
+      }
+      .group-meta {
+        font-size: @font-size-caption;
+        color: @color-text-hint;
+        margin-top: 8rpx;
+      }
+    }
+    .invite-code-wrap {
+      font-size: @font-size-caption;
+      color: @color-text-hint;
+      margin-right: 16rpx;
+    }
+    .invite-code-text {
+      color: @color-text-hint;
+      font-size: 24rpx;
+    }
+    .arrow {
+      color: @color-text-hint;
+    }
   }
 }
 
 .empty {
-  text-align: center; padding: 80rpx;
-  .empty-icon { font-size: 80rpx; display: block; margin-bottom: 24rpx; }
-  .empty-text { font-size: @font-size-title; font-weight: @font-weight-bold; color: @color-text-title; display: block; }
-  .empty-hint { font-size: @font-size-caption; color: @color-text-hint; margin-top: 8rpx; display: block; }
+  text-align: center;
+  padding: 80rpx;
+  .empty-icon {
+    font-size: 80rpx;
+    display: block;
+    margin-bottom: 24rpx;
+    opacity: 0.6;
+  }
+  .empty-text {
+    font-size: @font-size-title;
+    font-weight: @font-weight-bold;
+    color: @color-text-title;
+    display: block;
+  }
+  .empty-hint {
+    font-size: @font-size-caption;
+    color: @color-text-hint;
+    margin-top: 8rpx;
+    display: block;
+  }
 }
 
-.modal { position: fixed; left: 0; right: 0; top: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; &.show { opacity: 1; pointer-events: auto; } }
-.modal-content { width: 100%; background: @color-white; border-radius: 24rpx 24rpx 0 0; padding: 48rpx; box-sizing: border-box; }
-.modal-title { font-size: @font-size-title; font-weight: @font-weight-bold; color: @color-text-title; display: block; margin-bottom: 32rpx; }
-.modal-input { width: 100%; padding: 24rpx; border: 2rpx solid @color-bg-card; border-radius: 12rpx; margin-bottom: 32rpx; box-sizing: border-box; height: 80rpx; font-size: 28rpx; }
-.modal-btns { display: flex; gap: 24rpx; button { flex: 1; } }
+.modal {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: @color-bg-mask;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  &.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+.modal-content {
+  width: 100%;
+  background: @color-white;
+  border-radius: @radius-xl @radius-xl 0 0;
+  padding: 48rpx;
+  box-sizing: border-box;
+}
+.modal-title {
+  font-size: @font-size-title;
+  font-weight: @font-weight-bold;
+  color: @color-text-title;
+  display: block;
+  margin-bottom: 32rpx;
+}
+.modal-input {
+  width: 100%;
+  padding: 24rpx;
+  border: 2rpx solid @color-border;
+  border-radius: @radius-md;
+  margin-bottom: 32rpx;
+  box-sizing: border-box;
+  height: 80rpx;
+  font-size: 28rpx;
+  background: @color-white;
+}
+.modal-btns {
+  display: flex;
+  gap: 24rpx;
+  button {
+    flex: 1;
+  }
+}

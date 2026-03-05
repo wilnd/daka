@@ -1,4 +1,4 @@
-<navigation-bar title="联系管理员" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
+<navigation-bar title="联系管理员" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view class="card">

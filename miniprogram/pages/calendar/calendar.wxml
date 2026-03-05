@@ -1,4 +1,4 @@
-<navigation-bar title="打卡日历" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
+<navigation-bar title="打卡日历" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view wx:if="{{!hasOpenid}}" class="empty-tip">请先登录</view>

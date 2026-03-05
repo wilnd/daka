@@ -1,4 +1,4 @@
-<navigation-bar title="朋友圈" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
+<navigation-bar title="朋友圈" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="refreshMoments">
   <!-- 群组选择器 -->
   <view class="group-header" wx:if="{{groups.length > 1}}">
@@ -42,8 +42,8 @@
           <text class="nickname">{{item.userInfo && item.userInfo.nickName || '匿名用户'}}</text>
           <text class="moment-time">{{formatTime(item.createTime)}}</text>
         </view>
-        <view class="sport-tag" wx:if="{{item.content.sportType}}">
-          <text>{{item.content.sportType}}</text>
+        <view class="sport-tag" wx:if="{{item.content.categoryDisplayName}}">
+          <text>{{item.content.categoryDisplayName}}</text>
         </view>
       </view>
 

@@ -2,7 +2,7 @@
 import { getCheckinsByMonth, doMakeup, getMakeupRemain } from '../../services/checkin'
 import { getTodayStr, getDateBefore } from '../../services/db'
 
-const app = getApp<IAppOption>()
+const app = getApp() as IAppOption
 
 Component({
   data: {
@@ -13,10 +13,16 @@ Component({
     makeupRemain: 0,
     isCurrentMonth: true,
     hasOpenid: false,
+    // 动态主题色
+    themeColor: '#34A853',
   },
   lifetimes: {
     attached() { this.init() },
-    show() { if (this.data.hasOpenid) this.load() },
+    show() {
+      // 同步主题色
+      this.setData({ themeColor: app.globalData.themeColor })
+      if (this.data.hasOpenid) this.load()
+    },
   },
   methods: {
     init() {

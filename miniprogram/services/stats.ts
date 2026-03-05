@@ -7,7 +7,7 @@ import { db, checkinsCol, membersCol, usersCol, getTodayStr, getDateBefore } fro
 /** 获取近 400 天的打卡记录（用于计算连胜/未打卡） */
 async function getRecentCheckins(
   userId: string,
-  groupId: string
+  _groupId?: string  // 保留参数兼容性，但实际不使用
 ): Promise<{ date: string; isMakeup: boolean }[]> {
   const today = getTodayStr()
   const start = getDateBefore(today, 400)
@@ -28,7 +28,7 @@ async function getRecentCheckins(
  * - 昨天没打，今天打了 → 显示1
  * - 昨天今天都没打 → 显示0
  */
-export async function getStreak(userId: string, groupId: string): Promise<number> {
+export async function getStreak(userId: string, groupId?: string): Promise<number> {
   const checkins = await getRecentCheckins(userId, groupId)
   if (!checkins || checkins.length === 0) return 0
 
@@ -67,7 +67,7 @@ export async function getStreak(userId: string, groupId: string): Promise<number
 /** 计算连续未打卡天数（只算到昨天为止，今天未打卡不算） */
 export async function getMissStreak(
   userId: string,
-  groupId: string
+  groupId?: string
 ): Promise<number> {
   const checkins = await getRecentCheckins(userId, groupId)
   // 没有打卡记录时，返回0
@@ -99,15 +99,34 @@ export async function wasCheckedInYesterday(userId: string): Promise<boolean> {
   return (data && data.length > 0) || false
 }
 
-/** 总打卡天数（含补卡） */
-export async function getTotalDays(
+/** 总打卡次数（所有记录，含同一天多次打卡） */
+export async function getTotalCount(
   userId: string,
-  groupId: string
+  groupId?: string  // 保留参数兼容性，但实际不使用
 ): Promise<number> {
   const { total } = await checkinsCol()
     .where({ userId })
     .count()
   return total
+}
+
+/** 总打卡天数（去重后的日期数，同一天多次打卡只算1天） */
+export async function getTotalDays(
+  userId: string,
+  groupId?: string  // 保留参数兼容性，但实际不使用
+): Promise<number> {
+  // 查询所有打卡记录，本地按日期去重
+  const { data } = await checkinsCol()
+    .where({ userId })
+    .orderBy('date', 'desc')
+    .limit(1000)
+    .get()
+  
+  if (!data || data.length === 0) return 0
+  
+  // 按日期去重
+  const uniqueDates = new Set(data.map((c: any) => c.date))
+  return uniqueDates.size
 }
 
 /** 排行榜用户信息 */

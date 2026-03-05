@@ -1,33 +1,36 @@
 // profile.ts
-import { getMyGroups } from '../../services/group'
-import { getCheckinRecordsWithGroup } from '../../services/checkin'
 import { getStreak, getMissStreak, getTotalDays, wasCheckedInYesterday } from '../../services/stats'
 import { checkinsCol, membersCol, usersCol, SUBSCRIBE_TEMPLATE_ID, getTodayStr } from '../../services/db'
 import { updateUserInfo } from '../../services/auth'
 
-const app = getApp<IAppOption>()
+const app = getApp() as IAppOption
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
 Component({
   data: {
     hasUserInfo: false,
     userInfo: {} as any,
-    currentGroup: null as any,
-    currentGroupIndex: 0,
-    groups: [] as any[],
     stats: {} as any,
     records: [] as any[],
     showRecordsModal: false,
     showEditModal: false,
     showTimePickerModal: false,
+    // 生成提醒文案时需要群组选择
     showGroupPickerModal: false,
+    groups: [] as any[],
     editingInfo: { nickName: '', avatarUrl: defaultAvatar },
     isSubscribed: false,
     remindTime: '21:00',
+    // 动态主题色
+    themeColor: '#34A853',
   },
   lifetimes: {
     attached() { this.init() },
-    show() { if (this.data.hasUserInfo) this.loadData() },
+    show() {
+      // 同步主题色
+      this.setData({ themeColor: app.globalData.themeColor })
+      if (this.data.hasUserInfo) this.loadData()
+    },
   },
   methods: {
     init() {
@@ -60,49 +63,14 @@ Component({
     },
     async loadData() {
       const openid = app.globalData.openid
-      const gid = app.globalData.currentGroupId
       if (!openid) return
+
       try {
-        const groups = await getMyGroups(openid)
-        const cur = groups.find((g: any) => g._id === gid) || groups[0] || null
-        const currentGroupIndex = groups.findIndex((g: any) => g._id === (cur && cur._id))
-        let stats = {}
-        if (cur) {
-          const [streak, totalDays, missStreak] = await Promise.all([
-            getStreak(openid, cur._id),
-            getTotalDays(openid, cur._id),
-            getMissStreak(openid, cur._id),
-          ])
-          stats = { streak, totalDays, missStreak }
-        }
-        this.setData({ currentGroup: cur, stats, groups, currentGroupIndex })
-      } catch (e) {
-        console.error(e)
-      }
-    },
-    // 切换群组
-    onGroupChange(e: any) {
-      const groupIndex = parseInt(e.detail.value)
-      const group = this.data.groups[groupIndex]
-      if (!group) return
-      this.setData({
-        currentGroup: group,
-        currentGroupIndex: groupIndex,
-      })
-      // 更新全局当前群组
-      app.globalData.currentGroupId = group._id
-      // 重新加载统计数据
-      this.loadStats()
-    },
-    async loadStats() {
-      const openid = app.globalData.openid
-      const gid = this.data.currentGroup && this.data.currentGroup._id
-      if (!openid || !gid) return
-      try {
+        // 直接获取个人统计（与群组无关）
         const [streak, totalDays, missStreak] = await Promise.all([
-          getStreak(openid, gid),
-          getTotalDays(openid, gid),
-          getMissStreak(openid, gid),
+          getStreak(openid),
+          getTotalDays(openid),
+          getMissStreak(openid),
         ])
         this.setData({ stats: { streak, totalDays, missStreak } })
       } catch (e) {
@@ -112,6 +80,7 @@ Component({
     async showRecords() {
       wx.showLoading({ title: '加载中' })
       try {
+        const { getCheckinRecordsWithGroup } = await import('../../services/checkin')
         const records = await getCheckinRecordsWithGroup(app.globalData.openid!, 50)
         this.setData({ records, showRecordsModal: true })
         wx.hideLoading()
@@ -286,7 +255,20 @@ Component({
       }
     },
     async genRemindCopy() {
-      // 先弹出群组选择弹窗
+      // 先加载群组列表（如果还没有）
+      if (this.data.groups.length === 0) {
+        const { getMyGroups } = await import('../../services/group')
+        const openid = app.globalData.openid
+        if (!openid) return
+        try {
+          const groups = await getMyGroups(openid)
+          this.setData({ groups })
+        } catch (e) {
+          wx.showToast({ title: '加载群组失败', icon: 'none' })
+          return
+        }
+      }
+      // 弹出群组选择弹窗
       this.setData({ showGroupPickerModal: true })
     },
     onSelectGroupForCopy(e: any) {

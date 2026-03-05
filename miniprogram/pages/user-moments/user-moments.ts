@@ -1,4 +1,4 @@
-const app = getApp<IAppOption>()
+const app = getApp() as IAppOption
 
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
@@ -52,7 +52,8 @@ interface MomentItem {
   content: {
     photos?: string[]
     text?: string
-    sportType?: string
+    categoryId?: string
+    subCategoryId?: string
     score?: number
     tags?: string[]
   }
@@ -78,9 +79,15 @@ Page({
     refreshing: false,
     loadingMore: false,
     noMore: false,
+    // 动态主题色
+    themeColor: '#34A853',
   },
 
   onLoad(options: any) {
+    // 同步主题色
+    this.setData({
+      themeColor: app.globalData.themeColor
+    })
     const userId = options.userId || ''
     const nickName = options.nickName || ''
     let avatarUrl = (options.avatarUrl || defaultAvatar)
@@ -113,6 +120,10 @@ Page({
   },
 
   onShow() {
+    // 同步主题色
+    this.setData({
+      themeColor: app.globalData.themeColor
+    })
     if (this.data.userId) {
       this.loadMoments()
     }

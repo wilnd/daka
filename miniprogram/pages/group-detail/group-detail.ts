@@ -3,7 +3,7 @@ import { getGroupById, getGroupMembers, removeMember, quitGroup, transferAdmin, 
 import { getOpenid } from '../../services/auth'
 import { usersCol, checkinsCol, getTodayStr, getCurrentMonth } from '../../services/db'
 
-const app = getApp<IAppOption>()
+const app = getApp() as IAppOption
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
 /** 将云存储 fileID 转换为临时可访问的 HTTP URL */
@@ -56,6 +56,8 @@ Component({
     editInviteCode: '',
     // 邀请开关
     inviteEnabled: true,
+    // 动态主题色
+    themeColor: '#34A853',
   },
   lifetimes: {
     attached() {
@@ -67,6 +69,8 @@ Component({
   },
   pageLifetimes: {
     show() {
+      // 同步主题色
+      this.setData({ themeColor: app.globalData.themeColor })
       // 页面显示时刷新数据（可选）
     },
   },

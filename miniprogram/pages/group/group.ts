@@ -2,7 +2,15 @@
 import { getOrCreateUser, getOpenid } from '../../services/auth'
 import { getMyGroups, createGroup, joinByInviteCode } from '../../services/group'
 
-const app = getApp<IAppOption>()
+const app = getApp() as IAppOption
+
+/** 本地缓存的群组列表 key */
+const GROUPS_CACHE_KEY = 'cachedGroups'
+
+/** 更新本地缓存的群组列表 */
+function updateCachedGroups(groups: any[]): void {
+  wx.setStorageSync(GROUPS_CACHE_KEY, groups)
+}
 
 Component({
   data: {
@@ -14,10 +22,30 @@ Component({
     showJoinModal: false,
     createName: '',
     joinCode: '',
+    // 动态主题色
+    themeColor: '#34A853',
   },
   lifetimes: {
-    attached() { this.init() },
-    show() { this.loadGroups() },
+    attached() {
+      this.init()
+      // 检查是否需要自动打开加入弹窗
+      const app = getApp() as IAppOption
+      if (app.globalData.shouldOpenJoinModal) {
+        app.globalData.shouldOpenJoinModal = false
+        this.setData({ showJoinModal: true, joinCode: '' })
+      }
+    },
+    show() {
+      // 同步主题色
+      this.setData({ themeColor: app.globalData.themeColor })
+      // 每次显示时也检查一下（防止从其他页面切回来时需要打开）
+      const app = getApp() as IAppOption
+      if (app.globalData.shouldOpenJoinModal) {
+        app.globalData.shouldOpenJoinModal = false
+        this.setData({ showJoinModal: true, joinCode: '' })
+      }
+      this.loadGroups()
+    },
   },
   methods: {
     async init() {
@@ -46,6 +74,8 @@ Component({
       this.setData({ loading: true })
       try {
         const groups = await getMyGroups(openid)
+        // 更新本地缓存
+        updateCachedGroups(groups)
         this.setData({ groups, loading: false })
       } catch (e) {
         this.setData({ loading: false })

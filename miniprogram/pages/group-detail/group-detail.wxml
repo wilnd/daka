@@ -1,4 +1,4 @@
-<navigation-bar title="{{group.name || '小组详情'}}" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
+<navigation-bar title="{{group.name || '小组详情'}}" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view wx:if="{{loading}}" class="loading-wrap">

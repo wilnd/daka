@@ -122,17 +122,17 @@ exports.main = async (event, context) => {
           data: {
             userId: user.openid,
             date: today,
-            sent: result.result?.success || false,
+            sent: (result.result && result.result.success) || false,
             createTime: new Date()
           }
         })
 
-        if (result.result?.success) {
+        if (result.result && result.result.success) {
           successCount++
           console.log(`用户 ${user.openid} 提醒发送成功`)
         } else {
           failCount++
-          console.log(`用户 ${user.openid} 提醒发送失败:`, result.result?.error)
+          console.log(`用户 ${user.openid} 提醒发送失败:`, (result.result && result.result.error))
         }
 
       } catch (e) {

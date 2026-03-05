@@ -24,8 +24,10 @@ export interface CheckinContent {
   text?: string
   /** 是否发布朋友圈 */
   isPublishToMoments: boolean
-  /** 运动类型 */
-  sportType?: string
+  /** 打卡大类ID */
+  categoryId?: string
+  /** 打卡小类ID */
+  subCategoryId?: string
   /** 朋友圈可见范围：'' 或空表示所有群组可见，指定 groupId 表示仅指定群组可见 */
   momentsGroupId?: string
 }
@@ -59,18 +61,16 @@ export async function getTodayCheckin(userId: string): Promise<Checkin | null> {
   return (data && data[0] ? (data[0] as Checkin) : null)
 }
 
-/** 每日打卡（打卡与小组无关，用于查看排名对比时可选传 groupId） */
+/** 每日打卡（支持同一天多次打卡，每次打卡都会创建新记录） */
 export async function doCheckinWithContent(
   userId: string,
   content?: CheckinContent,
   groupId?: string
 ): Promise<{ ok: boolean; msg?: string; score?: ScoreResult }> {
   const today = getTodayStr()
-  const { data: existing } = await checkinsCol()
-    // 打卡与群组无关：同一用户同一天只能打一次卡
-    .where({ userId, date: today })
-    .get()
-  if (existing.length > 0) return { ok: false, msg: '今日已打卡，无需重复操作' }
+
+  // 支持多次打卡，不再检查是否已打卡
+  // 每次打卡都会创建新记录
 
   // 如果有内容，先调用评分云函数
   let score: ScoreResult | undefined
@@ -93,7 +93,7 @@ export async function doCheckinWithContent(
   }
 
   const now = new Date()
-  const momentsGroupId = content?.momentsGroupId || ''
+  const momentsGroupId = (content && content.momentsGroupId) || ''
   const { _id: checkinId } = await checkinsCol().add({
     data: {
       userId,
@@ -120,7 +120,8 @@ export async function doCheckinWithContent(
           content: {
             photos: content.photos || [],
             text: content.text || '',
-            sportType: content.sportType || '',
+            categoryId: content.categoryId || '',
+            subCategoryId: content.subCategoryId || '',
             score: (score && score.totalScore),
             tags: (score && score.tags) || []
           },
@@ -191,7 +192,8 @@ export async function updateTodayCheckinWithContent(
       const momentContent = {
         photos: content.photos || [],
         text: content.text || '',
-        sportType: content.sportType || '',
+        categoryId: content.categoryId || '',
+        subCategoryId: content.subCategoryId || '',
         score: (score && score.totalScore),
         tags: (score && score.tags) || []
       }

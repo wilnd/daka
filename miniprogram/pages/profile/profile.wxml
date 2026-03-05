@@ -1,4 +1,4 @@
-<navigation-bar title="我的" back="{{false}}" color="white" background="#2E8B57"></navigation-bar>
+<navigation-bar title="我的" back="{{false}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view wx:if="{{!hasUserInfo}}" class="need-auth">
@@ -6,15 +6,6 @@
       <navigator url="/pages/index/index" class="link">去首页</navigator>
     </view>
     <view wx:else class="content">
-      <!-- 群组选择器 -->
-      <view class="group-selector" wx:if="{{groups.length > 0}}">
-        <picker range="{{groups}}" range-key="name" value="{{currentGroupIndex}}" bindchange="onGroupChange">
-          <view class="selector-content">
-            <text class="current-group-name">{{currentGroup ? currentGroup.name : '请选择群组'}}</text>
-            <text class="arrow">▼</text>
-          </view>
-        </picker>
-      </view>
       <view class="user-card" bindtap="onEditUserInfo">
         <image 
           class="avatar" 
@@ -28,10 +19,10 @@
         </view>
         <text class="arrow">></text>
       </view>
-      <view wx:if="{{currentGroup}}" class="stats-card">
+      <view class="stats-card">
         <view class="stat-item">
           <text class="stat-value primary">{{stats.totalDays || 0}}</text>
-          <text class="stat-label">总打卡天数</text>
+          <text class="stat-label">打卡天数</text>
         </view>
         <view class="stat-item">
           <text class="stat-value primary">{{stats.streak || 0}}</text>

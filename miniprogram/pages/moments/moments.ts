@@ -1,52 +1,52 @@
 // moments.ts
 import { getOpenid, getOrCreateUser } from '../../services/auth'
 import { getMyGroups } from '../../services/group'
+import { getCategoryInfoBySubCategoryId, getCategoryById } from '../../services/category'
 
-const app = getApp<IAppOption>()
+const app = getApp() as IAppOption
 
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
-/** 将云存储 fileID 转换为临时可访问的 HTTP URL */
-async function convertCloudUrl(fileId: string): Promise<string> {
-  if (!fileId) return defaultAvatar
-  if (!fileId.startsWith('cloud://')) return fileId
+/** 本地缓存的群组列表 key */
+const GROUPS_CACHE_KEY = 'cachedGroups'
+
+/** 本地缓存的朋友圈数据 key */
+const MOMENTS_CACHE_KEY = 'cachedMoments'
+const MOMENTS_GROUP_ID_KEY = 'cachedMomentsGroupId'
+
+/** 从本地缓存获取群组列表 */
+function getCachedGroups(): any[] {
   try {
-    const res = await wx.cloud.getTempFileURL({ fileList: [fileId] })
-    if (res.fileList && res.fileList[0]) {
-      // 检查是否有错误
-      if (res.fileList[0].status !== 0) {
-        console.warn('云存储文件获取失败:', res.fileList[0].errMsg || '未知错误')
-        return defaultAvatar  // 返回默认头像
-      }
-      if (res.fileList[0].tempFileURL) {
-        return res.fileList[0].tempFileURL
-      }
-    }
-  } catch (e) {
-    console.warn('转换云存储URL失败', e)
+    const cached = wx.getStorageSync(GROUPS_CACHE_KEY)
+    return cached || []
+  } catch {
+    return []
   }
-  return defaultAvatar  // 转换失败返回默认头像
 }
 
-/** 批量转换云存储 URL */
-async function convertCloudUrls(fileIds: string[]): Promise<string[]> {
-  if (!fileIds || fileIds.length === 0) return []
-  const validIds = fileIds.filter(id => id && id.startsWith('cloud://'))
-  if (validIds.length === 0) return fileIds
+/** 保存群组列表到本地缓存 */
+function setCachedGroups(groups: any[]): void {
+  wx.setStorageSync(GROUPS_CACHE_KEY, groups)
+}
+
+/** 从本地缓存获取朋友圈数据 */
+function getCachedMoments(): { moments: any[]; groupId: string } | null {
   try {
-    const res = await wx.cloud.getTempFileURL({ fileList: validIds })
-    const urlMap = new Map<string, string>()
-    for (const item of res.fileList || []) {
-      // 只处理成功的文件，失败的返回默认头像
-      if (item.status === 0 && item.fileID && item.tempFileURL) {
-        urlMap.set(item.fileID, item.tempFileURL)
-      }
+    const cached = wx.getStorageSync(MOMENTS_CACHE_KEY)
+    const cachedGroupId = wx.getStorageSync(MOMENTS_GROUP_ID_KEY)
+    if (cached && Array.isArray(cached) && cachedGroupId) {
+      return { moments: cached, groupId: cachedGroupId }
     }
-    return fileIds.map(id => urlMap.get(id) || defaultAvatar)
-  } catch (e) {
-    console.warn('批量转换云存储URL失败', e)
-    return fileIds.map(() => defaultAvatar)
+    return null
+  } catch {
+    return null
   }
+}
+
+/** 保存朋友圈数据到本地缓存 */
+function setCachedMoments(moments: any[], groupId: string): void {
+  wx.setStorageSync(MOMENTS_CACHE_KEY, moments)
+  wx.setStorageSync(MOMENTS_GROUP_ID_KEY, groupId)
 }
 
 interface MomentItem {
@@ -56,7 +56,8 @@ interface MomentItem {
   content: {
     photos?: string[]
     text?: string
-    sportType?: string
+    categoryId?: string
+    subCategoryId?: string
     score?: number
     tags?: string[]
   }
@@ -87,6 +88,8 @@ Page({
     currentCommentMomentId: '',
     commentSubmitting: false,
     showSwitchModal: false,
+    // 动态主题色
+    themeColor: '#34A853',
   },
 
   onLoad() {
@@ -94,6 +97,10 @@ Page({
   },
 
   onShow() {
+    // 同步主题色
+    this.setData({
+      themeColor: app.globalData.themeColor
+    })
     // 首次进入时，onShow 可能早于异步初始化完成
     if (!this.data.currentGroupId) {
       this.loadInitialData()
@@ -128,38 +135,57 @@ Page({
 
     // 确保 users 集合有当前用户信息，避免展示为“匿名用户”
     const userInfo = wx.getStorageSync('userInfo')
-    if (openid && userInfo && userInfo.nickName && userInfo.avatarUrl) {
-      try {
-        await getOrCreateUser(openid, userInfo.nickName, userInfo.avatarUrl)
-      } catch (e) {
-        console.warn('同步用户信息失败', e)
-      }
-    }
+    const syncUserPromise = openid && userInfo && userInfo.nickName && userInfo.avatarUrl
+      ? getOrCreateUser(openid, userInfo.nickName, userInfo.avatarUrl).catch(e => console.warn('同步用户信息失败', e))
+      : Promise.resolve()
 
-    await this.loadGroups()
-    // 群组与 groupId 就绪后再拉取数据，避免 groupId 为空导致查询不到
-    await this.loadMoments()
+    // 先并行加载群组和用户信息（群组会先显示缓存，再更新）
+    // 朋友圈加载也可以并行进行（如果有缓存会立即显示）
+    await Promise.all([
+      this.loadGroups(),
+      syncUserPromise,
+      this.loadMoments()
+    ])
   },
 
   async loadGroups() {
     const openid = app.globalData.openid
     if (!openid) return
-    
-    try {
-      const groups = await getMyGroups(openid)
-      this.setData({ groups })
-      
-      // 如果没有选择群组，使用第一个
-      const currentGroupId = this.data.currentGroupId || ((groups[0] && groups[0]._id) || '')
+
+    // 优先从本地缓存加载群组列表（同步操作，立即显示）
+    const cachedGroups = getCachedGroups()
+    if (cachedGroups.length > 0) {
+      const currentGroupId = this.data.currentGroupId || ((cachedGroups[0] && cachedGroups[0]._id) || '')
       if (currentGroupId && !this.data.currentGroupId) {
-        this.setData({ 
+        this.setData({
+          groups: cachedGroups,
           currentGroupId,
           currentGroupIndex: 0
         })
+      } else {
+        this.setData({ groups: cachedGroups })
       }
-    } catch (e) {
-      console.error('加载群组失败', e)
     }
+
+    // 异步从服务器获取最新群组列表（不阻塞 UI）
+    getMyGroups(openid)
+      .then(groups => {
+        // 保存到本地缓存
+        setCachedGroups(groups)
+        this.setData({ groups })
+
+        // 如果没有选择群组，使用第一个
+        const currentGroupId = this.data.currentGroupId || ((groups[0] && groups[0]._id) || '')
+        if (currentGroupId && !this.data.currentGroupId) {
+          this.setData({
+            currentGroupId,
+            currentGroupIndex: 0
+          })
+        }
+      })
+      .catch(e => {
+        console.error('加载群组失败', e)
+      })
   },
 
   async loadMoments(groupId?: string) {
@@ -177,7 +203,16 @@ Page({
     if (!currentGroupId) return
     if (loading || noMore) return
 
-    this.setData({ loading: true })
+    // 优先显示缓存（同步操作，立即呈现）
+    const cached = getCachedMoments()
+    if (cached && cached.groupId === currentGroupId && cached.moments.length > 0) {
+      this.setData({
+        moments: cached.moments,
+        loading: true  // 仍然显示 loading，但先显示缓存内容
+      })
+    } else {
+      this.setData({ loading: true })
+    }
 
     try {
       const res = await wx.cloud.callFunction({
@@ -192,31 +227,117 @@ Page({
 
       const result = res.result as any
       if (result.success) {
-        // 转换云存储 URL 为临时 HTTP URL
+        // 批量转换云存储 URL 为临时 HTTP URL
         const momentsData = result.data || []
-        for (const moment of momentsData) {
-          // 转换头像
-          if (moment.userInfo && moment.userInfo.avatarUrl) {
-            moment.userInfo.avatarUrl = await convertCloudUrl(moment.userInfo.avatarUrl)
+
+        // 收集所有需要转换的 fileId
+        const allFileIds = {
+          avatars: [] as string[],
+          photos: [] as string[],
+          commentAvatars: [] as string[]
+        }
+        const avatarToMomentIndex = new Map<string, number>()
+        const photoToMomentIndex = new Map<string, { momentIndex: number; photoIndex: number }>()
+        const commentAvatarToCommentIndex = new Map<string, { momentIndex: number; commentIndex: number }>()
+
+        momentsData.forEach((moment, momentIndex) => {
+          // 头像
+          if (moment.userInfo && moment.userInfo.avatarUrl && moment.userInfo.avatarUrl.startsWith('cloud://')) {
+            allFileIds.avatars.push(moment.userInfo.avatarUrl)
+            avatarToMomentIndex.set(moment.userInfo.avatarUrl, momentIndex)
           }
-          // 转换朋友圈图片
+          // 朋友圈图片
           if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
-            moment.content.photos = await convertCloudUrls(moment.content.photos)
+            moment.content.photos.forEach((photo: string, photoIndex: number) => {
+              if (photo && photo.startsWith('cloud://')) {
+                allFileIds.photos.push(photo)
+                photoToMomentIndex.set(photo, { momentIndex, photoIndex })
+              }
+            })
           }
-          // 转换评论中的头像
+          // 评论头像
           if (moment.comments && moment.comments.length > 0) {
-            for (const comment of moment.comments) {
-              if (comment.userInfo && comment.userInfo.avatarUrl) {
-                comment.userInfo.avatarUrl = await convertCloudUrl(comment.userInfo.avatarUrl)
+            moment.comments.forEach((comment, commentIndex) => {
+              if (comment.userInfo && comment.userInfo.avatarUrl && comment.userInfo.avatarUrl.startsWith('cloud://')) {
+                allFileIds.commentAvatars.push(comment.userInfo.avatarUrl)
+                commentAvatarToCommentIndex.set(comment.userInfo.avatarUrl, { momentIndex, commentIndex })
+              }
+            })
+          }
+        })
+
+        // 批量获取临时 URL（所有类型一次请求）
+        const allCloudIds = [...allFileIds.avatars, ...allFileIds.photos, ...allFileIds.commentAvatars]
+        const urlMap = new Map<string, string>()
+
+        if (allCloudIds.length > 0) {
+          try {
+            const res = await wx.cloud.getTempFileURL({ fileList: allCloudIds })
+            if (res.fileList) {
+              for (const item of res.fileList) {
+                if (item.status === 0 && item.fileID && item.tempFileURL) {
+                  urlMap.set(item.fileID, item.tempFileURL)
+                }
               }
             }
+          } catch (e) {
+            console.warn('批量转换云存储URL失败', e)
           }
         }
+
+        // 应用转换后的 URL
+        momentsData.forEach((moment) => {
+          // 头像
+          if (moment.userInfo && moment.userInfo.avatarUrl) {
+            if (urlMap.has(moment.userInfo.avatarUrl)) {
+              moment.userInfo.avatarUrl = urlMap.get(moment.userInfo.avatarUrl)!
+            } else if (moment.userInfo.avatarUrl.startsWith('cloud://')) {
+              moment.userInfo.avatarUrl = defaultAvatar
+            }
+          }
+          // 朋友圈图片
+          if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
+            moment.content.photos = moment.content.photos.map((photo: string) => {
+              if (urlMap.has(photo)) {
+                return urlMap.get(photo)!
+              } else if (photo.startsWith('cloud://')) {
+                return defaultAvatar
+              }
+              return photo
+            })
+          }
+          // 评论头像
+          if (moment.comments && moment.comments.length > 0) {
+            moment.comments.forEach((comment) => {
+              if (comment.userInfo && comment.userInfo.avatarUrl) {
+                if (urlMap.has(comment.userInfo.avatarUrl)) {
+                  comment.userInfo.avatarUrl = urlMap.get(comment.userInfo.avatarUrl)!
+                } else if (comment.userInfo.avatarUrl.startsWith('cloud://')) {
+                  comment.userInfo.avatarUrl = defaultAvatar
+                }
+              }
+            })
+          }
+          // 转换类别ID为显示名称
+          if (moment.content && moment.content.subCategoryId) {
+            const info = getCategoryInfoBySubCategoryId(moment.content.subCategoryId)
+            if (info) {
+              moment.content.categoryDisplayName = `${info.categoryName} · ${info.subCategoryName}`
+            }
+          } else if (moment.content && moment.content.categoryId) {
+            const cat = getCategoryById(moment.content.categoryId)
+            if (cat) {
+              moment.content.categoryDisplayName = cat.name
+            }
+          }
+        })
         this.setData({
           moments: momentsData,
           loading: false,
           noMore: momentsData.length < 20
         })
+        // 保存到本地缓存
+        setCachedMoments(momentsData, currentGroupId)
       } else {
         wx.showToast({ title: result.msg || '加载失败', icon: 'none' })
         this.setData({ loading: false })
@@ -257,26 +378,104 @@ Page({
 
       const result = res.result as any
       if (result.success) {
-        // 转换云存储 URL 为临时 HTTP URL
+        // 批量转换云存储 URL 为临时 HTTP URL
         const newMoments = result.data || []
-        for (const moment of newMoments) {
-          // 转换头像
-          if (moment.userInfo && moment.userInfo.avatarUrl) {
-            moment.userInfo.avatarUrl = await convertCloudUrl(moment.userInfo.avatarUrl)
+
+        // 收集所有需要转换的 fileId
+        const allFileIds = {
+          avatars: [] as string[],
+          photos: [] as string[],
+          commentAvatars: [] as string[]
+        }
+
+        newMoments.forEach((moment, momentIndex) => {
+          // 头像
+          if (moment.userInfo && moment.userInfo.avatarUrl && moment.userInfo.avatarUrl.startsWith('cloud://')) {
+            allFileIds.avatars.push(moment.userInfo.avatarUrl)
           }
-          // 转换朋友圈图片
+          // 朋友圈图片
           if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
-            moment.content.photos = await convertCloudUrls(moment.content.photos)
+            moment.content.photos.forEach((photo: string) => {
+              if (photo && photo.startsWith('cloud://')) {
+                allFileIds.photos.push(photo)
+              }
+            })
           }
-          // 转换评论中的头像
+          // 评论头像
           if (moment.comments && moment.comments.length > 0) {
-            for (const comment of moment.comments) {
-              if (comment.userInfo && comment.userInfo.avatarUrl) {
-                comment.userInfo.avatarUrl = await convertCloudUrl(comment.userInfo.avatarUrl)
+            moment.comments.forEach((comment) => {
+              if (comment.userInfo && comment.userInfo.avatarUrl && comment.userInfo.avatarUrl.startsWith('cloud://')) {
+                allFileIds.commentAvatars.push(comment.userInfo.avatarUrl)
+              }
+            })
+          }
+        })
+
+        // 批量获取临时 URL
+        const allCloudIds = [...allFileIds.avatars, ...allFileIds.photos, ...allFileIds.commentAvatars]
+        const urlMap = new Map<string, string>()
+
+        if (allCloudIds.length > 0) {
+          try {
+            const res = await wx.cloud.getTempFileURL({ fileList: allCloudIds })
+            if (res.fileList) {
+              for (const item of res.fileList) {
+                if (item.status === 0 && item.fileID && item.tempFileURL) {
+                  urlMap.set(item.fileID, item.tempFileURL)
+                }
               }
             }
+          } catch (e) {
+            console.warn('批量转换云存储URL失败', e)
           }
         }
+
+        // 应用转换后的 URL
+        newMoments.forEach((moment) => {
+          // 头像
+          if (moment.userInfo && moment.userInfo.avatarUrl) {
+            if (urlMap.has(moment.userInfo.avatarUrl)) {
+              moment.userInfo.avatarUrl = urlMap.get(moment.userInfo.avatarUrl)!
+            } else if (moment.userInfo.avatarUrl.startsWith('cloud://')) {
+              moment.userInfo.avatarUrl = defaultAvatar
+            }
+          }
+          // 朋友圈图片
+          if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
+            moment.content.photos = moment.content.photos.map((photo: string) => {
+              if (urlMap.has(photo)) {
+                return urlMap.get(photo)!
+              } else if (photo.startsWith('cloud://')) {
+                return defaultAvatar
+              }
+              return photo
+            })
+          }
+          // 评论头像
+          if (moment.comments && moment.comments.length > 0) {
+            moment.comments.forEach((comment) => {
+              if (comment.userInfo && comment.userInfo.avatarUrl) {
+                if (urlMap.has(comment.userInfo.avatarUrl)) {
+                  comment.userInfo.avatarUrl = urlMap.get(comment.userInfo.avatarUrl)!
+                } else if (comment.userInfo.avatarUrl.startsWith('cloud://')) {
+                  comment.userInfo.avatarUrl = defaultAvatar
+                }
+              }
+            })
+          }
+          // 转换类别ID为显示名称
+          if (moment.content && moment.content.subCategoryId) {
+            const info = getCategoryInfoBySubCategoryId(moment.content.subCategoryId)
+            if (info) {
+              moment.content.categoryDisplayName = `${info.categoryName} · ${info.subCategoryName}`
+            }
+          } else if (moment.content && moment.content.categoryId) {
+            const cat = getCategoryById(moment.content.categoryId)
+            if (cat) {
+              moment.content.categoryDisplayName = cat.name
+            }
+          }
+        })
         this.setData({
           moments: [...moments, ...newMoments],
           loadingMore: false,

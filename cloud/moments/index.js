@@ -92,57 +92,64 @@ exports.main = async (event, context) => {
           return { success: true, data: [] }
         }
 
-        // 获取当前群组信息
-        let currentGroupName = ''
-        try {
-          const { data: group } = await db.collection('groups').doc(groupId).get()
-          currentGroupName = group && group.name ? group.name : ''
-        } catch (e) {
-          // ignore
-        }
-
-        // 收集所有相关的群组 ID（包括当前群组和动态本身的群组），用于获取群组名称
-        const allGroupIds = [...new Set(moments.map(m => m.groupId).filter(gid => gid && gid !== ''))]
-        if (!allGroupIds.includes(groupId)) {
-          allGroupIds.push(groupId)
-        }
-
-        // 批量获取群组名称
-        const groupNameMap = new Map()
-        if (allGroupIds.length > 0) {
-          const { data: groups } = await db.collection('groups')
-            .where({ _id: _.in(allGroupIds) })
+        // 并行查询：群组信息、点赞状态、评论、用户信息
+        const [currentGroupRes, allGroupsRes, likesRes, allCommentsRes] = await Promise.all([
+          // 当前群组信息
+          (async () => {
+            try {
+              return await db.collection('groups').doc(groupId).get()
+            } catch (e) {
+              return { data: null }
+            }
+          })(),
+          // 所有相关群组名称
+          (async () => {
+            const allGroupIds = [...new Set(moments.map(m => m.groupId).filter(gid => gid && gid !== ''))]
+            if (!allGroupIds.includes(groupId)) {
+              allGroupIds.push(groupId)
+            }
+            if (allGroupIds.length === 0) return { data: [] }
+            try {
+              return await db.collection('groups')
+                .where({ _id: _.in(allGroupIds) })
+                .get()
+            } catch (e) {
+              return { data: [] }
+            }
+          })(),
+          // 当前用户对每条朋友圈的点赞状态
+          db.collection('momentLikes')
+            .where({
+              momentId: _.in(moments.map(m => m._id)),
+              userId: currentUserId
+            })
+            .get(),
+          // 所有评论
+          db.collection('momentComments')
+            .where({
+              momentId: _.in(moments.map(m => m._id))
+            })
             .get()
-          for (const g of groups) {
-            groupNameMap.set(g._id, g.name || '')
-          }
+        ])
+
+        // 处理群组名称
+        const currentGroupName = currentGroupRes.data?.name || ''
+        const groupNameMap = new Map()
+        for (const g of allGroupsRes.data || []) {
+          groupNameMap.set(g._id, g.name || '')
         }
 
-        // 获取当前用户对每条朋友圈的点赞状态
-        const { data: likes } = await db.collection('momentLikes')
-          .where({ 
-            momentId: _.in(moments.map(m => m._id)),
-            userId: currentUserId
-          })
-          .get()
+        // 处理点赞状态
+        const likedSet = new Set((likesRes.data || []).map(l => l.momentId))
 
-        const likedSet = new Set(likes.map(l => l.momentId))
-
-        // 获取每条朋友圈的评论
-        const { data: allComments } = await db.collection('momentComments')
-          .where({ 
-            momentId: _.in(moments.map(m => m._id))
-          })
-          .get()
-
-        // 获取发布者/评论者信息（兼容 openid 与 _openid）
+        // 获取发布者/评论者信息
         const momentUserIds = [...new Set(moments.map(m => m.userId))]
-        const commentUserIds = [...new Set(allComments.map(c => c.userId))]
+        const commentUserIds = [...new Set((allCommentsRes.data || []).map(c => c.userId))]
         const userMap = await getUsersByIds([...momentUserIds, ...commentUserIds])
 
         const result = moments.map(moment => {
           const userInfo = userMap.get(moment.userId)
-          const momentComments = allComments
+          const momentComments = (allCommentsRes.data || [])
             .filter(c => c.momentId === moment._id)
             .map(c => ({
               ...c,

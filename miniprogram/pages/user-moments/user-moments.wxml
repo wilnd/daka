@@ -1,5 +1,5 @@
 <page-meta>
-  <navigation-bar title="{{userInfo.nickName || 'TA的朋友圈'}}" back="{{true}}" color="white" background="#2E8B57"></navigation-bar>
+  <navigation-bar title="{{userInfo.nickName || 'TA的朋友圈'}}" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 </page-meta>
 <scroll-view class="page" scroll-y refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="refreshMoments">
   <!-- 用户信息头部 -->

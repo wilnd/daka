@@ -1,9 +1,6 @@
 // share-poster.ts
-import { getStreak } from '../../services/stats'
 
-const app = getApp<IAppOption>()
-
-Component<IComponentOptions>({
+Component({
   options: {
     styleIsolation: 'shared'
   },
@@ -25,7 +22,8 @@ Component<IComponentOptions>({
     streak: 0,
     userInfo: null as any,
     canvasWidth: 300,
-    canvasHeight: 450
+    canvasHeight: 480,
+    posterLoading: true
   },
 
   lifetimes: {
@@ -37,7 +35,7 @@ Component<IComponentOptions>({
       const ratio = wx.getSystemInfoSync().windowWidth / 375
       this.setData({ 
         canvasWidth: 300 * ratio, 
-        canvasHeight: 450 * ratio 
+        canvasHeight: 480 * ratio 
       })
     }
   },
@@ -46,20 +44,78 @@ Component<IComponentOptions>({
     'visible': async function(visible) {
       if (visible && !this.data.posterGenerated) {
         await this.generatePoster()
+      } else if (visible && this.data.posterGenerated) {
+        // 重新生成时重置
+        this.setData({ posterLoading: false })
       }
     }
   },
 
   methods: {
+    // 获取指定日期前N天的日期字符串
+    getDateBefore(dateStr: string, days: number): string {
+      const date = new Date(dateStr)
+      date.setDate(date.getDate() - days)
+      return date.getFullYear() + '-' + 
+        String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(date.getDate()).padStart(2, '0')
+    },
+
+    // 计算连胜天数
+    calculateStreak(checkins: any[], today: string): number {
+      const checkedDates = new Set(checkins.map((c: any) => c.date))
+      const yesterday = this.getDateBefore(today, 1)
+      
+      if (!checkedDates.has(yesterday)) {
+        return checkedDates.has(today) ? 1 : 0
+      }
+      
+      let streak = 0
+      let d = yesterday
+      for (let i = 0; i < 365; i++) {
+        if (checkedDates.has(d)) {
+          streak++
+          d = this.getDateBefore(d, 1)
+        } else {
+          break
+        }
+      }
+      if (checkedDates.has(today)) {
+        streak++
+      }
+      return streak
+    },
+
     async generatePoster() {
       const { checkinData } = this.properties as any
-      const openid = app.globalData.openid || wx.getStorageSync('openid')
+      const openid = wx.getStorageSync('openid') || ''
       const groupId = checkinData.groupId || ''
+
+      this.setData({ posterLoading: true })
 
       // 获取连胜
       let streak = 0
       try {
-        streak = await getStreak(openid, groupId)
+        const db = wx.cloud.database()
+        const _ = db.command
+        const today = new Date()
+        const todayStr = today.getFullYear() + '-' + 
+          String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+          String(today.getDate()).padStart(2, '0')
+        
+        // 获取最近的打卡记录
+        const checkinsRes = await db.collection('checkins')
+          .where({
+            userId: openid,
+            date: _.gte(this.getDateBefore(todayStr, 400))
+          })
+          .limit(500)
+          .get()
+        
+        const checkins = checkinsRes.data || []
+        if (checkins.length > 0) {
+          streak = this.calculateStreak(checkins, todayStr)
+        }
       } catch (e) {
         console.error('获取连胜失败', e)
       }
@@ -71,10 +127,12 @@ Component<IComponentOptions>({
         const posterUrl = await this.drawPoster(streak, checkinData)
         this.setData({ 
           posterGenerated: true,
-          posterUrl
+          posterUrl,
+          posterLoading: false
         })
       } catch (e) {
         console.error('生成海报失败', e)
+        this.setData({ posterLoading: false })
         wx.showToast({ title: '生成海报失败', icon: 'none' })
       }
     },
@@ -83,7 +141,7 @@ Component<IComponentOptions>({
       return new Promise((resolve, reject) => {
         const ctx = wx.createCanvasContext('poster-canvas', this)
         const width = 300
-        const height = 450
+        const height = 480
         const userInfo = this.data.userInfo
 
         // 缩放比例
@@ -93,57 +151,110 @@ Component<IComponentOptions>({
 
         this.setData({ canvasWidth: scaleWidth, canvasHeight: scaleHeight })
 
-        // 背景
-        ctx.setFillStyle('#ffffff')
+        // 背景渐变
+        const grd = ctx.createLinearGradient(0, 0, 0, scaleHeight)
+        grd.addColorStop(0, '#1a1a2e')
+        grd.addColorStop(0.5, '#16213e')
+        grd.addColorStop(1, '#0f3460')
+        ctx.setFillStyle(grd)
         ctx.fillRect(0, 0, scaleWidth, scaleHeight)
 
-        // 顶部装饰
-        ctx.setFillStyle('#2E8B57')
-        ctx.fillRect(0, 0, scaleWidth, 60 * ratio)
+        // 顶部装饰圆弧
+        ctx.setFillStyle('#16213e')
+        ctx.beginPath()
+        ctx.arc(scaleWidth / 2, 0, scaleWidth / 2 + 20, 0, Math.PI, false)
+        ctx.fill()
 
         // 标题
         ctx.setFillStyle('#ffffff')
-        ctx.setFontSize(20 * ratio)
+        ctx.setFontSize(18 * ratio)
         ctx.setTextAlign('center')
-        ctx.fillText('每日运动打卡', scaleWidth / 2, 38 * ratio)
+        ctx.fillText('每日运动打卡', scaleWidth / 2, 45 * ratio)
 
-        // 连胜区域
+        // 左侧装饰线
+        ctx.setStrokeStyle('#2E8B57')
+        ctx.setLineWidth(2)
+        ctx.beginPath()
+        ctx.moveTo(30 * ratio, 42 * ratio)
+        ctx.lineTo(60 * ratio, 42 * ratio)
+        ctx.stroke()
+
+        // 右侧装饰线
+        ctx.beginPath()
+        ctx.moveTo(scaleWidth - 60 * ratio, 42 * ratio)
+        ctx.lineTo(scaleWidth - 30 * ratio, 42 * ratio)
+        ctx.stroke()
+
+        // 连胜光环
+        const gradient = ctx.createCircularGradient(scaleWidth / 2, 140 * ratio, 60 * ratio)
+        gradient.addColorStop(0, 'rgba(255, 215, 0, 0.3)')
+        gradient.addColorStop(1, 'rgba(255, 215, 0, 0)')
+        ctx.setFillStyle(gradient)
+        ctx.beginPath()
+        ctx.arc(scaleWidth / 2, 140 * ratio, 60 * ratio, 0, 2 * Math.PI)
+        ctx.fill()
+
+        // 连胜圆圈
         ctx.setFillStyle('#FFD700')
         ctx.beginPath()
-        ctx.arc(scaleWidth / 2, 130 * ratio, 50 * ratio, 0, 2 * Math.PI)
+        ctx.arc(scaleWidth / 2, 140 * ratio, 45 * ratio, 0, 2 * Math.PI)
         ctx.fill()
 
         // 连胜数字
-        ctx.setFillStyle('#2E8B57')
-        ctx.setFontSize(40 * ratio)
+        ctx.setFillStyle('#1a1a2e')
+        ctx.setFontSize(36 * ratio)
         ctx.setTextAlign('center')
-        ctx.fillText(streak.toString(), scaleWidth / 2, 145 * ratio)
+        ctx.fillText(streak.toString(), scaleWidth / 2, 155 * ratio)
 
         // 连胜标签
-        ctx.setFontSize(14 * ratio)
-        ctx.setFillStyle('#666666')
-        ctx.fillText('连续打卡天数', scaleWidth / 2, 200 * ratio)
+        ctx.setFontSize(12 * ratio)
+        ctx.setFillStyle('#FFD700')
+        ctx.fillText('连续打卡', scaleWidth / 2, 205 * ratio)
 
-        // 用户信息
-        if (userInfo) {
-          ctx.setFontSize(16 * ratio)
-          ctx.setFillStyle('#333333')
-          ctx.fillText(userInfo.nickName || '运动达人', scaleWidth / 2, 240 * ratio)
+        // 分割线
+        ctx.setStrokeStyle('rgba(255, 255, 255, 0.1)')
+        ctx.setLineWidth(1)
+        ctx.beginPath()
+        ctx.moveTo(40 * ratio, 230 * ratio)
+        ctx.lineTo(scaleWidth - 40 * ratio, 230 * ratio)
+        ctx.stroke()
+
+        // 用户头像
+        if (userInfo && userInfo.avatarUrl) {
+          // 头像圆形背景
+          ctx.setFillStyle('#2E8B57')
+          ctx.beginPath()
+          ctx.arc(scaleWidth / 2, 270 * ratio, 28 * ratio, 0, 2 * Math.PI)
+          ctx.fill()
+          
+          // 由于 canvas 绘制头像需要先下载，这里用占位圆圈代替
+          // 实际可以使用 wx.getImageInfo 下载头像后绘制
+          ctx.setFillStyle('#ffffff')
+          ctx.setFontSize(20 * ratio)
+          ctx.fillText((userInfo.nickName || '运动达人').slice(0, 1), scaleWidth / 2, 276 * ratio)
         }
 
-        // 运动类型
-        if (checkinData.sportType) {
+        // 用户名
+        ctx.setFillStyle('#ffffff')
+        ctx.setFontSize(14 * ratio)
+        ctx.fillText((userInfo && userInfo.nickName) || '运动达人', scaleWidth / 2, 315 * ratio)
+
+        // 打卡类别标签
+        const categoryText = checkinData.subCategoryId || checkinData.categoryId || ''
+        if (categoryText) {
           ctx.setFillStyle('#2E8B57')
-          ctx.setFontSize(14 * ratio)
-          ctx.fillText(checkinData.sportType, scaleWidth / 2, 270 * ratio)
+          ctx.setFontSize(11 * ratio)
+          ctx.fillText(categoryText, scaleWidth / 2, 345 * ratio)
         }
 
         // 打卡内容
         if (checkinData.text) {
-          ctx.setFillStyle('#666666')
-          ctx.setFontSize(12 * ratio)
-          const text = checkinData.text.length > 50 ? checkinData.text.substring(0, 50) + '...' : checkinData.text
-          ctx.fillText(text, scaleWidth / 2, 300 * ratio)
+          ctx.setFillStyle('rgba(255, 255, 255, 0.8)')
+          ctx.setFontSize(11 * ratio)
+          const text = checkinData.text.length > 40 
+            ? checkinData.text.substring(0, 40) + '...' 
+            : checkinData.text
+          ctx.fillText(text, scaleWidth / 2, 375 * ratio)
         }
 
         // 日期
@@ -153,16 +264,18 @@ Component<IComponentOptions>({
           month: 'long', 
           day: 'numeric' 
         })
-        ctx.setFillStyle('#999999')
-        ctx.setFontSize(12 * ratio)
-        ctx.fillText(dateStr, scaleWidth / 2, 340 * ratio)
+        ctx.setFillStyle('rgba(255, 255, 255, 0.5)')
+        ctx.setFontSize(10 * ratio)
+        ctx.fillText(dateStr, scaleWidth / 2, 410 * ratio)
 
         // 底部装饰
         ctx.setFillStyle('#2E8B57')
-        ctx.fillRect(0, scaleHeight - 40 * ratio, scaleWidth, 40 * ratio)
+        ctx.fillRect(0, scaleHeight - 50 * ratio, scaleWidth, 50 * ratio)
+
+        // 底部文字
         ctx.setFillStyle('#ffffff')
-        ctx.setFontSize(12 * ratio)
-        ctx.fillText('扫码一起运动', scaleWidth / 2, scaleHeight - 18 * ratio)
+        ctx.setFontSize(11 * ratio)
+        ctx.fillText('扫码一起运动，让生活更健康', scaleWidth / 2, scaleHeight - 22 * ratio)
 
         ctx.draw(false, () => {
           setTimeout(() => {
@@ -214,7 +327,9 @@ Component<IComponentOptions>({
     },
 
     onClose() {
+      this.setData({ posterGenerated: false, posterUrl: '' })
       this.triggerEvent('close')
+      this.triggerEvent('skip')
     },
 
     preventTap() {}

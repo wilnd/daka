@@ -274,7 +274,7 @@ function generateFeedback(activities, activityScore, amountScore, completenessSc
   if (!activities || activities.length === 0) {
     feedbacks.push('未识别到运动内容')
   } else {
-    const sportNames = activities.map(a => SPORT_CONFIG[a.type]?.name || a.type)
+    const sportNames = activities.map(a => (SPORT_CONFIG[a.type] && SPORT_CONFIG[a.type].name) || a.type)
     const uniqueSports = [...new Set(sportNames)]
 
     if (activityScore >= 80) {
@@ -339,7 +339,7 @@ async function callLLM(apiKey, baseUrl, model, messages) {
       }
     )
 
-    const content = response.data.choices[0]?.message?.content || ''
+    const content = (response.data.choices[0] && response.data.choices[0].message && response.data.choices[0].message.content) || ''
 
     const jsonMatch = content.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
@@ -607,7 +607,7 @@ exports.main = async (event, context) => {
       publishScore * weights.publish
     ))
 
-    feedback = content.photos?.length > 0
+    feedback = (content.photos && content.photos.length) > 0
       ? '照片已收到，建议配上运动说明哦'
       : '打卡成功，建议描述一下今天的运动内容'
   }
@@ -639,7 +639,7 @@ exports.main = async (event, context) => {
   }
 
   // 获取运动类型名称
-  const sportTypes = allActivities.map(a => SPORT_CONFIG[a.type]?.name || a.type || '未知运动')
+  const sportTypes = allActivities.map(a => (SPORT_CONFIG[a.type] && SPORT_CONFIG[a.type].name) || a.type || '未知运动')
 
   return {
     success: true,

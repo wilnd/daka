@@ -1,6 +1,8 @@
+@import '../../styles/theme.less';
+
 .page {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: @color-bg-page;
 }
 
 .group-header {
@@ -9,6 +11,7 @@
   z-index: 100;
   margin-bottom: 32rpx;
   padding-top: 16rpx;
+  background: @color-bg-page;
 }
 
 .group-selector {
@@ -17,16 +20,17 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #2E8B57;
-    border-radius: 30rpx;
+    background: transparent;
+    border-radius: @radius-full;
     padding: 20rpx 30rpx;
+    box-shadow: none;
     .current-group-name {
-      color: #fff;
+      color: @color-text-title;
       font-size: 28rpx;
-      font-weight: 500;
+      font-weight: @font-weight-medium;
     }
     .arrow {
-      color: #fff;
+      color: @color-text-hint;
       font-size: 20rpx;
       margin-left: 8rpx;
     }
@@ -38,7 +42,7 @@
   justify-content: center;
   align-items: center;
   padding: 100rpx;
-  color: #999;
+  color: @color-text-hint;
   font-size: 28rpx;
 }
 
@@ -53,27 +57,28 @@
 .empty-icon {
   font-size: 120rpx;
   margin-bottom: 30rpx;
+  opacity: 0.6;
 }
 
 .empty-title {
   font-size: 32rpx;
-  color: #333;
-  font-weight: 500;
+  color: @color-text-title;
+  font-weight: @font-weight-medium;
   margin-bottom: 20rpx;
 }
 
 .empty-desc {
   font-size: 26rpx;
-  color: #999;
+  color: @color-text-hint;
 }
 
 .moments-list {
-  background-color: #fff;
+  background-color: @color-white;
 }
 
 .moment-item {
   padding: 30rpx;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid @color-border-light;
 }
 
 .moment-header {
@@ -87,6 +92,7 @@
   height: 80rpx;
   border-radius: 50%;
   margin-right: 20rpx;
+  background: @color-bg-page;
 }
 
 .user-info {
@@ -95,24 +101,24 @@
 
 .nickname {
   font-size: 30rpx;
-  color: #333;
-  font-weight: 500;
+  color: @color-text-title;
+  font-weight: @font-weight-medium;
   display: block;
 }
 
 .moment-time {
   font-size: 24rpx;
-  color: #999;
+  color: @color-text-hint;
   margin-top: 5rpx;
   display: block;
 }
 
 .sport-tag {
-  background-color: #2E8B57;
-  color: #fff;
+  background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+  color: @color-white;
   font-size: 22rpx;
   padding: 5rpx 15rpx;
-  border-radius: 20rpx;
+  border-radius: @radius-full;
 }
 
 .moment-content {
@@ -121,7 +127,7 @@
 
 .moment-content .text {
   font-size: 28rpx;
-  color: #333;
+  color: @color-text-title;
   line-height: 1.6;
 }
 
@@ -136,7 +142,7 @@
   height: 200rpx;
   margin-right: 10rpx;
   margin-bottom: 10rpx;
-  border-radius: 10rpx;
+  border-radius: @radius-md;
   overflow: hidden;
 }
 
@@ -157,11 +163,11 @@
 .score-tag {
   display: inline-flex;
   align-items: center;
-  background-color: #fff7e6;
-  color: #ff9800;
+  background-color: #FFF8E1;
+  color: @color-gold;
   font-size: 24rpx;
   padding: 8rpx 16rpx;
-  border-radius: 8rpx;
+  border-radius: @radius-sm;
   margin-top: 15rpx;
 }
 
@@ -177,7 +183,7 @@
 .moment-actions {
   display: flex;
   padding: 15rpx 0;
-  border-top: 1rpx solid #f0f0f0;
+  border-top: 1rpx solid @color-border-light;
 }
 
 .action-item {
@@ -191,42 +197,42 @@
 }
 
 .action-icon.liked {
-  color: #ff4757;
+  color: @color-secondary;
 }
 
 .action-count {
   font-size: 24rpx;
-  color: #666;
+  color: @color-text-body;
   margin-left: 8rpx;
 }
 
 .comments-section {
-  background-color: #f9f9f9;
+  background-color: @color-bg-page;
   padding: 15rpx;
-  border-radius: 8rpx;
+  border-radius: @radius-sm;
 }
 
 .comment-item {
   font-size: 26rpx;
-  color: #666;
+  color: @color-text-body;
   line-height: 1.6;
   margin-bottom: 8rpx;
 }
 
 .comment-user {
-  color: #576b95;
-  font-weight: 500;
+  color: #5DADE2;
+  font-weight: @font-weight-medium;
 }
 
 .comment-content {
-  color: #333;
+  color: @color-text-title;
 }
 
 .loading-more,
 .no-more {
   text-align: center;
   padding: 30rpx;
-  color: #999;
+  color: @color-text-hint;
   font-size: 24rpx;
 }
 
@@ -249,7 +255,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: @color-bg-mask;
 }
 
 .comment-input-wrap {
@@ -259,7 +265,7 @@
   right: 0;
   display: flex;
   align-items: center;
-  background-color: #fff;
+  background-color: @color-white;
   padding: 20rpx 30rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
 }
@@ -267,8 +273,8 @@
 .comment-input {
   flex: 1;
   height: 70rpx;
-  background-color: #f5f5f5;
-  border-radius: 35rpx;
+  background-color: @color-bg-page;
+  border-radius: @radius-full;
   padding: 0 30rpx;
   font-size: 28rpx;
 }
@@ -278,10 +284,11 @@
   padding: 0 30rpx;
   height: 70rpx;
   line-height: 70rpx;
-  background-color: #2E8B57;
-  color: #fff;
-  border-radius: 35rpx;
+  background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+  color: @color-white;
+  border-radius: @radius-full;
   font-size: 28rpx;
+  box-shadow: @shadow-primary;
 }
 
 .send-btn:active {
@@ -295,7 +302,7 @@
   right: 0;
   top: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: @color-bg-mask;
   display: flex;
   align-items: flex-end;
   opacity: 0;
@@ -311,23 +318,23 @@
 
 .modal-content {
   width: 100%;
-  background: #fff;
-  border-radius: 24rpx 24rpx 0 0;
+  background: @color-white;
+  border-radius: @radius-xl @radius-xl 0 0;
   padding: 48rpx;
   padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
 }
 
 .modal-title {
   font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
+  font-weight: @font-weight-bold;
+  color: @color-text-title;
   display: block;
   margin-bottom: 32rpx;
 }
 
 .group-option {
   padding: 24rpx 0;
-  border-bottom: 1rpx solid #f5f5f5;
+  border-bottom: 1rpx solid @color-border-light;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -340,7 +347,7 @@
 
 .group-option-info .meta {
   font-size: 24rpx;
-  color: #999;
+  color: @color-text-hint;
   margin-top: 8rpx;
 }
 
@@ -352,19 +359,19 @@
 
 .default-tag {
   font-size: 24rpx;
-  color: #2E8B57;
+  color: @color-primary;
   padding: 8rpx 16rpx;
-  background: rgba(46, 139, 87, 0.1);
-  border-radius: 8rpx;
+  background: rgba(52, 168, 83, 0.1);
+  border-radius: @radius-sm;
 }
 
 .btn-set-default {
   font-size: 24rpx;
-  color: #2E8B57;
+  color: @color-primary;
   background: transparent;
-  border: 1rpx solid #2E8B57;
+  border: 1rpx solid @color-primary;
   padding: 8rpx 16rpx;
-  border-radius: 8rpx;
+  border-radius: @radius-sm;
 }
 
 .btn-set-default::after {
@@ -372,11 +379,11 @@
 }
 
 .group-option.active {
-  background: rgba(46, 139, 87, 0.1);
+  background: rgba(52, 168, 83, 0.08);
   margin: 0 -48rpx;
   padding-left: 48rpx;
   padding-right: 48rpx;
-  border-radius: 12rpx;
+  border-radius: @radius-md;
 }
 
 .modal-actions {
@@ -389,7 +396,7 @@
 .btn-text {
   background: none;
   border: none;
-  color: #2E8B57;
+  color: @color-primary;
   font-size: 28rpx;
   padding: 16rpx;
 }

@@ -1,4 +1,4 @@
-<navigation-bar title="小组" back="{{false}}" color="white" background="#2E8B57"></navigation-bar>
+<navigation-bar title="小组" back="{{false}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view wx:if="{{!hasUserInfo}}" class="need-auth">
@@ -10,10 +10,10 @@
     </view>
     <view wx:else>
       <view class="actions">
-        <view class="action-btn btn-primary" bindtap="showCreate">
+        <view class="action-btn create" bindtap="showCreate">
           <text class="btn-icon">+</text> 创建小组
         </view>
-        <view class="action-btn btn-secondary" bindtap="showJoin">
+        <view class="action-btn join" bindtap="showJoin">
           <text class="btn-icon">↔</text> 加入小组
         </view>
       </view>

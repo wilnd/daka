@@ -1,31 +1,76 @@
 /**
  * 好友运动打卡助手 - 设计规范变量
- * 4.3 颜色规范 | 4.4 字体规范
+ * 现代化舒适配色方案
  */
 
 /* ========== 颜色 ========== */
-@color-primary: #2E8B57;        /* 主色-海绿：核心按钮、导航栏、重点数据 */
-@color-secondary: #FF6B6B;      /* 辅助色-浅红：未打卡提醒、异常、删除 */
-@color-gold: #FFD700;           /* 补卡标记 */
 
+/* 主色 - 温暖森林绿 */
+@color-primary: #34A853;
+@color-primary-light: #4BC768;
+@color-primary-dark: #2E8B57;
+
+/* 辅助色 - 温暖珊瑚 */
+@color-secondary: #FF7043;
+@color-secondary-light: #FF8A65;
+
+/* 点缀色 */
+@color-gold: #FFB300;
+@color-gold-light: #FFCA28;
+@color-success: #4CAF50;
+@color-info: #29B6F6;
+
+/* 背景色系 */
 @color-white: #FFFFFF;
-@color-bg-card: #F5F5F5;
-@color-text-title: #333333;
-@color-text-body: #666666;
-@color-text-hint: #999999;
+@color-bg-page: #F8F9FA;
+@color-bg-card: #FFFFFF;
+@color-bg-card-hover: #FAFAFA;
+@color-bg-mask: rgba(0, 0, 0, 0.5);
+
+/* 边框色 */
+@color-border: #EEEEEE;
+@color-border-light: #F5F5F5;
+
+/* 文字色 - 降低对比度，更舒适 */
+@color-text-title: #2D3436;
+@color-text-body: #5D6D7E;
+@color-text-hint: #B0B8C1;
+@color-text-disabled: #CFD8DC;
 
 /* 打卡日历 */
 @color-calendar-checked: @color-primary;
 @color-calendar-unchecked: @color-bg-card;
 @color-calendar-makeup: @color-gold;
+@color-calendar-today: rgba(52, 168, 83, 0.1);
 
 /* ========== 字体 ========== */
 @font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-@font-size-title: 36rpx;        /* 18px */
-@font-size-body: 32rpx;         /* 16px */
-@font-size-caption: 28rpx;      /* 14px */
-@font-size-data: 36rpx;         /* 18px */
-@font-size-btn: 32rpx;          /* 16px */
+@font-size-title: 36rpx;
+@font-size-body: 32rpx;
+@font-size-caption: 28rpx;
+@font-size-data: 36rpx;
+@font-size-btn: 32rpx;
 
 @font-weight-bold: 600;
+@font-weight-medium: 500;
 @font-weight-regular: 400;
+
+/* ========== 间距 ========== */
+@spacing-xs: 8rpx;
+@spacing-sm: 16rpx;
+@spacing-md: 24rpx;
+@spacing-lg: 32rpx;
+@spacing-xl: 48rpx;
+
+/* ========== 圆角 ========== */
+@radius-sm: 8rpx;
+@radius-md: 12rpx;
+@radius-lg: 16rpx;
+@radius-xl: 24rpx;
+@radius-full: 9999rpx;
+
+/* ========== 阴影 ========== */
+@shadow-sm: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+@shadow-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+@shadow-lg: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
+@shadow-primary: 0 4rpx 16rpx rgba(52, 168, 83, 0.25);

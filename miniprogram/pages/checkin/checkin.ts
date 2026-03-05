@@ -1,12 +1,31 @@
 // checkin.ts
-import { doCheckinWithContent, updateTodayCheckinWithContent, getTodayCheckin, CheckinContent } from '../../services/checkin'
+import { doCheckinWithContent, getTodayCheckin, CheckinContent } from '../../services/checkin'
 import { getOpenid, getOrCreateUser } from '../../services/auth'
 import { getStreak } from '../../services/stats'
 import { getMyGroups } from '../../services/group'
+import { getCategories, getSubCategories, Category, SubCategory } from '../../services/category'
 
-const app = getApp<IAppOption>()
+const app = getApp() as IAppOption
 
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
+
+/** 本地缓存的群组列表 key */
+const GROUPS_CACHE_KEY = 'cachedGroups'
+
+/** 从本地缓存获取群组列表 */
+function getCachedGroups(): any[] {
+  try {
+    const cached = wx.getStorageSync(GROUPS_CACHE_KEY)
+    return cached || []
+  } catch {
+    return []
+  }
+}
+
+/** 保存群组列表到本地缓存 */
+function setCachedGroups(groups: any[]): void {
+  wx.setStorageSync(GROUPS_CACHE_KEY, groups)
+}
 
 Page({
   data: {
@@ -16,8 +35,11 @@ Page({
     text: '',
     photos: [] as string[],
     maxPhotos: 9,
-    sportType: '',
-    sportTypes: ['跑步', '走路', '骑行', '游泳', '健身', '瑜伽', '篮球', '足球', '网球', '羽毛球', '乒乓球', '舞蹈', '徒步', '攀岩', '其他'],
+    // 大类和小类（使用索引便于picker使用）
+    categoryIndex: -1,
+    subCategoryIndex: -1,
+    categories: [] as Category[],
+    subCategories: [] as SubCategory[],
     isPublishToMoments: true,
     // 朋友圈可见范围
     momentsGroupId: '',
@@ -32,10 +54,16 @@ Page({
     showStreakAnimation: false,
     currentStreak: 0,
     showSharePoster: false,
-    checkinResult: null as any
+    checkinResult: null as any,
+    // 动态主题色
+    themeColor: '#34A853',
   },
 
   onLoad(options) {
+    // 同步主题色
+    this.setData({
+      themeColor: app.globalData.themeColor
+    })
     const mode = options.mode === 'edit' ? 'edit' : 'create'
     const groupId = options.groupId || ''
     const groupName = options.groupName ? decodeURIComponent(options.groupName) : ''
@@ -43,9 +71,20 @@ Page({
     this.init()
   },
 
+  onShow() {
+    // 同步主题色（从打卡返回时可能已更新）
+    this.setData({
+      themeColor: app.globalData.themeColor
+    })
+  },
+
   async init() {
     const userInfo = wx.getStorageSync('userInfo')
     this.setData({ userInfo })
+
+    // 初始化类别数据
+    const categories = getCategories()
+    this.setData({ categories })
 
     const openid = app.globalData.openid || wx.getStorageSync('openid')
     if (!openid) {
@@ -70,6 +109,7 @@ Page({
 
     // 加载用户的群组列表
     await this.loadGroups()
+    // 加载今日打卡记录（仅用于展示用户历史选择）
     await this.loadTodayCheckin()
   },
 
@@ -77,8 +117,21 @@ Page({
     const openid = app.globalData.openid
     if (!openid) return
 
+    // 优先从本地缓存加载群组列表
+    const cachedGroups = getCachedGroups()
+    if (cachedGroups.length > 0) {
+      const momentsGroupRange = [
+        { _id: '', name: '所有群组' },
+        ...cachedGroups
+      ]
+      this.setData({ groups: cachedGroups, momentsGroupRange })
+    }
+
     try {
+      // 从服务器获取最新群组列表
       const groups = await getMyGroups(openid)
+      // 保存到本地缓存
+      setCachedGroups(groups)
       // 构建朋友圈可见范围选项：第一个是"所有群组"，后面是实际群组
       const momentsGroupRange = [
         { _id: '', name: '所有群组' },
@@ -96,8 +149,9 @@ Page({
 
     try {
       const ck = await getTodayCheckin(openid)
+      // 无论是否已打卡，都使用 create 模式（支持多次打卡）
+      // 如果有历史打卡，记录最后一次的类别选择供用户参考
       if (!ck) {
-        wx.showToast({ title: '今日还未打卡', icon: 'none' })
         this.setData({ mode: 'create' })
         return
       }
@@ -120,11 +174,21 @@ Page({
         }
       }
 
+      // 回显上次的类别选择（根据ID找到对应的索引）
+      const categoryId = content.categoryId || ''
+      const subCategoryId = content.subCategoryId || ''
+      const categories = this.data.categories
+      const categoryIndex = categories.findIndex(c => c.id === categoryId)
+      const subCategories = categoryId ? getSubCategories(categoryId) : []
+      const subCategoryIndex = subCategories.findIndex(s => s.id === subCategoryId)
+
       this.setData({
-        mode: 'edit',
+        mode: 'create',  // 始终使用创建模式，支持多次打卡
+        categoryIndex: categoryIndex >= 0 ? categoryIndex : -1,
+        subCategoryIndex: subCategoryIndex >= 0 ? subCategoryIndex : -1,
+        subCategories,
         text: content.text || '',
         photos: content.photos || [],
-        sportType: content.sportType || '',
         isPublishToMoments: content.isPublishToMoments !== false,
         momentsGroupId,
         momentsGroupName,
@@ -140,9 +204,23 @@ Page({
     this.setData({ text: e.detail.value })
   },
 
-  onSportTypeChange(e: any) {
+  onCategoryChange(e: any) {
     const index = e.detail.value
-    this.setData({ sportType: this.data.sportTypes[index] })
+    const categories = this.data.categories
+    const selectedCategory = categories[index]
+    if (!selectedCategory) return
+
+    const subCategories = getSubCategories(selectedCategory.id)
+    this.setData({
+      categoryIndex: index,
+      subCategoryIndex: -1,
+      subCategories
+    })
+  },
+
+  onSubCategoryChange(e: any) {
+    const index = e.detail.value
+    this.setData({ subCategoryIndex: index })
   },
 
   onToggleMomentsPublish() {
@@ -212,13 +290,21 @@ Page({
 
   // 提交打卡
   async onSubmit() {
-    const { text, photos, sportType, isPublishToMoments, submitting, mode, groupId } = this.data
+    const { text, photos, categoryIndex, subCategoryIndex, categories, subCategories, isPublishToMoments, submitting, groupId } = this.data
     const openid = app.globalData.openid
 
     if (!openid) {
       wx.showToast({ title: '请先登录', icon: 'none' })
       return
     }
+
+    if (categoryIndex < 0 || subCategoryIndex < 0) {
+      wx.showToast({ title: '请选择打卡类别', icon: 'none' })
+      return
+    }
+
+    const categoryId = categories[categoryIndex]?.id
+    const subCategoryId = subCategories[subCategoryIndex]?.id
 
     if (!text && photos.length === 0) {
       wx.showToast({ title: '请输入文字或上传照片', icon: 'none' })
@@ -228,7 +314,7 @@ Page({
     if (submitting) return
 
     this.setData({ submitting: true })
-    wx.showLoading({ title: mode === 'edit' ? '更新中...' : '打卡中...' })
+    wx.showLoading({ title: '打卡中...' })
 
     try {
       const cloudPhotos: string[] = []
@@ -256,55 +342,47 @@ Page({
         text: text.trim(),
         photos: uploadedPhotos,
         isPublishToMoments,
-        sportType,
+        categoryId,
+        subCategoryId,
         momentsGroupId: this.data.momentsGroupId
       }
 
-      const result =
-        mode === 'edit'
-          ? await updateTodayCheckinWithContent(openid, content, groupId)
-          : await doCheckinWithContent(openid, content, groupId)
+      const result = await doCheckinWithContent(openid, content, groupId)
 
       if (result.ok) {
-        wx.showToast({ 
-          title:
-            mode === 'edit'
-              ? (isPublishToMoments ? '更新成功，已同步朋友圈' : '更新成功')
-              : (isPublishToMoments ? '打卡成功，已发布到朋友圈' : '打卡成功'),
-          icon: 'none' 
+        wx.showToast({
+          title: isPublishToMoments ? '打卡成功，已发布到朋友圈' : '打卡成功',
+          icon: 'none'
         })
 
-        // 只有首次打卡时才显示连胜动画和分享海报，更新不打卡
-        if (mode !== 'edit') {
-          // 获取当前连胜（打卡后的连胜）
-          let currentStreak = 1
-          try {
-            const openid = app.globalData.openid
-            if (openid) {
-              currentStreak = await getStreak(openid, groupId) || 1
-            }
-          } catch (e) {
-            console.warn('获取连胜失败', e)
-          }
+        // 打卡成功后更新主题为绿色
+        app.updateTheme(true, true)
 
-          // 保存打卡结果用于生成海报
-          const checkinResult = {
-            text: text.trim(),
-            sportType,
-            groupId,
-            photos: uploadedPhotos
+        // 显示连胜动画和分享海报
+        // 获取当前连胜（打卡后的连胜）
+        let currentStreak = 1
+        try {
+          const openid = app.globalData.openid
+          if (openid) {
+            currentStreak = await getStreak(openid, groupId) || 1
           }
-          this.setData({ 
-            currentStreak, 
-            checkinResult,
-            showStreakAnimation: true 
-          })
-        } else {
-          // 更新模式直接返回首页
-          setTimeout(() => {
-            wx.switchTab({ url: '/pages/index/index' })
-          }, 1500)
+        } catch (e) {
+          console.warn('获取连胜失败', e)
         }
+
+        // 保存打卡结果用于生成海报
+        const checkinResult = {
+          text: text.trim(),
+          categoryId,
+          subCategoryId,
+          groupId,
+          photos: uploadedPhotos
+        }
+        this.setData({ 
+          currentStreak, 
+          checkinResult,
+          showStreakAnimation: true 
+        })
       } else {
         wx.showToast({ title: result.msg || '打卡失败', icon: 'none' })
       }
@@ -322,6 +400,16 @@ Page({
     this.setData({ showStreakAnimation: false })
     // 显示分享海报
     this.setData({ showSharePoster: true })
+  },
+
+  // 跳过分享
+  onSkipShare() {
+    this.setData({ 
+      showStreakAnimation: false,
+      showSharePoster: false 
+    })
+    // 跳转回首页
+    wx.switchTab({ url: '/pages/index/index' })
   },
 
   // 关闭分享海报
