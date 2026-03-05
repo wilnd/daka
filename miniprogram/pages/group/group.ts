@@ -4,6 +4,8 @@ import { getMyGroups, createGroup, joinByInviteCode } from '../../services/group
 
 const app = getApp() as IAppOption
 
+const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
+
 /** 本地缓存的群组列表 key */
 const GROUPS_CACHE_KEY = 'cachedGroups'
 
@@ -28,18 +30,32 @@ Component({
   lifetimes: {
     attached() {
       this.init()
-      // 检查是否需要自动打开加入弹窗
-      const app = getApp() as IAppOption
+      // 检查是否是否需要自动打开加入弹窗
       if (app.globalData.shouldOpenJoinModal) {
         app.globalData.shouldOpenJoinModal = false
         this.setData({ showJoinModal: true, joinCode: '' })
       }
     },
+  },
+  pageLifetimes: {
     show() {
       // 同步主题色
-      this.setData({ themeColor: app.globalData.themeColor })
-      // 每次显示时也检查一下（防止从其他页面切回来时需要打开）
-      const app = getApp() as IAppOption
+      this.setData({ themeColor: '#34A853' })
+      // 每次显示时检查授权状态
+      let ui = wx.getStorageSync('userInfo')
+      if (ui && ui.nickName && ui.avatarUrl) {
+        let avatarUrl = ui.avatarUrl
+        // 如果不是有效的网络头像，使用默认头像
+        if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
+          avatarUrl = defaultAvatar
+          ui = { ...ui, avatarUrl }
+          wx.setStorageSync('userInfo', ui)
+        }
+        if (!this.data.hasUserInfo) {
+          this.setData({ hasUserInfo: true, userInfoStr: JSON.stringify(ui) })
+        }
+      }
+      // 检查是否需要自动打开加入弹窗
       if (app.globalData.shouldOpenJoinModal) {
         app.globalData.shouldOpenJoinModal = false
         this.setData({ showJoinModal: true, joinCode: '' })
@@ -49,10 +65,17 @@ Component({
   },
   methods: {
     async init() {
-      const ui = wx.getStorageSync('userInfo')
+      let ui = wx.getStorageSync('userInfo')
       this.setData({ userInfoStr: JSON.stringify(ui) })
       if (ui && ui.nickName && ui.avatarUrl) {
-        this.setData({ hasUserInfo: true })
+        let avatarUrl = ui.avatarUrl
+        // 如果不是有效的网络头像，使用默认头像
+        if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
+          avatarUrl = defaultAvatar
+          ui = { ...ui, avatarUrl }
+          wx.setStorageSync('userInfo', ui)
+        }
+        this.setData({ hasUserInfo: true, userInfoStr: JSON.stringify(ui) })
         await this.ensureOpenid()
         this.loadGroups()
       }

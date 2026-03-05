@@ -1,7 +1,7 @@
 // app.ts
 import './cloud-init' // 必须最先执行，初始化云开发
 import { getOpenid } from './services/auth'
-import { getSimpleThemeColor, THEMES, ThemeConfig, ThemeType } from './services/theme'
+import { getSimpleThemeColor, THEMES, ThemeType } from './services/theme'
 
 App({
   globalData: {
@@ -9,11 +9,11 @@ App({
     currentGroupId: '',
     shouldOpenJoinModal: false,
     /** 当前主题颜色 */
-    themeColor: THEMES.checked.color,
-    /** 当前主题配置 */
-    themeConfig: THEMES.checked as ThemeConfig,
-    /** 主题类型 */
-    themeType: 'checked' as ThemeType,
+    themeColor: '#34A853',
+    /** 当前主题类型 */
+    themeType: 'normal' as ThemeType,
+    /** 主题配置 */
+    themeConfig: null as any,
     /** 用户已打卡状态（用于定时刷新） */
     userCheckedToday: false,
     userCheckedYesterday: false,
@@ -66,7 +66,8 @@ App({
     if (themeColor !== this.globalData.themeColor) {
       this.globalData.themeType = themeType
       this.globalData.themeColor = themeColor
-      this.applyNavigationBarColor(themeColor)
+      // 导航栏始终保持绿色
+      this.applyNavigationBarColor(THEMES.normal.color)
     }
   },
   /** 初始化主题（根据当前时间） */
@@ -92,8 +93,8 @@ App({
       label: THEMES[themeType].label
     }
 
-    // 应用到导航栏
-    this.applyNavigationBarColor(themeColor)
+    // 应用到导航栏（使用绿色）
+    this.applyNavigationBarColor(THEMES.normal.color)
   },
   /** 更新主题（根据打卡状态） */
   updateTheme(checkedToday: boolean, checkedYesterday: boolean) {
@@ -140,8 +141,8 @@ App({
       label: THEMES[themeType].label
     }
 
-    // 应用到导航栏
-    this.applyNavigationBarColor(themeColor)
+    // 应用到导航栏（始终使用绿色）
+    this.applyNavigationBarColor(THEMES.normal.color)
   },
   /** 应用导航栏颜色 */
   applyNavigationBarColor(color: string) {

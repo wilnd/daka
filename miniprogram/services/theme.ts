@@ -57,9 +57,9 @@ const THEMES: Record<ThemeType, ThemeConfig> = {
 
 /** 渐变关键点：时间(小时) -> 颜色 */
 const TIME_COLOR_MAP: Array<{ hour: number; color: string }> = [
-  { hour: 18, color: '#8BC34A' },   // 浅黄绿
-  { hour: 19, color: '#FFEB3B' },   // 黄色
-  { hour: 20, color: '#FF9800' },   // 橙色
+  { hour: 18, color: '#FFC107' },   // 琥珀色/深黄（更醒目）
+  { hour: 19, color: '#FF9800' },   // 橙色
+  { hour: 20, color: '#FF5722' },   // 深橙色
   { hour: 22, color: '#F44336' },    // 红色
   { hour: 23.5, color: '#B71C1C' }   // 深红/黑红
 ]
@@ -87,7 +87,7 @@ function lerpColor(color1: string, color2: string, ratio: number): string {
 }
 
 /**
- * 根据时间计算渐变颜色（18:00-24:00）
+ * 根据时间计算渐变颜色（18:00后提醒，20:00后警告）
  * @param hour 当前小时（含小数，如 18.5 表示 18:30）
  */
 function getColorByTime(hour: number): string {

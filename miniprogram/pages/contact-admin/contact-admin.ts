@@ -1,6 +1,3 @@
-declare const getApp: () => IAppOption
-const app = getApp() as IAppOption
-
 Component({
   data: {
     wechatId: 'ch668816888',
@@ -11,7 +8,7 @@ Component({
     attached() {
       // 同步主题色
       this.setData({
-        themeColor: app.globalData.themeColor
+        themeColor: '#34A853'
       })
     },
   },

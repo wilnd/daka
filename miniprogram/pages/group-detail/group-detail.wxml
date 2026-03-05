@@ -76,8 +76,9 @@
       </view>
 
       <!-- 退小组按钮 -->
-      <view class="quit-section" wx:if="{{!isAdmin}}">
-        <button class="btn-danger" bindtap="onQuitGroup">退出小组</button>
+      <view class="quit-section">
+        <button wx:if="{{!isAdmin}}" class="btn-danger" bindtap="onQuitGroup">退出小组</button>
+        <button wx:if="{{isAdmin}}" class="btn-danger" bindtap="onDissolveGroup">解散小组</button>
       </view>
     </view>
   </view>

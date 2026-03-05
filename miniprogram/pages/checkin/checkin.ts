@@ -62,7 +62,7 @@ Page({
   onLoad(options) {
     // 同步主题色
     this.setData({
-      themeColor: app.globalData.themeColor
+      themeColor: '#34A853'
     })
     const mode = options.mode === 'edit' ? 'edit' : 'create'
     const groupId = options.groupId || ''
@@ -74,7 +74,7 @@ Page({
   onShow() {
     // 同步主题色（从打卡返回时可能已更新）
     this.setData({
-      themeColor: app.globalData.themeColor
+      themeColor: '#34A853'
     })
   },
 
@@ -118,7 +118,7 @@ Page({
     if (!openid) return
 
     // 优先从本地缓存加载群组列表
-    const cachedGroups = getCachedGroups()
+    const cachedGroups = getCachedGroups() || []
     if (cachedGroups.length > 0) {
       const momentsGroupRange = [
         { _id: '', name: '所有群组' },
@@ -129,7 +129,7 @@ Page({
 
     try {
       // 从服务器获取最新群组列表
-      const groups = await getMyGroups(openid)
+      const groups = await getMyGroups(openid) || []
       // 保存到本地缓存
       setCachedGroups(groups)
       // 构建朋友圈可见范围选项：第一个是"所有群组"，后面是实际群组
@@ -274,7 +274,7 @@ Page({
   // 删除照片
   onRemovePhoto(e: any) {
     const index = e.currentTarget.dataset.index
-    const photos = [...this.data.photos]
+    const photos = [...(this.data.photos || [])]
     photos.splice(index, 1)
     this.setData({ photos })
   },
@@ -284,7 +284,7 @@ Page({
     const { url, index } = e.currentTarget.dataset
     wx.previewImage({
       current: url,
-      urls: this.data.photos
+      urls: this.data.photos || []
     })
   },
 
@@ -303,8 +303,8 @@ Page({
       return
     }
 
-    const categoryId = categories[categoryIndex]?.id
-    const subCategoryId = subCategories[subCategoryIndex]?.id
+    const categoryId = categories[categoryIndex] ? categories[categoryIndex].id : undefined
+    const subCategoryId = subCategories[subCategoryIndex] ? subCategories[subCategoryIndex].id : undefined
 
     if (!text && photos.length === 0) {
       wx.showToast({ title: '请输入文字或上传照片', icon: 'none' })
@@ -356,7 +356,7 @@ Page({
         })
 
         // 打卡成功后更新主题为绿色
-        app.updateTheme(true, true)
+        app.updateTheme!(true, true)
 
         // 显示连胜动画和分享海报
         // 获取当前连胜（打卡后的连胜）

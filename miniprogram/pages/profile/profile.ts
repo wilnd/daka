@@ -26,9 +26,11 @@ Component({
   },
   lifetimes: {
     attached() { this.init() },
+  },
+  pageLifetimes: {
     show() {
       // 同步主题色
-      this.setData({ themeColor: app.globalData.themeColor })
+      this.setData({ themeColor: '#34A853' })
       if (this.data.hasUserInfo) this.loadData()
     },
   },

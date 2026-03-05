@@ -1,5 +1,5 @@
 // group-detail.ts
-import { getGroupById, getGroupMembers, removeMember, quitGroup, transferAdmin, updateInviteCode, updateGroup } from '../../services/group'
+import { getGroupById, getGroupMembers, removeMember, quitGroup, transferAdmin, updateInviteCode, updateGroup, dissolveGroup } from '../../services/group'
 import { getOpenid } from '../../services/auth'
 import { usersCol, checkinsCol, getTodayStr, getCurrentMonth } from '../../services/db'
 
@@ -70,7 +70,7 @@ Component({
   pageLifetimes: {
     show() {
       // 同步主题色
-      this.setData({ themeColor: app.globalData.themeColor })
+      this.setData({ themeColor: '#34A853' })
       // 页面显示时刷新数据（可选）
     },
   },
@@ -389,6 +389,14 @@ Component({
         showConfirmModal: true
       })
     },
+    onDissolveGroup() {
+      this.setData({
+        confirmTitle: '解散小组',
+        confirmContent: '确定要解散该小组吗？解散后所有成员将被移除，且无法恢复。',
+        confirmActionType: 'dissolveGroup',
+        showConfirmModal: true
+      })
+    },
     async confirmAction() {
       const { confirmActionType, selectedMember, groupId } = this.data
       const openid = app.globalData.openid
@@ -412,6 +420,9 @@ Component({
               result = { ok: false, msg: '未找到你的小组信息' }
             }
             break
+          case 'dissolveGroup':
+            result = await dissolveGroup(groupId, openid)
+            break
           default:
             result = { ok: false, msg: '未知操作' }
         }
@@ -419,8 +430,9 @@ Component({
         if (result.ok) {
           wx.showToast({ title: '操作成功' })
           this.hideConfirmModal()
-          if (confirmActionType === 'quitGroup') {
-            wx.navigateBack()
+          if (confirmActionType === 'quitGroup' || confirmActionType === 'dissolveGroup') {
+            // 退出或解散小组后，返回小组列表页
+            wx.navigateBack({ delta: 1 })
           } else {
             this.load()
           }

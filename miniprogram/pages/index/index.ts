@@ -228,7 +228,7 @@ Component({
 
           // 更新全局主题
           const checkedYesterday = await getYesterdayCheckin(openid)
-          app.updateTheme(checkedToday, checkedYesterday)
+          app.updateTheme!(checkedToday, checkedYesterday)
         }
         this.setData({
           groups,

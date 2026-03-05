@@ -99,7 +99,7 @@ Page({
   onShow() {
     // 同步主题色
     this.setData({
-      themeColor: app.globalData.themeColor
+      themeColor: '#34A853'
     })
     // 首次进入时，onShow 可能早于异步初始化完成
     if (!this.data.currentGroupId) {
@@ -267,7 +267,11 @@ Page({
         })
 
         // 批量获取临时 URL（所有类型一次请求）
-        const allCloudIds = [...allFileIds.avatars, ...allFileIds.photos, ...allFileIds.commentAvatars]
+        const allCloudIds = [
+          ...(allFileIds.avatars || []),
+          ...(allFileIds.photos || []),
+          ...(allFileIds.commentAvatars || [])
+        ]
         const urlMap = new Map<string, string>()
 
         if (allCloudIds.length > 0) {

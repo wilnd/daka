@@ -232,3 +232,33 @@ export async function regenerateInviteCode(groupId: string, adminId: string): Pr
   })
   return { ok: true, newCode }
 }
+
+/** 解散小组（仅组长可操作，解散后所有成员自动退组） */
+export async function dissolveGroup(groupId: string, adminId: string): Promise<{ ok: boolean; msg?: string }> {
+  // 验证权限：必须是组长
+  const { data: adminMember } = await membersCol()
+    .where({ groupId, userId: adminId, role: 'admin', status: 'normal' })
+    .get()
+  if (adminMember.length === 0) return { ok: false, msg: '只有组长才能解散小组' }
+
+  // 获取所有成员
+  const { data: members } = await membersCol()
+    .where({ groupId, status: 'normal' })
+    .get()
+
+  // 将所有成员状态更新为 quit
+  const db = wx.cloud.database()
+  const _ = db.command
+  for (const member of members) {
+    await membersCol().doc(member._id).update({
+      data: { status: 'quit', updateTime: new Date() }
+    })
+  }
+
+  // 更新小组状态为已解散
+  await groupsCol().doc(groupId).update({
+    data: { status: 'dissolved', updateTime: new Date() }
+  })
+
+  return { ok: true }
+}

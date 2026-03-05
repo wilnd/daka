@@ -1,4 +1,4 @@
-const app = getApp() as IAppOption
+const app = getApp<IAppOption>()
 
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
@@ -86,7 +86,7 @@ Page({
   onLoad(options: any) {
     // 同步主题色
     this.setData({
-      themeColor: app.globalData.themeColor
+      themeColor: '#34A853'
     })
     const userId = options.userId || ''
     const nickName = options.nickName || ''
@@ -122,7 +122,7 @@ Page({
   onShow() {
     // 同步主题色
     this.setData({
-      themeColor: app.globalData.themeColor
+      themeColor: '#34A853'
     })
     if (this.data.userId) {
       this.loadMoments()
