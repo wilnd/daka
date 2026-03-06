@@ -2,13 +2,43 @@
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view wx:if="{{!hasUserInfo}}" class="auth-section">
-      <text class="auth-tip">获取昵称、头像用于展示</text>
-      <button class="btn-primary auth-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
-        <image class="avatar-preview" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
-        选择头像
+      <!-- 欢迎区域 -->
+      <view class="welcome-area">
+        <view class="welcome-icon">🏃‍♂️</view>
+        <text class="welcome-title">欢迎使用打卡助手</text>
+        <text class="welcome-desc">立即授权，开始你的运动打卡之旅</text>
+      </view>
+
+      <!-- 头像选择 -->
+      <view class="avatar-area">
+        <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+          <image class="avatar-preview" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
+          <view class="avatar-edit-badge">
+            <text class="edit-icon">✎</text>
+          </view>
+        </button>
+        <text class="avatar-tip">点击更换头像</text>
+      </view>
+
+      <!-- 昵称输入 -->
+      <view class="nickname-area">
+        <input
+          type="nickname"
+          class="nickname-input"
+          placeholder="请输入你的昵称"
+          placeholder-class="nickname-placeholder"
+          bindblur="onNicknameBlur"
+          value="{{userInfo.nickName}}"
+        />
+      </view>
+
+      <!-- 确认按钮 -->
+      <button class="btn-primary confirm-auth" bindtap="onConfirmAuth">
+        <text class="btn-text">开启打卡之旅</text>
       </button>
-      <input type="nickname" class="nickname-input" placeholder="请输入昵称" bindblur="onNicknameBlur" />
-      <button class="btn-primary confirm-auth" bindtap="onConfirmAuth">确认授权</button>
+
+      <!-- 隐私说明 -->
+      <text class="privacy-tip">仅用于展示你的运动排名，不会收集其他信息</text>
     </view>
     <view wx:elif="{{loading}}" class="skeleton-wrap">
       <view class="skeleton-card">

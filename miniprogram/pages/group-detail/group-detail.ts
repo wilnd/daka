@@ -57,7 +57,7 @@ Component({
     // 邀请开关
     inviteEnabled: true,
     // 动态主题色
-    themeColor: '#34A853',
+    themeColor: '#1ABC9C',
   },
   lifetimes: {
     attached() {
@@ -70,7 +70,7 @@ Component({
   pageLifetimes: {
     show() {
       // 同步主题色
-      this.setData({ themeColor: '#34A853' })
+      this.setData({ themeColor: '#1ABC9C' })
       // 页面显示时刷新数据（可选）
     },
   },

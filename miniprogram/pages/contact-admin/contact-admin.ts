@@ -2,13 +2,13 @@ Component({
   data: {
     wechatId: 'ch668816888',
     // 动态主题色
-    themeColor: '#34A853',
+    themeColor: '#1ABC9C',
   },
   lifetimes: {
     attached() {
       // 同步主题色
       this.setData({
-        themeColor: '#34A853'
+        themeColor: '#1ABC9C'
       })
     },
   },

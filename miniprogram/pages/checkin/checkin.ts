@@ -64,13 +64,13 @@ Page({
     showSharePoster: false,
     checkinResult: null as any,
     // 动态主题色
-    themeColor: '#34A853',
+    themeColor: '#1ABC9C',
   },
 
   onLoad(options) {
     // 同步主题色
     this.setData({
-      themeColor: '#34A853'
+      themeColor: '#1ABC9C'
     })
     const mode = options.mode === 'edit' ? 'edit' : 'create'
     const groupId = options.groupId || ''
@@ -82,7 +82,7 @@ Page({
   onShow() {
     // 同步主题色（从打卡返回时可能已更新）
     this.setData({
-      themeColor: '#34A853'
+      themeColor: '#1ABC9C'
     })
   },
 
@@ -436,7 +436,9 @@ Page({
         this.setData({ 
           currentStreak, 
           checkinResult,
-          showStreakAnimation: true 
+          showStreakAnimation: true,
+          // 临时保存 categoryId 用于动画显示
+          themeColor: categoryId === 'sports' ? '#FF4500' : categoryId === 'study' ? '#4169E1' : '#32CD32'
         })
       } else {
         wx.showToast({ title: result.msg || '打卡失败', icon: 'none' })

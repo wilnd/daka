@@ -1,7 +1,7 @@
 <view class="poster-overlay" wx:if="{{visible}}" catchtap="onClose">
   <view class="poster-container" catchtap="preventTap">
     <view class="poster-header">
-      <text class="title">分享到成长墙</text>
+      <text class="title">分享</text>
       <view class="close-btn" bindtap="onClose">×</view>
     </view>
 
@@ -21,7 +21,7 @@
       <image 
         wx:if="{{posterUrl}}" 
         src="{{posterUrl}}" 
-        mode="aspectFit" 
+        mode="widthFix" 
         class="poster-image {{posterLoading ? 'hidden' : ''}}"
       ></image>
     </view>

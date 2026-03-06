@@ -5,25 +5,39 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: linear-gradient(160deg, #5a0000 0%, #b00000 45%, #ff4500 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 10000;
   animation: fadeIn 0.3s ease-out;
+  overflow: hidden;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-// 彩色纸屑
+// ── 放射光芒背景 ──
+.streak-overlay::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200%;
+  height: 70%;
+  background: repeating-conic-gradient(
+    rgba(255, 200, 0, 0.07) 0deg 10deg,
+    transparent 10deg 20deg
+  );
+  border-radius: 0 0 100% 100%;
+  pointer-events: none;
+}
+
+// ── 彩色纸屑 ──
 .confetti-container {
   position: absolute;
   top: 0;
@@ -52,59 +66,78 @@
   }
 }
 
-// 火焰动画
+// ── 火焰动画 ──
 .flame-container {
   position: absolute;
-  bottom: 25%;
+  bottom: 22%;
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  filter: drop-shadow(0 0 20rpx rgba(255, 100, 0, 0.9));
 }
 
 .flame {
-  width: 40rpx;
-  height: 60rpx;
-  background: linear-gradient(to top, #ff6b6b, #ffd700, transparent);
   border-radius: 50% 50% 20% 20%;
   margin: 0 4rpx;
-  animation: flame 0.5s ease-in-out infinite alternate;
+  animation: flame 0.45s ease-in-out infinite alternate;
   opacity: 0;
 }
 
 .flame-1 {
+  width: 50rpx;
+  height: 100rpx;
+  background: linear-gradient(to top, #ff2200, #ff7700, #ffcc00, transparent);
   animation-delay: 0s;
-  height: 80rpx;
 }
 
 .flame-2 {
-  animation-delay: 0.1s;
-  height: 60rpx;
+  width: 38rpx;
+  height: 75rpx;
+  background: linear-gradient(to top, #ff3300, #ff8800, #ffdd00, transparent);
+  animation-delay: 0.12s;
 }
 
 .flame-3 {
-  animation-delay: 0.2s;
-  height: 50rpx;
+  width: 44rpx;
+  height: 88rpx;
+  background: linear-gradient(to top, #ff1100, #ff6600, #ffbb00, transparent);
+  animation-delay: 0.06s;
+}
+
+.flame-4 {
+  width: 30rpx;
+  height: 60rpx;
+  background: linear-gradient(to top, #ff4400, #ff9900, #ffee00, transparent);
+  animation-delay: 0.18s;
+}
+
+.flame-5 {
+  width: 36rpx;
+  height: 70rpx;
+  background: linear-gradient(to top, #ff2200, #ff7700, #ffcc00, transparent);
+  animation-delay: 0.09s;
 }
 
 @keyframes flame {
   0% {
-    transform: scaleY(1) scaleX(1);
-    opacity: 0.9;
+    transform: scaleY(1) scaleX(1) skewX(-3deg);
+    opacity: 0.95;
   }
   100% {
-    transform: scaleY(1.2) scaleX(0.8);
+    transform: scaleY(1.25) scaleX(0.78) skewX(3deg);
     opacity: 1;
   }
 }
 
-// 连胜数字
+// ── 连胜数字 ──
 .streak-number {
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transform: scale(0.5);
-  transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  transform: scale(0.4);
+  transition: all 0.55s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  margin-bottom: 8rpx;
 }
 
 .streak-number.show {
@@ -115,39 +148,36 @@
 .streak-text {
   font-size: 180rpx;
   font-weight: bold;
-  color: #ffd700;
-  text-shadow: 
-    0 0 20rpx rgba(255, 215, 0, 0.8),
-    0 0 40rpx rgba(255, 215, 0, 0.6),
-    0 0 60rpx rgba(255, 215, 0, 0.4),
-    4rpx 4rpx 0 #ff6b6b,
-    -4rpx -4rpx 0 #ff6b6b;
+  color: #FFD700;
+  text-shadow:
+    0 0 20rpx rgba(255, 230, 0, 0.9),
+    0 0 50rpx rgba(255, 180, 0, 0.7),
+    0 0 90rpx rgba(255, 100, 0, 0.5),
+    5rpx 5rpx 0 #CC0000,
+    -5rpx -5rpx 0 #FF4500;
   line-height: 1;
 }
 
 .streak-suffix {
   font-size: 80rpx;
   margin-left: 10rpx;
-  animation: pulse 0.5s ease-in-out infinite alternate;
+  animation: pulse 0.45s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 8rpx rgba(255, 200, 0, 0.8));
 }
 
 @keyframes pulse {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.2);
-  }
+  from { transform: scale(1) rotate(-5deg); }
+  to   { transform: scale(1.25) rotate(5deg); }
 }
 
-// 徽章
+// ── 徽章 ──
 .badge-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 20rpx;
+  margin-top: 16rpx;
   opacity: 0;
-  transform: translateY(20rpx);
+  transform: translateY(24rpx);
   transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
@@ -157,47 +187,48 @@
 }
 
 .badge {
-  width: 120rpx;
-  height: 120rpx;
+  width: 130rpx;
+  height: 130rpx;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 
-    0 0 30rpx rgba(255, 215, 0, 0.5),
-    inset 0 0 20rpx rgba(255, 255, 255, 0.3);
-  animation: badgeGlow 2s ease-in-out infinite;
+  border: 4rpx solid rgba(255, 215, 0, 0.6);
+  animation: badgeGlow 1.8s ease-in-out infinite;
 }
 
 @keyframes badgeGlow {
   0%, 100% {
-    box-shadow: 
-      0 0 30rpx rgba(255, 215, 0, 0.5),
-      inset 0 0 20rpx rgba(255, 255, 255, 0.3);
+    box-shadow:
+      0 0 30rpx rgba(255, 180, 0, 0.6),
+      0 0 60rpx rgba(255, 80, 0, 0.3),
+      inset 0 0 20rpx rgba(255, 255, 255, 0.15);
   }
   50% {
-    box-shadow: 
-      0 0 50rpx rgba(255, 215, 0, 0.8),
-      inset 0 0 30rpx rgba(255, 255, 255, 0.5);
+    box-shadow:
+      0 0 60rpx rgba(255, 215, 0, 0.9),
+      0 0 100rpx rgba(255, 100, 0, 0.5),
+      inset 0 0 30rpx rgba(255, 255, 255, 0.3);
   }
 }
 
 .badge-icon {
-  font-size: 60rpx;
+  font-size: 64rpx;
 }
 
 .badge-name {
   margin-top: 16rpx;
-  font-size: 28rpx;
-  color: #fff;
-  font-weight: 500;
-  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.3);
+  font-size: 30rpx;
+  color: #FFD700;
+  font-weight: bold;
+  letter-spacing: 2rpx;
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.5);
 }
 
-// 星星闪烁
+// ── 星星闪烁 ──
 .sparkles {
   position: absolute;
-  top: 20%;
+  top: 18%;
   width: 100%;
   display: flex;
   justify-content: center;
@@ -205,64 +236,45 @@
 
 .sparkle {
   position: absolute;
-  font-size: 48rpx;
+  font-size: 52rpx;
   opacity: 0;
-  animation: sparkle 1s ease-in-out infinite;
+  animation: sparkle 0.9s ease-in-out infinite;
+  filter: drop-shadow(0 0 6rpx rgba(255, 200, 0, 0.8));
 }
 
-.sparkle-1 {
-  left: 15%;
-  animation-delay: 0s;
-}
-
-.sparkle-2 {
-  left: 30%;
-  animation-delay: 0.15s;
-}
-
-.sparkle-3 {
-  left: 45%;
-  transform: translateX(-50%);
-  animation-delay: 0.3s;
-}
-
-.sparkle-4 {
-  right: 30%;
-  animation-delay: 0.1s;
-}
-
-.sparkle-5 {
-  right: 15%;
-  animation-delay: 0.25s;
-}
-
-.sparkle-6 {
-  right: 45%;
-  transform: translateX(50%);
-  animation-delay: 0.2s;
-}
+.sparkle-1 { left: 10%;  animation-delay: 0s;    }
+.sparkle-2 { left: 28%;  animation-delay: 0.18s; }
+.sparkle-3 { left: 46%;  transform: translateX(-50%); animation-delay: 0.36s; }
+.sparkle-4 { right: 25%; animation-delay: 0.12s; }
+.sparkle-5 { right: 10%; animation-delay: 0.27s; }
+.sparkle-6 { right: 43%; transform: translateX(50%); animation-delay: 0.22s; }
 
 @keyframes sparkle {
   0%, 100% {
     opacity: 0;
-    transform: scale(0.5) rotate(0deg);
+    transform: scale(0.4) rotate(0deg);
   }
   50% {
     opacity: 1;
-    transform: scale(1.3) rotate(180deg);
+    transform: scale(1.4) rotate(180deg);
   }
 }
 
-// 提示文字
+// ── 提示文字 ──
 .streak-message {
   position: absolute;
-  bottom: 15%;
-  font-size: 36rpx;
-  color: #fff;
+  bottom: 14%;
+  font-size: 38rpx;
+  color: #FFFFFF;
   text-align: center;
+  font-weight: bold;
+  letter-spacing: 2rpx;
   opacity: 0;
-  transform: translateY(20rpx);
+  transform: translateY(24rpx);
   transition: all 0.5s ease-out;
+  text-shadow:
+    0 0 16rpx rgba(255, 180, 0, 0.9),
+    0 2rpx 6rpx rgba(0, 0, 0, 0.4);
 }
 
 .streak-message.show {
@@ -270,14 +282,14 @@
   transform: translateY(0);
 }
 
-// 跳过按钮
+// ── 跳过按钮 ──
 .skip-btn {
   position: absolute;
-  bottom: 8%;
-  padding: 20rpx 60rpx;
-  background: rgba(255, 255, 255, 0.2);
+  bottom: 6%;
+  padding: 18rpx 64rpx;
+  background: rgba(255, 100, 0, 0.25);
   border-radius: 40rpx;
-  border: 2rpx solid rgba(255, 255, 255, 0.3);
+  border: 2rpx solid rgba(255, 215, 0, 0.5);
   opacity: 0;
   transition: all 0.3s ease;
 
@@ -286,12 +298,13 @@
   }
 
   &:active {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 150, 0, 0.4);
     transform: scale(0.95);
   }
 
   .btn-text {
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(255, 230, 150, 0.95);
     font-size: 28rpx;
+    letter-spacing: 2rpx;
   }
 }

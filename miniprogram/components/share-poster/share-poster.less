@@ -5,7 +5,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(60, 0, 0, 0.88);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -23,12 +23,13 @@
 }
 
 .poster-container {
-  width: 92%;
-  max-width: 680rpx;
-  background: #ffffff;
+  width: 88%;
+  max-width: 640rpx;
+  background: #1a0000;
   border-radius: 24rpx;
   overflow: hidden;
   animation: slideUp 0.3s ease-out;
+  box-shadow: 0 0 60rpx rgba(255, 100, 0, 0.3);
 }
 
 @keyframes slideUp {
@@ -44,42 +45,44 @@
 
 .poster-header {
   position: relative;
-  padding: 32rpx;
+  padding: 28rpx 32rpx;
   text-align: center;
-  border-bottom: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid rgba(255, 100, 0, 0.3);
+  background: linear-gradient(135deg, #6B0000, #990000);
 }
 
 .title {
   font-size: 34rpx;
   font-weight: bold;
-  color: #333333;
+  color: #FFD700;
+  letter-spacing: 2rpx;
 }
 
 .close-btn {
   position: absolute;
   right: 24rpx;
-  top: 24rpx;
+  top: 22rpx;
   width: 52rpx;
   height: 52rpx;
   line-height: 48rpx;
   text-align: center;
   font-size: 40rpx;
-  color: #999999;
+  color: rgba(255, 215, 0, 0.7);
   border-radius: 50%;
   transition: all 0.2s;
 
   &:active {
-    background: #f5f5f5;
+    background: rgba(255, 100, 0, 0.2);
   }
 }
 
 .poster-content {
-  padding: 32rpx;
+  padding: 24rpx 32rpx;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 360rpx;
-  background: #f8f9fa;
+  min-height: 400rpx;
+  background: #0d0000;
 }
 
 .poster-loading {
@@ -93,8 +96,8 @@
 .loading-spinner {
   width: 60rpx;
   height: 60rpx;
-  border: 4rpx solid #f0f0f0;
-  border-top-color: #2E8B57;
+  border: 4rpx solid rgba(255, 100, 0, 0.2);
+  border-top-color: #FFD700;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -108,14 +111,13 @@
 .loading-text {
   margin-top: 20rpx;
   font-size: 26rpx;
-  color: #999999;
+  color: rgba(255, 215, 0, 0.7);
 }
 
 .poster-image {
-  width: 300rpx;
-  height: 480rpx;
+  width: 100%;
   border-radius: 12rpx;
-  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8rpx 40rpx rgba(200, 0, 0, 0.4);
   transition: opacity 0.3s;
 }
 
@@ -130,18 +132,19 @@
 }
 
 .poster-actions {
-  padding: 0 32rpx 24rpx;
+  padding: 20rpx 28rpx 20rpx;
   display: flex;
-  gap: 24rpx;
+  gap: 20rpx;
+  background: linear-gradient(135deg, #6B0000, #990000);
 }
 
 .action-btn {
   flex: 1;
-  height: 92rpx;
-  line-height: 92rpx;
+  height: 88rpx;
+  line-height: 88rpx;
   text-align: center;
-  font-size: 30rpx;
-  border-radius: 46rpx;
+  font-size: 28rpx;
+  border-radius: 44rpx;
   border: none;
   display: flex;
   align-items: center;
@@ -152,46 +155,46 @@
   }
 
   &:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
+    opacity: 0.9;
   }
 }
 
 .btn-icon {
-  font-size: 32rpx;
-  margin-right: 8rpx;
+  font-size: 30rpx;
+  margin-right: 6rpx;
 }
 
 .save-btn {
-  background: linear-gradient(135deg, #2E8B57, #3CB371);
-  color: #ffffff;
-  box-shadow: 0 4rpx 16rpx rgba(46, 139, 87, 0.3);
-
-  &:active {
-    box-shadow: 0 2rpx 8rpx rgba(46, 139, 87, 0.3);
-  }
+  background: linear-gradient(135deg, #FFB800, #FFD700);
+  color: #6B0000;
+  font-weight: bold;
+  box-shadow: 0 4rpx 20rpx rgba(255, 180, 0, 0.45);
 }
 
 .timeline-btn {
-  background: #f5f5f5;
-  color: #666666;
-  border: 2rpx solid #e0e0e0;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1.5rpx solid rgba(255, 215, 0, 0.5);
 }
 
 .skip-btn {
-  background: #f5f5f5;
-  color: #999999;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 26rpx;
   flex: 0.6;
+  border: 1rpx solid rgba(255, 255, 255, 0.15);
 }
 
 .poster-tips {
-  padding: 0 32rpx 28rpx;
+  padding: 0 32rpx 24rpx;
   text-align: center;
+  background: linear-gradient(135deg, #6B0000, #990000);
 
   .tips-text {
     display: block;
-    font-size: 24rpx;
-    color: #999999;
+    font-size: 22rpx;
+    color: rgba(255, 215, 0, 0.55);
     line-height: 1.6;
   }
 }

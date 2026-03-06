@@ -68,3 +68,26 @@ export async function updateUserInfo(openid: string, nickName: string, avatarUrl
   })
   return { ...list[0], nickName, avatarUrl, updateTime: now }
 }
+
+/** 更新备注名（仅自己可见） */
+export async function updateRemarkName(openid: string, remarkName: string) {
+  const col = usersCol()
+  const { data: list } = await col.where({ openid }).get()
+  const now = new Date()
+  if (list.length > 0) {
+    await col.doc((list[0] as any)._id).update({
+      data: { remarkName, updateTime: now }
+    })
+    return { ...list[0], remarkName, updateTime: now }
+  }
+  // 兼容历史数据：旧 users 记录可能只有 _openid，没有 openid 字段
+  const { data: legacy } = await col.where({ _openid: openid } as any).limit(1).get()
+  if (legacy.length > 0) {
+    await col.doc((legacy[0] as any)._id).update({
+      data: { remarkName, updateTime: now }
+    })
+    return { ...(legacy[0] as any), remarkName, updateTime: now }
+  }
+  // 如果用户记录不存在，返回失败
+  return null
+}

@@ -20,16 +20,16 @@ export interface ThemeConfig {
 const THEMES: Record<ThemeType, ThemeConfig> = {
   checked: {
     type: 'checked',
-    color: '#34A853',
-    gradientStart: '#4BC768',
-    gradientEnd: '#2E8B57',
+    color: '#1ABC9C',
+    gradientStart: '#48C9B0',
+    gradientEnd: '#16A085',
     label: '已完成'
   },
   normal: {
     type: 'normal',
-    color: '#34A853',
-    gradientStart: '#4BC768',
-    gradientEnd: '#2E8B57',
+    color: '#1ABC9C',
+    gradientStart: '#48C9B0',
+    gradientEnd: '#16A085',
     label: '未打卡'
   },
   warning: {
@@ -65,7 +65,7 @@ const TIME_COLOR_MAP: Array<{ hour: number; color: string }> = [
 ]
 
 /** 基础绿色 */
-const BASE_GREEN = '#34A853'
+const BASE_GREEN = '#1ABC9C'
 
 /**
  * 线性插值计算颜色

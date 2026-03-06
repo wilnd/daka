@@ -2,6 +2,7 @@
 import { getStreak, getMissStreak, getTotalDays, wasCheckedInYesterday } from '../../services/stats'
 import { checkinsCol, membersCol, usersCol, SUBSCRIBE_TEMPLATE_ID, getTodayStr } from '../../services/db'
 import { updateUserInfo } from '../../services/auth'
+import { updateRemarkName } from '../../services/auth'
 
 const app = getApp() as IAppOption
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
@@ -16,11 +17,11 @@ Component({
     // 生成提醒文案时需要群组选择
     showGroupPickerModal: false,
     groups: [] as any[],
-    editingInfo: { nickName: '', avatarUrl: defaultAvatar },
+    editingInfo: { nickName: '', avatarUrl: defaultAvatar, remarkName: '' },
     isSubscribed: false,
     remindTime: '21:00',
     // 动态主题色
-    themeColor: '#34A853',
+    themeColor: '#1ABC9C',
   },
   lifetimes: {
     attached() { this.init() },
@@ -28,7 +29,7 @@ Component({
   pageLifetimes: {
     show() {
       // 同步主题色
-      this.setData({ themeColor: '#34A853' })
+      this.setData({ themeColor: '#1ABC9C' })
       if (this.data.hasUserInfo) this.loadData()
     },
   },
@@ -43,9 +44,25 @@ Component({
         }
         const userInfo = { ...ui, avatarUrl }
         wx.setStorageSync('userInfo', userInfo)
-        this.setData({ hasUserInfo: true, userInfo })
+        this.setData({ hasUserInfo: true, userInfo, 'editingInfo.remarkName': ui.remarkName || '' })
         this.loadData()
         this.loadSubscriptionStatus()
+        this.loadRemarkName()
+      }
+    },
+    async loadRemarkName() {
+      const openid = app.globalData.openid
+      if (!openid) return
+      try {
+        const { data: users } = await usersCol().where({ openid }).get()
+        const user = users[0] as any
+        const remarkName = (user && user.remarkName) || ''
+        this.setData({ 'editingInfo.remarkName': remarkName, 'userInfo.remarkName': remarkName })
+        // 同时更新本地存储
+        const ui = wx.getStorageSync('userInfo') || {}
+        wx.setStorageSync('userInfo', { ...ui, remarkName })
+      } catch (e) {
+        console.error('loadRemarkName error', e)
       }
     },
     async loadSubscriptionStatus() {
@@ -114,6 +131,10 @@ Component({
       const nickName = e.detail.value || ''
       this.setData({ 'editingInfo.nickName': nickName })
     },
+    onRemarkNameInput(e: any) {
+      const remarkName = e.detail.value || ''
+      this.setData({ 'editingInfo.remarkName': remarkName })
+    },
     async uploadAvatarIfNeeded(avatarUrl: string, openid: string): Promise<string> {
       // 如果已经是云存储路径，直接返回
       if (avatarUrl.startsWith('cloud://')) {
@@ -138,7 +159,7 @@ Component({
     },
 
     async saveUserInfo() {
-      const { nickName, avatarUrl } = this.data.editingInfo
+      const { nickName, avatarUrl, remarkName } = this.data.editingInfo
       if (!nickName || !avatarUrl) {
         wx.showToast({ title: '请填写昵称并选择头像', icon: 'none' })
         return
@@ -150,10 +171,12 @@ Component({
         // 如果选择了新头像，先上传到云存储
         const savedAvatarUrl = await this.uploadAvatarIfNeeded(avatarUrl, openid)
         await updateUserInfo(openid, nickName, savedAvatarUrl)
-        wx.setStorageSync('userInfo', { nickName, avatarUrl: savedAvatarUrl })
+        // 保存备注名（仅自己可见）
+        await updateRemarkName(openid, remarkName || '')
+        wx.setStorageSync('userInfo', { nickName, avatarUrl: savedAvatarUrl, remarkName })
         this.setData({
           hasUserInfo: true,
-          userInfo: { nickName, avatarUrl: savedAvatarUrl },
+          userInfo: { nickName, avatarUrl: savedAvatarUrl, remarkName },
           showEditModal: false
         })
         wx.showToast({ title: '保存成功' })

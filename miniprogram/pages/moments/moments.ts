@@ -89,8 +89,11 @@ Page({
     commentSubmitting: false,
     showSwitchModal: false,
     // 动态主题色
-    themeColor: '#34A853',
+    themeColor: '#1ABC9C',
   },
+
+  // 用于跟踪最新的成长墙请求，防止请求乱序返回导致数据错乱
+  _loadMomentsRequestId: 0,
 
   onLoad() {
     this.loadInitialData()
@@ -99,7 +102,7 @@ Page({
   onShow() {
     // 同步主题色
     this.setData({
-      themeColor: '#34A853'
+      themeColor: '#1ABC9C'
     })
     // 首次进入时，onShow 可能早于异步初始化完成
     if (!this.data.currentGroupId) {
@@ -203,6 +206,9 @@ Page({
     if (!currentGroupId) return
     if (loading || noMore) return
 
+    // 生成新的请求 ID，用于识别最新的请求
+    const requestId = ++this._loadMomentsRequestId
+
     // 优先显示缓存（同步操作，立即呈现）
     const cached = getCachedMoments()
     if (cached && cached.groupId === currentGroupId && cached.moments.length > 0) {
@@ -225,10 +231,16 @@ Page({
         }
       })
 
+      // 检查是否是最新请求，防止旧请求覆盖新数据
+      if (requestId !== this._loadMomentsRequestId) {
+        console.log('跳过过期的成长墙请求', { requestId, currentRequestId: this._loadMomentsRequestId })
+        return
+      }
+
       const result = res.result as any
       if (result.success) {
-        // 批量转换云存储 URL 为临时 HTTP URL
-        const momentsData = result.data || []
+          // 批量转换云存储 URL 为临时 HTTP URL
+          const momentsData = result.data || []
 
         // 收集所有需要转换的 fileId
         const allFileIds = {
@@ -359,6 +371,11 @@ Page({
         this.setData({ loading: false })
       }
     } catch (e) {
+      // 检查是否是最新请求，防止旧请求的错误覆盖新数据
+      if (requestId !== this._loadMomentsRequestId) {
+        console.log('跳过过期的成长墙请求错误', { requestId, currentRequestId: this._loadMomentsRequestId })
+        return
+      }
       console.error('加载成长墙失败', e)
       this.setData({ loading: false })
       wx.showToast({ title: '加载失败', icon: 'none' })

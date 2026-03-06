@@ -102,7 +102,7 @@ Component({
     myRank: null as RankResult | null,
     statsLoading: false,
     // 动态主题色
-    themeColor: '#34A853',
+    themeColor: '#1ABC9C',
     // 定时刷新
     rankTimer: null as any,
   },
@@ -521,6 +521,60 @@ Component({
       console.log('[Index] updateCurrentRankList() 更新后排行榜, length:', currentRankList.length)
       this.setData({ currentRankList })
     },
+    // 切换小组时刷新排行榜（只刷新排行榜，不刷新整个页面）
+    async refreshRankForNewGroup(groupId: string) {
+      console.log('[Index] refreshRankForNewGroup() 开始刷新排行榜, groupId:', groupId)
+      const openid = app.globalData.openid
+      if (!openid || !groupId) {
+        console.warn('[Index] refreshRankForNewGroup() openid 或 groupId 为空')
+        return
+      }
+
+      this.setData({ rankLoading: true, statsLoading: true })
+      try {
+        // 并行获取排行榜数据和群组统计
+        const [rankList, groupRes, myRes] = await Promise.all([
+          // 排行榜
+          this.data.rankType === 'all' ? getAllRank(groupId)
+            : this.data.rankType === 'week' ? getWeekRank(groupId)
+            : getMonthRank(groupId),
+          // 群组统计
+          callGetGroupStats(groupId, this.data.rankType),
+          // 我的排名
+          callGetMyRank(groupId, this.data.rankType)
+        ])
+
+        // 转换头像 URL
+        const convertedRankList = await convertRankAvatarUrls(rankList || [])
+
+        // 更新排行榜
+        this.setData({ rankList: convertedRankList })
+
+        // 更新群组统计
+        if (groupRes.success && groupRes.stats) {
+          this.setData({ groupStats: groupRes.stats })
+          this.updateCurrentRankList()
+        } else {
+          this.setData({ groupStats: null, currentRankList: [] })
+        }
+
+        // 更新我的排名
+        if (myRes.success && myRes.rank && myRes.rank.myRank) {
+          this.setData({
+            myRank: myRes.rank.myRank,
+            groupPercentiles: myRes.rank.percentiles,
+            groupAvg: myRes.rank.groupAvg,
+            totalMembers: myRes.rank.totalMembers
+          })
+        } else {
+          this.setData({ myRank: null })
+        }
+      } catch (e) {
+        console.error('[Index] refreshRankForNewGroup() 刷新失败:', e)
+      } finally {
+        this.setData({ rankLoading: false, statsLoading: false })
+      }
+    },
     selectGroup(e: any) {
       const id = e.currentTarget.dataset.id
       const isSetDefault = e.currentTarget.dataset.setDefault
@@ -545,8 +599,8 @@ Component({
         currentGroup: g,
         showSwitchModal: false,
       })
-      console.log('[Index] selectGroup() 准备调用 loadData()')
-      this.loadData()
+      console.log('[Index] selectGroup() 准备刷新排行榜')
+      this.refreshRankForNewGroup(g._id)
     },
     // 设置默认群组
     setDefaultGroup(e: any) {
@@ -560,8 +614,8 @@ Component({
         currentGroup: g,
         showSwitchModal: false,
       })
-      wx.showToast({ title: '已设为默认', icon: 'none' })
-      this.loadData()
+      console.log('[Index] setDefaultGroup() 准备刷新排行榜')
+      this.refreshRankForNewGroup(g._id)
     },
     async onCheckin() {
       console.log('[Index] onCheckin() 点击打卡')

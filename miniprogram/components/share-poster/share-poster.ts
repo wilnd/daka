@@ -20,9 +20,9 @@ Component({
     posterGenerated: false,
     posterUrl: '',
     streak: 0,
-    userInfo: null as any,
+    userInfo: null,
     canvasWidth: 300,
-    canvasHeight: 480,
+    canvasHeight: 540,
     posterLoading: true
   },
 
@@ -35,15 +35,15 @@ Component({
       const ratio = wx.getSystemInfoSync().windowWidth / 375
       this.setData({ 
         canvasWidth: 300 * ratio, 
-        canvasHeight: 480 * ratio 
+        canvasHeight: 540 * ratio 
       })
     }
   },
 
   observers: {
-    'visible': async function(visible) {
+    'visible': function(visible) {
       if (visible && !this.data.posterGenerated) {
-        await this.generatePoster()
+        this.generatePoster()
       } else if (visible && this.data.posterGenerated) {
         // 重新生成时重置
         this.setData({ posterLoading: false })
@@ -56,9 +56,10 @@ Component({
     getDateBefore(dateStr: string, days: number): string {
       const date = new Date(dateStr)
       date.setDate(date.getDate() - days)
-      return date.getFullYear() + '-' + 
-        String(date.getMonth() + 1).padStart(2, '0') + '-' + 
-        String(date.getDate()).padStart(2, '0')
+      const year = date.getFullYear()
+      const month = ('0' + (date.getMonth() + 1)).slice(-2)
+      const day = ('0' + date.getDate()).slice(-2)
+      return year + '-' + month + '-' + day
     },
 
     // 计算连胜天数
@@ -87,9 +88,8 @@ Component({
     },
 
     async generatePoster() {
-      const { checkinData } = this.properties as any
+      const checkinData = this.properties.checkinData
       const openid = wx.getStorageSync('openid') || ''
-      const groupId = checkinData.groupId || ''
 
       this.setData({ posterLoading: true })
 
@@ -99,11 +99,11 @@ Component({
         const db = wx.cloud.database()
         const _ = db.command
         const today = new Date()
-        const todayStr = today.getFullYear() + '-' + 
-          String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-          String(today.getDate()).padStart(2, '0')
+        const todayYear = today.getFullYear()
+        const todayMonth = ('0' + (today.getMonth() + 1)).slice(-2)
+        const todayDay = ('0' + today.getDate()).slice(-2)
+        const todayStr = todayYear + '-' + todayMonth + '-' + todayDay
         
-        // 获取最近的打卡记录
         const checkinsRes = await db.collection('checkins')
           .where({
             userId: openid,
@@ -122,9 +122,15 @@ Component({
 
       this.setData({ streak })
 
-      // 生成海报
+      // 生成海报（含超时保底，防止永久卡在 loading）
+      const timeout = new Promise((_, rej) =>
+        setTimeout(() => rej(new Error('timeout')), 8000)
+      )
       try {
-        const posterUrl = await this.drawPoster(streak, checkinData)
+        const posterUrl = await Promise.race([
+          this.drawPoster(streak, checkinData),
+          timeout
+        ])
         this.setData({ 
           posterGenerated: true,
           posterUrl,
@@ -140,154 +146,265 @@ Component({
     async drawPoster(streak: number, checkinData: any): Promise<string> {
       return new Promise((resolve, reject) => {
         const ctx = wx.createCanvasContext('poster-canvas', this)
-        const width = 300
-        const height = 480
+        const W0 = 300, H0 = 540
         const userInfo = this.data.userInfo
+        const r = wx.getSystemInfoSync().windowWidth / 375
+        const W = W0 * r
+        const H = H0 * r
+        const cx = W / 2
 
-        // 缩放比例
-        const ratio = wx.getSystemInfoSync().windowWidth / 375
-        const scaleWidth = width * ratio
-        const scaleHeight = height * ratio
+        this.setData({ canvasWidth: W, canvasHeight: H })
 
-        this.setData({ canvasWidth: scaleWidth, canvasHeight: scaleHeight })
+        // ── 背景：深红 → 正红 → 橙红 热烈渐变 ──
+        const bg = ctx.createLinearGradient(0, 0, 0, H)
+        bg.addColorStop(0, '#6B0000')
+        bg.addColorStop(0.45, '#C80000')
+        bg.addColorStop(1, '#FF4500')
+        ctx.setFillStyle(bg)
+        ctx.fillRect(0, 0, W, H)
 
-        // 背景渐变
-        const grd = ctx.createLinearGradient(0, 0, 0, scaleHeight)
-        grd.addColorStop(0, '#1a1a2e')
-        grd.addColorStop(0.5, '#16213e')
-        grd.addColorStop(1, '#0f3460')
-        ctx.setFillStyle(grd)
-        ctx.fillRect(0, 0, scaleWidth, scaleHeight)
-
-        // 顶部装饰圆弧
-        ctx.setFillStyle('#16213e')
-        ctx.beginPath()
-        ctx.arc(scaleWidth / 2, 0, scaleWidth / 2 + 20, 0, Math.PI, false)
-        ctx.fill()
-
-        // 标题
-        ctx.setFillStyle('#ffffff')
-        ctx.setFontSize(18 * ratio)
-        ctx.setTextAlign('center')
-        ctx.fillText('每日运动打卡', scaleWidth / 2, 45 * ratio)
-
-        // 左侧装饰线
-        ctx.setStrokeStyle('#2E8B57')
-        ctx.setLineWidth(2)
-        ctx.beginPath()
-        ctx.moveTo(30 * ratio, 42 * ratio)
-        ctx.lineTo(60 * ratio, 42 * ratio)
-        ctx.stroke()
-
-        // 右侧装饰线
-        ctx.beginPath()
-        ctx.moveTo(scaleWidth - 60 * ratio, 42 * ratio)
-        ctx.lineTo(scaleWidth - 30 * ratio, 42 * ratio)
-        ctx.stroke()
-
-        // 连胜光环
-        const gradient = ctx.createCircularGradient(scaleWidth / 2, 140 * ratio, 60 * ratio)
-        gradient.addColorStop(0, 'rgba(255, 215, 0, 0.3)')
-        gradient.addColorStop(1, 'rgba(255, 215, 0, 0)')
-        ctx.setFillStyle(gradient)
-        ctx.beginPath()
-        ctx.arc(scaleWidth / 2, 140 * ratio, 60 * ratio, 0, 2 * Math.PI)
-        ctx.fill()
-
-        // 连胜圆圈
-        ctx.setFillStyle('#FFD700')
-        ctx.beginPath()
-        ctx.arc(scaleWidth / 2, 140 * ratio, 45 * ratio, 0, 2 * Math.PI)
-        ctx.fill()
-
-        // 连胜数字
-        ctx.setFillStyle('#1a1a2e')
-        ctx.setFontSize(36 * ratio)
-        ctx.setTextAlign('center')
-        ctx.fillText(streak.toString(), scaleWidth / 2, 155 * ratio)
-
-        // 连胜标签
-        ctx.setFontSize(12 * ratio)
-        ctx.setFillStyle('#FFD700')
-        ctx.fillText('连续打卡', scaleWidth / 2, 205 * ratio)
-
-        // 分割线
-        ctx.setStrokeStyle('rgba(255, 255, 255, 0.1)')
-        ctx.setLineWidth(1)
-        ctx.beginPath()
-        ctx.moveTo(40 * ratio, 230 * ratio)
-        ctx.lineTo(scaleWidth - 40 * ratio, 230 * ratio)
-        ctx.stroke()
-
-        // 用户头像
-        if (userInfo && userInfo.avatarUrl) {
-          // 头像圆形背景
-          ctx.setFillStyle('#2E8B57')
+        // ── 顶部放射光线（12条，金橙交替）──
+        const rayCount = 12
+        const rayLen = H * 0.55
+        for (let i = 0; i < rayCount; i++) {
+          const angle = Math.PI + (i / rayCount) * Math.PI
+          const nextAngle = Math.PI + ((i + 0.5) / rayCount) * Math.PI
           ctx.beginPath()
-          ctx.arc(scaleWidth / 2, 270 * ratio, 28 * ratio, 0, 2 * Math.PI)
+          ctx.moveTo(cx, 0)
+          ctx.arc(cx, 0, rayLen, angle, nextAngle, false)
+          ctx.closePath()
+          ctx.setFillStyle(i % 2 === 0
+            ? 'rgba(255, 200, 0, 0.13)'
+            : 'rgba(255, 120, 0, 0.09)')
           ctx.fill()
-          
-          // 由于 canvas 绘制头像需要先下载，这里用占位圆圈代替
-          // 实际可以使用 wx.getImageInfo 下载头像后绘制
-          ctx.setFillStyle('#ffffff')
-          ctx.setFontSize(20 * ratio)
-          ctx.fillText((userInfo.nickName || '运动达人').slice(0, 1), scaleWidth / 2, 276 * ratio)
         }
 
+        // ── 顶部暗色半圆（衬托标题）──
+        ctx.setFillStyle('rgba(0, 0, 0, 0.25)')
+        ctx.beginPath()
+        ctx.arc(cx, 0, 90 * r, 0, Math.PI, false)
+        ctx.fill()
+
+        // ── 按类别定制文案 ──
+        const categoryId = checkinData.categoryId || 'sports'
+        const copyMap: Record<string, { badge: string; slogan: string; streakLabel: string; cta1: string; cta2: string; cta3: string }> = {
+          sports: {
+            badge:       '★  每日运动打卡  ★',
+            slogan:      '燃烧卡路里，超越自我！',
+            streakLabel: '连续运动',
+            cta1:        '扫码一起运动打卡',
+            cta2:        '燃烧卡路里，健康生活',
+            cta3:        '加入打卡群，一起变强！',
+          },
+          study: {
+            badge:       '★  每日学习打卡  ★',
+            slogan:      '知识改变命运，坚持成就未来！',
+            streakLabel: '连续学习',
+            cta1:        '扫码一起学习打卡',
+            cta2:        '坚持学习，知识赋能',
+            cta3:        '加入学习群，共同进步！',
+          },
+          life: {
+            badge:       '★  每日生活打卡  ★',
+            slogan:      '积极生活，热爱每一天！',
+            streakLabel: '连续打卡',
+            cta1:        '扫码一起生活打卡',
+            cta2:        '好习惯，好生活',
+            cta3:        '加入打卡群，一起成长！',
+          },
+        }
+        const copy = copyMap[categoryId] || copyMap['sports']
+
+        // ── 标题区 ──
+        ctx.setTextAlign('center')
+        ctx.setFillStyle('#FFD700')
+        ctx.setFontSize(11 * r)
+        ctx.fillText(copy.badge, cx, 26 * r)
+
+        ctx.setFillStyle('#FFFFFF')
+        ctx.setFontSize(17 * r)
+        ctx.fillText(copy.slogan, cx, 56 * r)
+
+        // ── 黄金装饰短横线 ──
+        ctx.setStrokeStyle('#FFD700')
+        ctx.setLineWidth(1.5 * r)
+        ctx.beginPath()
+        ctx.moveTo(cx - 60 * r, 65 * r)
+        ctx.lineTo(cx - 20 * r, 65 * r)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(cx + 20 * r, 65 * r)
+        ctx.lineTo(cx + 60 * r, 65 * r)
+        ctx.stroke()
+
+        // ── 连胜光环（多层渐变营造炫光感）──
+        const circleY = 162 * r
+
+        // 最外层散射光
+        const aura3 = ctx.createCircularGradient(cx, circleY, 82 * r)
+        aura3.addColorStop(0, 'rgba(255, 220, 0, 0.22)')
+        aura3.addColorStop(1, 'rgba(255, 220, 0, 0)')
+        ctx.setFillStyle(aura3)
+        ctx.beginPath()
+        ctx.arc(cx, circleY, 82 * r, 0, 2 * Math.PI)
+        ctx.fill()
+
+        // 中层光晕
+        const aura2 = ctx.createCircularGradient(cx, circleY, 65 * r)
+        aura2.addColorStop(0, 'rgba(255, 180, 0, 0.35)')
+        aura2.addColorStop(1, 'rgba(255, 180, 0, 0)')
+        ctx.setFillStyle(aura2)
+        ctx.beginPath()
+        ctx.arc(cx, circleY, 65 * r, 0, 2 * Math.PI)
+        ctx.fill()
+
+        // 金色描边圆环
+        ctx.setStrokeStyle('#FFD700')
+        ctx.setLineWidth(3 * r)
+        ctx.beginPath()
+        ctx.arc(cx, circleY, 52 * r, 0, 2 * Math.PI)
+        ctx.stroke()
+
+        // 内填充（深红半透明，营造立体感）
+        ctx.setFillStyle('rgba(80, 0, 0, 0.65)')
+        ctx.beginPath()
+        ctx.arc(cx, circleY, 50 * r, 0, 2 * Math.PI)
+        ctx.fill()
+
+        // 连胜数字 + 天
+        const streakStr = streak.toString()
+        ctx.setFillStyle('#FFD700')
+        ctx.setFontSize(46 * r)
+        ctx.fillText(streakStr + '天', cx, circleY + 16 * r)
+
+        // 类别标签（圆圈下方）
+        ctx.setFontSize(12 * r)
+        ctx.setFillStyle('#FFE87C')
+        ctx.fillText(copy.streakLabel, cx, circleY + 72 * r)
+
+        // ── 侧面装饰小圆点 ──
+        const dots = [
+          { x: 28, y: 115, s: 4 }, { x: 18, y: 148, s: 3 },
+          { x: 35, y: 180, s: 5 }, { x: 272, y: 120, s: 3 },
+          { x: 280, y: 158, s: 5 }, { x: 265, y: 190, s: 4 },
+        ]
+        dots.forEach(d => {
+          ctx.setFillStyle('rgba(255, 215, 0, 0.6)')
+          ctx.beginPath()
+          ctx.arc(d.x * r, d.y * r, d.s * r / 2, 0, 2 * Math.PI)
+          ctx.fill()
+        })
+
+        // ── 金色分割线 ──
+        const divY = 253 * r
+        const divGrd = ctx.createLinearGradient(30 * r, divY, W - 30 * r, divY)
+        divGrd.addColorStop(0, 'rgba(255, 215, 0, 0)')
+        divGrd.addColorStop(0.5, 'rgba(255, 215, 0, 0.85)')
+        divGrd.addColorStop(1, 'rgba(255, 215, 0, 0)')
+        ctx.setStrokeStyle(divGrd)
+        ctx.setLineWidth(1)
+        ctx.beginPath()
+        ctx.moveTo(30 * r, divY)
+        ctx.lineTo(W - 30 * r, divY)
+        ctx.stroke()
+
+        // ── 用户信息区 ──
+        const avatarCY = 292 * r
+        // 头像外环
+        ctx.setStrokeStyle('#FFD700')
+        ctx.setLineWidth(2 * r)
+        ctx.beginPath()
+        ctx.arc(cx, avatarCY, 30 * r, 0, 2 * Math.PI)
+        ctx.stroke()
+        // 头像填充
+        ctx.setFillStyle('rgba(139, 0, 0, 0.8)')
+        ctx.beginPath()
+        ctx.arc(cx, avatarCY, 28 * r, 0, 2 * Math.PI)
+        ctx.fill()
+        // 头像首字
+        ctx.setFillStyle('#FFD700')
+        ctx.setFontSize(22 * r)
+        const nickName = userInfo && userInfo.nickName
+        ctx.fillText((nickName || '运').slice(0, 1), cx, avatarCY + 8 * r)
+
         // 用户名
-        ctx.setFillStyle('#ffffff')
-        ctx.setFontSize(14 * ratio)
-        ctx.fillText((userInfo && userInfo.nickName) || '运动达人', scaleWidth / 2, 315 * ratio)
+        ctx.setFillStyle('#FFFFFF')
+        ctx.setFontSize(15 * r)
+        ctx.fillText((nickName || '运动达人').substring(0, 8), cx, 337 * r)
+
+        // 日期
+        const now = new Date()
+        const dateStr = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`
+        ctx.setFillStyle('rgba(255, 230, 140, 0.9)')
+        ctx.setFontSize(11 * r)
+        ctx.fillText(dateStr, cx, 356 * r)
 
         // 打卡类别标签
         const categoryText = checkinData.subCategoryId || checkinData.categoryId || ''
         if (categoryText) {
-          ctx.setFillStyle('#2E8B57')
-          ctx.setFontSize(11 * ratio)
-          ctx.fillText(categoryText, scaleWidth / 2, 345 * ratio)
+          const tagW = (categoryText.length * 13 + 28) * r
+          ctx.setFillStyle('rgba(255, 215, 0, 0.2)')
+          ctx.fillRect(cx - tagW / 2, 364 * r, tagW, 22 * r)
+          ctx.setFillStyle('#FFD700')
+          ctx.setFontSize(11 * r)
+          ctx.fillText(categoryText, cx, 379 * r)
         }
 
-        // 打卡内容
+        // 打卡内容文字
         if (checkinData.text) {
-          ctx.setFillStyle('rgba(255, 255, 255, 0.8)')
-          ctx.setFontSize(11 * ratio)
-          const text = checkinData.text.length > 40 
-            ? checkinData.text.substring(0, 40) + '...' 
+          const text = checkinData.text.length > 28
+            ? checkinData.text.substring(0, 28) + '...'
             : checkinData.text
-          ctx.fillText(text, scaleWidth / 2, 375 * ratio)
+          ctx.setFillStyle('rgba(255, 255, 255, 0.88)')
+          ctx.setFontSize(12 * r)
+          ctx.fillText(`"${text}"`, cx, 403 * r)
         }
 
-        // 日期
-        const now = new Date()
-        const dateStr = now.toLocaleDateString('zh-CN', { 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        })
-        ctx.setFillStyle('rgba(255, 255, 255, 0.5)')
-        ctx.setFontSize(10 * ratio)
-        ctx.fillText(dateStr, scaleWidth / 2, 410 * ratio)
+        // ── 底部二维码卡片区 ──
+        const cardY = 420 * r
+        const cardH = 106 * r
+        const cardX = 14 * r
+        const cardW = W - 28 * r
 
-        // 底部装饰
-        ctx.setFillStyle('#2E8B57')
-        ctx.fillRect(0, scaleHeight - 50 * ratio, scaleWidth, 50 * ratio)
+        // 白色卡片背景
+        ctx.setFillStyle('rgba(255, 255, 255, 0.95)')
+        ctx.fillRect(cardX, cardY, cardW, cardH)
 
-        // 底部文字
-        ctx.setFillStyle('#ffffff')
-        ctx.setFontSize(11 * ratio)
-        ctx.fillText('扫码一起运动，让生活更健康', scaleWidth / 2, scaleHeight - 22 * ratio)
+        // 卡片顶部红色细条
+        ctx.setFillStyle('#CC0000')
+        ctx.fillRect(cardX, cardY, cardW, 4 * r)
 
-        ctx.draw(false, () => {
-          setTimeout(() => {
-            wx.canvasToTempFilePath({
-              canvasId: 'poster-canvas',
-              success: (res) => {
-                resolve(res.tempFilePath)
-              },
-              fail: reject
-            }, this)
-          }, 500)
-        })
+        // 二维码图片（直接用包路径，文件不存在时静默跳过不阻塞）
+        const qrSize = 80 * r
+        const qrX = cardX + 12 * r
+        const qrY = cardY + (cardH - qrSize) / 2
+        ctx.drawImage('/images/qrcode.png', qrX, qrY, qrSize, qrSize)
+
+        // 右侧文字
+        const textX = cardX + 12 * r + qrSize + 14 * r
+        ctx.setTextAlign('left')
+        ctx.setFillStyle('#CC0000')
+        ctx.setFontSize(14 * r)
+        ctx.fillText(copy.cta1, textX, cardY + 30 * r)
+        ctx.setFillStyle('#555555')
+        ctx.setFontSize(11 * r)
+        ctx.fillText(copy.cta2, textX, cardY + 52 * r)
+        ctx.fillText(copy.cta3, textX, cardY + 70 * r)
+        ctx.setTextAlign('center')
+
+        let settled = false
+        const finish = () => {
+          if (settled) return
+          settled = true
+          wx.canvasToTempFilePath({
+            canvasId: 'poster-canvas',
+            success: (res) => resolve(res.tempFilePath),
+            fail: reject
+          }, this)
+        }
+        // draw 回调不可靠时兜底：600ms 后强制导出
+        ctx.draw(false, () => setTimeout(finish, 300))
+        setTimeout(finish, 2500)
       })
     },
 

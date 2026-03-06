@@ -80,13 +80,13 @@ Page({
     loadingMore: false,
     noMore: false,
     // 动态主题色
-    themeColor: '#34A853',
+    themeColor: '#1ABC9C',
   },
 
   onLoad(options: any) {
     // 同步主题色
     this.setData({
-      themeColor: '#34A853'
+      themeColor: '#1ABC9C'
     })
     const userId = options.userId || ''
     const nickName = options.nickName || ''
@@ -122,7 +122,7 @@ Page({
   onShow() {
     // 同步主题色
     this.setData({
-      themeColor: '#34A853'
+      themeColor: '#1ABC9C'
     })
     if (this.data.userId) {
       this.loadMoments()

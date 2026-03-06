@@ -9,7 +9,7 @@ App({
     currentGroupId: '',
     shouldOpenJoinModal: false,
     /** 当前主题颜色 */
-    themeColor: '#34A853',
+    themeColor: '#1ABC9C',
     /** 当前主题类型 */
     themeType: 'normal' as ThemeType,
     /** 主题配置 */

@@ -13,7 +13,7 @@ Component({
     makeupRemain: 0,
     isCurrentMonth: true,
     hasOpenid: false,
-    themeColor: '#34A853',
+    themeColor: '#1ABC9C',
     // 选中日期及当天记录
     selectedDate: '',
     selectedCheckins: [] as any[],
@@ -24,7 +24,7 @@ Component({
   },
   pageLifetimes: {
     show() {
-      this.setData({ themeColor: '#34A853' })
+      this.setData({ themeColor: '#1ABC9C' })
       if (this.data.hasOpenid) this.load()
     },
   },

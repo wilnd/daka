@@ -13,6 +13,10 @@ Component({
       type: Boolean,
       value: false
     },
+    categoryId: {
+      type: String,
+      value: 'sports'
+    },
     animationComplete: {
       type: Boolean,
       value: false
@@ -26,9 +30,9 @@ Component({
     showSparkles: false,
     showBadge: false,
     showMessage: false,
-    particles: [] as any[],
+    particles: [],
     displayStreak: 0,  // 用于数字滚动效果
-    badge: null as any,  // 当前徽章
+    badge: null,  // 当前徽章
     canSkip: false,  // 是否可以跳过
     animationDuration: 3000  // 动画总时长
   },
@@ -50,37 +54,64 @@ Component({
   methods: {
     createParticles() {
       const particles = []
-      const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#FF9F43', '#00D2D3']
-      for (let i = 0; i < 80; i++) {
+      // 热烈风格：以红橙金为主，点缀亮黄和白
+      const colors = [
+        '#FFD700', '#FF8C00', '#FF4500', '#FF6B00',
+        '#FFB300', '#FF2200', '#FFEE00', '#FF9900',
+        '#FFFFFF', '#FFF0A0'
+      ]
+      for (let i = 0; i < 90; i++) {
         particles.push({
           id: i,
           color: colors[Math.floor(Math.random() * colors.length)],
-          delay: Math.random() * 0.8,
-          duration: 1.5 + Math.random() * 1.5,
+          delay: Math.random() * 0.9,
+          duration: 1.4 + Math.random() * 1.6,
           left: Math.random() * 100,
-          size: 6 + Math.random() * 14,
+          size: 6 + Math.random() * 16,
           rotate: Math.random() * 360,
-          opacity: 0.6 + Math.random() * 0.4
+          opacity: 0.7 + Math.random() * 0.3
         })
       }
       this.setData({ particles })
     },
 
-    // 根据连胜天数获取徽章
-    getBadge(streak: number) {
-      if (streak >= 100) {
-        return { name: '传奇王者', icon: '👑', color: '#FFD700', level: 'legendary' }
-      } else if (streak >= 30) {
-        return { name: '运动大师', icon: '🏆', color: '#FF6B6B', level: 'master' }
-      } else if (streak >= 14) {
-        return { name: '坚持达人', icon: '💪', color: '#4ECDC4', level: 'expert' }
-      } else if (streak >= 7) {
-        return { name: '运动新星', icon: '⭐', color: '#45B7D1', level: 'star' }
-      } else if (streak >= 3) {
-        return { name: '初学者', icon: '🌱', color: '#96CEB4', level: 'beginner' }
-      } else {
-        return { name: '刚起步', icon: '🎯', color: '#FFEAA7', level: 'starter' }
+    // 根据连胜天数 + 打卡类别获取徽章
+    getBadge(streak: number, categoryId: string) {
+      const config: Record<string, { badges: Array<{ min: number; name: string; icon: string; color: string }> }> = {
+        sports: {
+          badges: [
+            { min: 100, name: '传奇王者', icon: '👑', color: '#FFD700' },
+            { min: 30,  name: '运动大师', icon: '🏆', color: '#FF6B00' },
+            { min: 14,  name: '健身达人', icon: '💪', color: '#FF4500' },
+            { min: 7,   name: '运动新星', icon: '🔥', color: '#FF8C00' },
+            { min: 3,   name: '活力初探', icon: '⚡', color: '#FFB300' },
+            { min: 0,   name: '起跑线上', icon: '🎽', color: '#FFEE00' },
+          ]
+        },
+        study: {
+          badges: [
+            { min: 100, name: '学海无涯', icon: '👑', color: '#FFD700' },
+            { min: 30,  name: '博学大师', icon: '🎓', color: '#FF6B00' },
+            { min: 14,  name: '知识达人', icon: '📚', color: '#FF4500' },
+            { min: 7,   name: '学习之星', icon: '🌟', color: '#FF8C00' },
+            { min: 3,   name: '求知新芽', icon: '✏️', color: '#FFB300' },
+            { min: 0,   name: '学习出发', icon: '🔍', color: '#FFEE00' },
+          ]
+        },
+        life: {
+          badges: [
+            { min: 100, name: '生活传奇', icon: '👑', color: '#FFD700' },
+            { min: 30,  name: '生活大师', icon: '🏅', color: '#FF6B00' },
+            { min: 14,  name: '生活达人', icon: '🌈', color: '#FF4500' },
+            { min: 7,   name: '习惯之星', icon: '⭐', color: '#FF8C00' },
+            { min: 3,   name: '生活新芽', icon: '🌱', color: '#FFB300' },
+            { min: 0,   name: '好生活启程', icon: '🎯', color: '#FFEE00' },
+          ]
+        }
       }
+      const cat = config[categoryId] || config['sports']
+      const match = cat.badges.find(b => streak >= b.min) || cat.badges[cat.badges.length - 1]
+      return { ...match, level: match.name }
     },
 
     // 数字滚动动画
@@ -107,7 +138,8 @@ Component({
     },
 
     playAnimation() {
-      const { streak, animationDuration } = this.properties as any
+      const streak = this.properties.streak as number
+      const animationDuration = this.properties.animationDuration as number
       
       // 重置状态
       this.setData({
@@ -142,7 +174,8 @@ Component({
 
       // 第0.8秒显示徽章
       setTimeout(() => {
-        const badge = this.getBadge(streak)
+        const categoryId = this.properties.categoryId as string
+        const badge = this.getBadge(streak, categoryId || 'sports')
         this.setData({ 
           showBadge: true,
           badge
@@ -180,7 +213,7 @@ Component({
         showSparkles: false,
         showBadge: false,
         showMessage: false,
-        displayStreak: (this.properties as any).streak
+        displayStreak: this.properties.streak as number
       })
       this.triggerEvent('skip')
       this.triggerEvent('complete')

@@ -25,7 +25,7 @@ Component({
     createName: '',
     joinCode: '',
     // 动态主题色
-    themeColor: '#34A853',
+    themeColor: '#1ABC9C',
   },
   lifetimes: {
     attached() {
@@ -40,7 +40,7 @@ Component({
   pageLifetimes: {
     show() {
       // 同步主题色
-      this.setData({ themeColor: '#34A853' })
+      this.setData({ themeColor: '#1ABC9C' })
       // 每次显示时检查授权状态
       let ui = wx.getStorageSync('userInfo')
       if (ui && ui.nickName && ui.avatarUrl) {

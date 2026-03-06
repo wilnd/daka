@@ -15,6 +15,7 @@
         ></image>
         <view class="user-info">
           <text class="nick">{{userInfo.nickName}}</text>
+          <text class="remark" wx:if="{{userInfo.remarkName}}">备注：{{userInfo.remarkName}}</text>
           <text class="edit-hint">点击修改信息</text>
         </view>
         <text class="arrow">></text>
@@ -66,6 +67,7 @@
         <text class="avatar-tip">点击更换头像</text>
       </button>
       <input type="nickname" class="nickname-input" placeholder="请输入昵称" value="{{editingInfo.nickName}}" bindblur="onNicknameInput" />
+      <input class="nickname-input remark-input" placeholder="备注名（仅自己可见）" value="{{editingInfo.remarkName}}" bindblur="onRemarkNameInput" />
       <view class="modal-btns">
         <button class="btn-secondary" bindtap="hideEditModal">取消</button>
         <button class="btn-primary" bindtap="saveUserInfo">保存</button>

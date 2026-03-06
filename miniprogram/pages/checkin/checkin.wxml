@@ -140,6 +140,7 @@
 <streak-animation 
   visible="{{showStreakAnimation}}" 
   streak="{{currentStreak}}"
+  categoryId="{{checkinResult.categoryId}}"
   bind:complete="onStreakAnimationComplete"
   bind:skip="onSkipShare"
 />

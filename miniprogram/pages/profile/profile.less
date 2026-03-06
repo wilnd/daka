@@ -64,6 +64,12 @@
         color: @color-text-title;
         display: block;
       }
+      .remark {
+        font-size: @font-size-caption;
+        color: @color-text-hint;
+        margin-top: 8rpx;
+        display: block;
+      }
       .edit-hint {
         font-size: @font-size-caption;
         color: @color-text-hint;
@@ -149,7 +155,8 @@
   background: @color-white;
   border-radius: @radius-xl @radius-xl 0 0;
   padding: 48rpx;
-  max-height: 70vh;
+  max-height: 80vh;
+  overflow-y: auto;
 }
 .modal-title {
   font-size: @font-size-title;
@@ -233,6 +240,9 @@
     margin-bottom: 32rpx;
     box-sizing: border-box;
     background: @color-white;
+  }
+  .remark-input {
+    margin-bottom: 0;
   }
 }
 

@@ -1,0 +1,9 @@
+{
+  "name": "getQrCode",
+  "version": "1.0.0",
+  "description": "生成小程序码并上传云存储",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.7.2"
+  }
+}
