@@ -35,6 +35,8 @@ Component({
         app.globalData.shouldOpenJoinModal = false
         this.setData({ showJoinModal: true, joinCode: '' })
       }
+      // 检查是否有邀请码参数（从分享链接带入）
+      this.checkInviteCodeFromShare()
     },
   },
   pageLifetimes: {
@@ -60,6 +62,8 @@ Component({
         app.globalData.shouldOpenJoinModal = false
         this.setData({ showJoinModal: true, joinCode: '' })
       }
+      // 检查是否有邀请码参数
+      this.checkInviteCodeFromShare()
       this.loadGroups()
     },
   },
@@ -169,6 +173,27 @@ Component({
     goDetail(e: any) {
       const id = e.currentTarget.dataset.id
       wx.navigateTo({ url: `/pages/group-detail/group-detail?id=${id}` })
+    },
+    // 检查是否有邀请码参数（从分享链接带入）
+    checkInviteCodeFromShare() {
+      const pages = getCurrentPages()
+      const cur = pages[pages.length - 1] as any
+      const options = (cur && cur.options) ? cur.options : {}
+      const inviteCode = options.inviteCode
+
+      if (inviteCode && typeof inviteCode === 'string' && inviteCode.length >= 4) {
+        // 自动填充邀请码并打开加入弹窗
+        const code = inviteCode.trim().toUpperCase()
+        this.setData({ showJoinModal: true, joinCode: code })
+      }
+    },
+    // 分享给好友
+    onShareAppMessage() {
+      return {
+        title: '快来加入我的小组，一起坚持打卡吧！',
+        path: '/pages/group/group',
+        imageUrl: ''
+      }
     },
   },
 })

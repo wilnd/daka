@@ -172,8 +172,43 @@
     padding: 64rpx 48rpx;
     margin-bottom: 48rpx;
     text-align: center;
-    box-shadow: @shadow-md;
+    box-shadow: 0 0 30rpx rgba(var(--btn-color-rgb), 0.3), @shadow-md;
+    border: 2rpx solid rgba(var(--btn-color-rgb), 0.2);
+    position: relative;
+    overflow: hidden;
+
+    // 发光背景效果
+    &::before {
+      content: '';
+      position: absolute;
+      top: -2rpx;
+      left: -2rpx;
+      right: -2rpx;
+      bottom: -2rpx;
+      background: linear-gradient(135deg, var(--btn-color) 0%, var(--btn-color) 100%);
+      border-radius: @radius-xl;
+      opacity: 0.1;
+      z-index: 0;
+    }
+
+    // 动态光晕动画
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, var(--btn-color) 0%, transparent 70%);
+      transform: translate(-50%, -50%);
+      opacity: 0.15;
+      animation: glowPulse 2s ease-in-out infinite;
+      z-index: 0;
+    }
+
     .checkin-status {
+      position: relative;
+      z-index: 1;
       margin-bottom: 32rpx;
       .status-text {
         font-size: @font-size-data;
@@ -181,19 +216,41 @@
         color: @color-text-body;
       }
       &.checked .status-text {
-        color: @color-primary;
+        color: var(--btn-color);
       }
     }
     .checkin-btn-wrapper {
       position: relative;
+      z-index: 1;
       display: inline-block;
       width: 100%;
     }
     .checkin-btn {
       width: 100%;
       transition: all 0.3s ease;
+      // 未记录时使用动态颜色
+      background: linear-gradient(135deg, var(--btn-color) 0%, var(--btn-color) 100%);
+      box-shadow: 0 4rpx 20rpx rgba(var(--btn-color-rgb), 0.4);
+      position: relative;
+
+      // 按钮发光效果
+      &::before {
+        content: '';
+        position: absolute;
+        top: -4rpx;
+        left: -4rpx;
+        right: -4rpx;
+        bottom: -4rpx;
+        background: linear-gradient(135deg, var(--btn-color) 0%, var(--btn-color) 100%);
+        border-radius: @radius-lg;
+        opacity: 0.5;
+        filter: blur(10rpx);
+        z-index: -1;
+      }
+
       &.checked {
         background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+        box-shadow: 0 4rpx 20rpx rgba(52, 168, 83, 0.4);
         color: white;
       }
       &.animating {
@@ -224,13 +281,26 @@
     }
 
     .checkin-update-link {
+      position: relative;
+      z-index: 1;
       margin-top: 20rpx;
       .link {
-        color: @color-primary;
+        color: var(--btn-color);
         font-size: @font-size-caption;
         text-decoration: underline;
       }
     }
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    opacity: 0.1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: translate(-50%, -50%) scale(1.1);
   }
 }
 

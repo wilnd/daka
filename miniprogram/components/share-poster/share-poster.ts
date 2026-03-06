@@ -189,28 +189,28 @@ Component({
         const categoryId = checkinData.categoryId || 'sports'
         const copyMap: Record<string, { badge: string; slogan: string; streakLabel: string; cta1: string; cta2: string; cta3: string }> = {
           sports: {
-            badge:       '★  每日运动打卡  ★',
+            badge:       '★  每日运动记录  ★',
             slogan:      '燃烧卡路里，超越自我！',
             streakLabel: '连续运动',
-            cta1:        '扫码一起运动打卡',
+            cta1:        '扫码一起运动记录',
             cta2:        '燃烧卡路里，健康生活',
-            cta3:        '加入打卡群，一起变强！',
+            cta3:        '加入记录群，一起变强！',
           },
           study: {
-            badge:       '★  每日学习打卡  ★',
+            badge:       '★  每日学习记录  ★',
             slogan:      '知识改变命运，坚持成就未来！',
             streakLabel: '连续学习',
-            cta1:        '扫码一起学习打卡',
+            cta1:        '扫码一起学习记录',
             cta2:        '坚持学习，知识赋能',
             cta3:        '加入学习群，共同进步！',
           },
           life: {
-            badge:       '★  每日生活打卡  ★',
+            badge:       '★  每日生活记录  ★',
             slogan:      '积极生活，热爱每一天！',
-            streakLabel: '连续打卡',
-            cta1:        '扫码一起生活打卡',
+            streakLabel: '连续记录',
+            cta1:        '扫码一起生活记录',
             cta2:        '好习惯，好生活',
-            cta3:        '加入打卡群，一起成长！',
+            cta3:        '加入记录群，一起成长！',
           },
         }
         const copy = copyMap[categoryId] || copyMap['sports']
@@ -339,7 +339,7 @@ Component({
         ctx.setFontSize(11 * r)
         ctx.fillText(dateStr, cx, 356 * r)
 
-        // 打卡类别标签
+        // 记录类别标签
         const categoryText = checkinData.subCategoryId || checkinData.categoryId || ''
         if (categoryText) {
           const tagW = (categoryText.length * 13 + 28) * r
@@ -350,7 +350,7 @@ Component({
           ctx.fillText(categoryText, cx, 379 * r)
         }
 
-        // 打卡内容文字
+        // 记录内容文字
         if (checkinData.text) {
           const text = checkinData.text.length > 28
             ? checkinData.text.substring(0, 28) + '...'

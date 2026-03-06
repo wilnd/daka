@@ -23,7 +23,7 @@
       <view class="stats-card">
         <view class="stat-item">
           <text class="stat-value primary">{{stats.totalDays || 0}}</text>
-          <text class="stat-label">打卡天数</text>
+          <text class="stat-label">记录天数</text>
         </view>
         <view class="stat-item">
           <text class="stat-value primary">{{stats.streak || 0}}</text>
@@ -31,20 +31,20 @@
         </view>
         <view class="stat-item">
           <text class="stat-value {{(stats.missStreak || 0) > 0 ? 'warn' : ''}}">{{stats.missStreak || 0}}</text>
-          <text class="stat-label">连续未打卡</text>
+          <text class="stat-label">连续未记录</text>
         </view>
       </view>
       <view class="menu-list">
         <navigator url="/pages/calendar/calendar" class="menu-item">
-          <text>打卡日历</text>
+          <text>记录日历</text>
           <text class="arrow">></text>
         </navigator>
         <view class="menu-item" bindtap="genRemindCopy">
-          <text>生成未打卡@文案</text>
+          <text>生成未记录@文案</text>
           <text class="arrow">></text>
         </view>
         <view class="menu-item" bindtap="subscribeRemind">
-          <text>订阅打卡提醒</text>
+          <text>订阅记录提醒</text>
           <text class="subscribe-status {{isSubscribed ? 'subscribed' : ''}}">{{isSubscribed ? '已开启' : '未订阅'}}</text>
           <text class="arrow">></text>
         </view>

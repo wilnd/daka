@@ -1,12 +1,12 @@
-<navigation-bar title="好友运动打卡助手" back="{{false}}" color="white" background="{{themeColor}}"></navigation-bar>
+<navigation-bar title="好友运动成长助手" back="{{false}}" color="white" background="linear-gradient(135deg, #40E0D0 0%, #48D1CC 100%)"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view wx:if="{{!hasUserInfo}}" class="auth-section">
       <!-- 欢迎区域 -->
       <view class="welcome-area">
         <view class="welcome-icon">🏃‍♂️</view>
-        <text class="welcome-title">欢迎使用打卡助手</text>
-        <text class="welcome-desc">立即授权，开始你的运动打卡之旅</text>
+        <text class="welcome-title">欢迎使用成长助手</text>
+        <text class="welcome-desc">立即授权，开始你的运动成长之旅</text>
       </view>
 
       <!-- 头像选择 -->
@@ -34,7 +34,7 @@
 
       <!-- 确认按钮 -->
       <button class="btn-primary confirm-auth" bindtap="onConfirmAuth">
-        <text class="btn-text">开启打卡之旅</text>
+        <text class="btn-text">开启成长之旅</text>
       </button>
 
       <!-- 隐私说明 -->
@@ -59,8 +59,8 @@
       <!-- 空状态：没有小组 -->
       <view wx:if="{{!currentGroup}}" class="empty-state">
         <view class="empty-icon">🏃</view>
-        <text class="empty-title">欢迎使用打卡助手</text>
-        <text class="empty-desc">创建或加入一个小组，开始你的运动打卡之旅</text>
+        <text class="empty-title">欢迎使用成长助手</text>
+        <text class="empty-desc">创建或加入一个小组，开始你的运动成长之旅</text>
         <view class="empty-actions">
           <button class="btn-primary" bindtap="goCreateGroup">创建小组</button>
           <button class="btn-secondary" bindtap="goJoinGroup">加入小组</button>
@@ -68,20 +68,24 @@
       </view>
       <!-- 有小组时显示正常内容 -->
       <view wx:else>
-        <view class="checkin-card">
+        <view
+          class="checkin-card"
+          style="--btn-color: {{themeColor}}; --btn-color-rgb: {{themeColorRgb}}"
+        >
           <view class="checkin-status {{checkedToday ? 'checked' : ''}}">
-            <text class="status-text">{{checkedToday ? '今日已打卡' : '发布动态'}}</text>
+            <text class="status-text">{{checkedToday ? '今日已记录' : '发布动态'}}</text>
           </view>
           <view class="checkin-btn-wrapper">
             <button
               class="btn-primary checkin-btn {{checkedToday ? 'checked' : ''}} {{checkinAnimating ? 'animating' : ''}}"
+              style="--btn-color: {{themeColor}}"
               hover-class="btn-hover"
               bindtap="onCheckin"
               disabled="{{!currentGroup || checkinAnimating}}"
             >
               <text wx:if="{{checkinAnimating}}">提交中...</text>
-              <text wx:elif="{{checkedToday}}">继续打卡</text>
-              <text wx:else>发布打卡</text>
+              <text wx:elif="{{checkedToday}}">继续记录</text>
+              <text wx:else>发布记录</text>
             </button>
             <view wx:if="{{checkedToday}}" class="success-badge">
               <text class="badge-icon">✓</text>
@@ -95,15 +99,15 @@
           </view>
           <view class="stat-item">
             <text class="stat-value">{{stats.totalCount}}</text>
-            <text class="stat-label">打卡次数</text>
+            <text class="stat-label">记录次数</text>
           </view>
           <view class="stat-item">
             <text class="stat-value">{{stats.totalDays}}</text>
-            <text class="stat-label">打卡天数</text>
+            <text class="stat-label">记录天数</text>
           </view>
           <view class="stat-item">
             <text class="stat-value {{stats.missStreak > 0 ? 'warn' : ''}}">{{stats.missStreak}}</text>
-            <text class="stat-label">连续未打卡</text>
+            <text class="stat-label">连续未记录</text>
           </view>
         </view>
 
@@ -122,9 +126,9 @@
           </view>
           <!-- 多维度切换 -->
           <view class="dimension-tabs">
-            <view class="dimension-tab {{rankDimension === 'days' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="days">打卡天数</view>
+            <view class="dimension-tab {{rankDimension === 'days' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="days">记录天数</view>
             <view class="dimension-tab {{rankDimension === 'minutes' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="minutes">运动时长</view>
-            <view class="dimension-tab {{rankDimension === 'score' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="score">平均分</view>
+            <view class="dimension-tab {{rankDimension === 'score' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="score">平均成长值</view>
           </view>
           <!-- 统计对比 -->
           <view wx:if="{{myRank && myRank.minutes && myRank.days && myRank.score && groupAvg && !statsLoading}}" class="stats-compare">
@@ -135,7 +139,7 @@
             <view class="compare-stats">
               <view class="compare-item">
                 <text class="compare-value">{{rankDimension === 'minutes' ? myRank.minutes.totalMinutes : rankDimension === 'days' ? myRank.days.checkinDays : myRank.score.avgScore}}</text>
-                <text class="compare-label">{{rankDimension === 'minutes' ? '分钟' : rankDimension === 'days' ? '天' : '分'}}</text>
+                <text class="compare-label">{{rankDimension === 'minutes' ? '分钟' : rankDimension === 'days' ? '天' : '成长值'}}</text>
               </view>
               <view class="compare-item group">
                 <text class="compare-value">{{rankDimension === 'minutes' ? groupAvg.totalMinutes : rankDimension === 'days' ? groupAvg.checkinDays : groupAvg.avgScore}}</text>
@@ -153,7 +157,7 @@
               <view class="rank-index {{index < 3 ? 'top' : ''}}">{{index + 1}}</view>
               <image class="rank-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
               <text class="rank-name">{{item.nickName}}</text>
-              <text class="rank-streak">{{rankDimension === 'minutes' ? item.totalMinutes + ' 分钟' : rankDimension === 'days' ? item.checkinDays + ' 天' : item.avgScore + ' 分'}}</text>
+              <text class="rank-streak">{{rankDimension === 'minutes' ? item.totalMinutes + ' 分钟' : rankDimension === 'days' ? item.checkinDays + ' 天' : item.avgScore + ' 成长值'}}</text>
             </view>
           </view>
         </view>

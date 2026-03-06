@@ -37,6 +37,7 @@ Component({
     rankMembers: [] as any[],
     loading: true,
     isAdmin: false,
+    isCreator: false,
     currentTab: 'today', // today | members | rank
     showMemberModal: false,
     showConfirmModal: false,
@@ -150,6 +151,8 @@ Component({
         }
         const userIds = members.map((m: any) => m.userId).filter(Boolean)
         const isAdmin = members.some((m: any) => m.userId === openid && m.role === 'admin')
+        // 判断当前用户是否是群主（创建者）
+        const isCreator = (group as any).creatorId === openid
         
         const today = getTodayStr()
         const checkedIds = new Set<string>()
@@ -200,7 +203,7 @@ Component({
           }))
         }
 
-        // 打卡排行 - 统计本月打卡天数
+        // 记录排行 - 统计本月记录天数
         const currentMonth = getCurrentMonth()
         const monthDateRegExp = db.RegExp({
           regexp: `^${currentMonth}`,
@@ -240,6 +243,7 @@ Component({
           rankMembers,
           loading: false,
           isAdmin,
+          isCreator,
           inviteEnabled: (group as any).inviteEnabled !== false
         })
       } catch (e: any) {
@@ -327,28 +331,23 @@ Component({
       const member = e.currentTarget.dataset.member
       if (!member) return
 
-      // 点击头像进入对方成长墙
-      const { userId, nickName, avatarUrl } = member
-      if (userId) {
-        const params = [
-          `userId=${encodeURIComponent(userId)}`,
-          `nickName=${encodeURIComponent(nickName || '')}`,
-          `avatarUrl=${encodeURIComponent(avatarUrl || '')}`
-        ].join('&')
+      // 点击自己，跳转到成长墙
+      if (member.isSelf) {
         wx.navigateTo({
-          url: `/pages/user-moments/user-moments?${params}`
+          url: '/pages/moments/moments'
         })
         return
       }
 
-      const { isAdmin } = this.data
+      const { isAdmin, isCreator } = this.data
       this.setData({
         selectedMember: member,
         showMemberModal: true,
         selectedMemberNickName: member.nickName || '成员',
         selectedMemberAvatarUrl: member.avatarUrl || defaultAvatar,
         canTransferAdmin: isAdmin && member.role !== 'admin',
-        canRemoveMember: isAdmin && member.role !== 'admin',
+        // 只有群主才能移除成员，且不能移除自己
+        canRemoveMember: isCreator && !member.isSelf,
         isSelfMember: member.isSelf
       })
     },
@@ -387,6 +386,19 @@ Component({
         confirmActionType: 'quitGroup',
         showMemberModal: false,
         showConfirmModal: true
+      })
+    },
+    onViewMoments() {
+      const { selectedMember } = this.data
+      if (!selectedMember) return
+      const { userId, nickName, avatarUrl } = selectedMember
+      const params = [
+        `userId=${encodeURIComponent(userId)}`,
+        `nickName=${encodeURIComponent(nickName || '')}`,
+        `avatarUrl=${encodeURIComponent(avatarUrl || '')}`
+      ].join('&')
+      wx.navigateTo({
+        url: `/pages/user-moments/user-moments?${params}`
       })
     },
     onDissolveGroup() {
@@ -441,6 +453,35 @@ Component({
         }
       } catch (e) {
         wx.showToast({ title: '操作失败', icon: 'none' })
+      }
+    },
+    // 分享给好友
+    onShareAppMessage() {
+      const { group, inviteEnabled } = this.data
+      if (!inviteEnabled || !group.inviteCode) {
+        return {
+          title: '快来加入我的小组吧',
+          path: '/pages/group/group'
+        }
+      }
+      return {
+        title: `${group.name || '小组'} 邀请码：${group.inviteCode}，点击即可加入！`,
+        path: `/pages/group/group?inviteCode=${group.inviteCode}`,
+        imageUrl: ''
+      }
+    },
+    // 分享到朋友圈
+    onShareTimeline() {
+      const { group, inviteEnabled } = this.data
+      if (!inviteEnabled || !group.inviteCode) {
+        return {
+          title: group.name ? `${group.name} - 邀请你加入` : '快来加入小组吧',
+          query: ''
+        }
+      }
+      return {
+        title: `${group.name || '小组'} 邀请码：${group.inviteCode}，点击即可加入！`,
+        query: `inviteCode=${group.inviteCode}`
       }
     },
   },

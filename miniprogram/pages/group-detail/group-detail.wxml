@@ -17,6 +17,7 @@
         <view class="invite-code-display" wx:if="{{inviteEnabled}}">
           <text class="code-text">{{group.inviteCode || '-'}}</text>
           <button class="btn-copy" bindtap="copyInvite">复制</button>
+          <button class="btn-share" open-type="share">分享</button>
         </view>
         <view class="invite-disabled" wx:else>
           <text>邀请已关闭</text>
@@ -30,23 +31,23 @@
       <!-- Tab 切换 -->
       <view class="tab-bar">
         <view class="tab-item {{currentTab === 'today' ? 'active' : ''}}" data-tab="today" bindtap="switchTab">
-          <text>今日打卡</text>
+          <text>今日记录</text>
         </view>
         <view class="tab-item {{currentTab === 'members' ? 'active' : ''}}" data-tab="members" bindtap="switchTab">
           <text>成员列表</text>
         </view>
         <view class="tab-item {{currentTab === 'rank' ? 'active' : ''}}" data-tab="rank" bindtap="switchTab">
-          <text>打卡排行</text>
+          <text>记录排行</text>
         </view>
       </view>
 
-      <!-- 今日打卡 -->
+      <!-- 今日记录 -->
       <view wx:if="{{currentTab === 'today'}}" class="section">
         <view wx:if="{{!todayMembers || todayMembers.length === 0}}" class="empty-section">暂无成员</view>
         <view wx:for="{{todayMembers || []}}" wx:key="_id" class="member-row {{item.checked ? 'checked' : ''}}">
           <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
           <text class="nick">{{item.nickName || '未知'}}</text>
-          <text class="status {{item.checked ? 'checked' : 'unchecked'}}">{{item.checked ? '已打卡' : '未打卡'}}</text>
+          <text class="status {{item.checked ? 'checked' : 'unchecked'}}">{{item.checked ? '已记录' : '未记录'}}</text>
         </view>
       </view>
 
@@ -59,12 +60,13 @@
         <view wx:for="{{members || []}}" wx:key="_id" class="member-row" bindtap="onMemberTap" data-member="{{item}}">
           <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
           <text class="nick">{{item.nickName || '未知'}}</text>
-          <text wx:if="{{item.role === 'admin'}}" class="role-badge">组长</text>
+          <text wx:if="{{group.creatorId === item.userId}}" class="role-badge creator">群主</text>
+          <text wx:elif="{{item.role === 'admin'}}" class="role-badge">组长</text>
           <text class="arrow">></text>
         </view>
       </view>
 
-      <!-- 打卡排行 -->
+      <!-- 记录排行 -->
       <view wx:if="{{currentTab === 'rank'}}" class="section">
         <view wx:if="{{!rankMembers || rankMembers.length === 0}}" class="empty-section">暂无数据</view>
         <view wx:for="{{rankMembers || []}}" wx:key="_id" class="rank-row {{index < 3 ? 'top' : ''}}">
@@ -92,6 +94,9 @@
       <image class="avatar-large" src="{{selectedMemberAvatarUrl}}" mode="aspectFill"></image>
     </view>
     <view class="action-list">
+      <view class="action-item" bindtap="onViewMoments">
+        <text>查看成长墙</text>
+      </view>
       <view wx:if="{{canTransferAdmin}}" class="action-item" bindtap="onTransferAdmin">
         <text>转让组长</text>
       </view>

@@ -1,4 +1,4 @@
-<navigation-bar title="打卡日历" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+<navigation-bar title="记录日历" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view wx:if="{{!hasOpenid}}" class="empty-tip">请先登录</view>
@@ -8,7 +8,7 @@
         <text class="month-title">{{displayMonth}}</text>
         <text class="nav-btn {{isCurrentMonth ? 'disabled' : ''}}" bindtap="nextMonth">＞</text>
       </view>
-      <view class="makeup-tip">本月剩余补卡 {{makeupRemain}} 次（仅可补近3天内未打卡）</view>
+      <view class="makeup-tip">本月剩余补记录 {{makeupRemain}} 次（仅可补近3天内未记录）</view>
 
       <view class="calendar">
         <view class="weekday-row">
@@ -29,16 +29,16 @@
         </view>
       </view>
 
-      <!-- 选中日期的打卡记录 -->
+      <!-- 选中日期的记录 -->
       <view class="day-records">
         <view wx:if="{{!selectedDate}}" class="records-hint">
           <text class="hint-icon">👆</text>
-          <text class="hint-text">点击已打卡的日期查看详情</text>
+          <text class="hint-text">点击已记录的日期查看详情</text>
         </view>
         <view wx:elif="{{selectedCheckins.length === 0}}" class="records-hint">
           <text class="hint-icon">📅</text>
           <text class="hint-text records-date-label">{{selectedDate}}</text>
-          <text class="hint-text">暂无打卡记录</text>
+          <text class="hint-text">暂无记录</text>
         </view>
         <view wx:else class="records-body">
           <view class="records-header">
@@ -50,7 +50,7 @@
               <text class="record-time">{{item.timeStr || ''}}</text>
               <view class="record-badges">
                 <text wx:if="{{item.isMakeup}}" class="badge badge-makeup">补卡</text>
-                <text wx:if="{{item.score && item.score.totalScore}}" class="badge badge-score">{{item.score.totalScore}}分</text>
+                <text wx:if="{{item.score && item.score.totalScore}}" class="badge badge-score">{{item.score.totalScore}}成长值</text>
               </view>
             </view>
             <view wx:if="{{item.content}}" class="record-detail">
@@ -68,7 +68,7 @@
               </view>
             </view>
             <view wx:if="{{!item.content || (!item.content.text && (!item.content.photos || item.content.photos.length === 0) && !item.content.duration)}}" class="record-plain">
-              <text>已打卡 ✓</text>
+              <text>已记录 ✓</text>
             </view>
           </view>
         </view>

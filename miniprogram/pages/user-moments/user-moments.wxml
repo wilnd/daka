@@ -49,7 +49,7 @@
         <!-- 运动得分 -->
         <view class="score-tag" wx:if="{{item.content && item.content.score !== undefined}}">
           <text class="score-value">{{item.content.score}}</text>
-          <text class="score-label">分</text>
+          <text class="score-label">成长值</text>
         </view>
       </view>
 

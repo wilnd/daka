@@ -1,6 +1,6 @@
 /**
  * 成长墙服务
- * 打卡内容默认发布到成长墙，同一群组成员可见
+ * 记录内容默认发布到成长墙，同一群组成员可见
  */
 import { db, momentsCol, momentLikesCol, momentCommentsCol, membersCol, groupsCol } from './db'
 import { getTodayStr } from './db'

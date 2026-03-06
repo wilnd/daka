@@ -3,11 +3,21 @@ import { getOrCreateUser, getOpenid } from '../../services/auth'
 import { getMyGroups } from '../../services/group'
 import { doCheckinWithContent, isCheckedToday } from '../../services/checkin'
 import { getStreak, getMissStreak, getTotalDays, getTotalCount, getAllRank, getDayRank, getWeekRank, getMonthRank, RankUser } from '../../services/stats'
-import { getYesterdayCheckin } from '../../services/theme'
+import { getYesterdayCheckin, getSimpleThemeColor } from '../../services/theme'
 import { callGetMyRank, callGetGroupStats, callGetStats, callGetAchievements, RankResult, GroupStats } from '../../services/score'
 
 const app = getApp() as IAppOption
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
+
+/** 将十六进制颜色转换为 RGB 格式 */
+function hexToRgb(hex: string): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  if (result) {
+    return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
+  }
+  // 默认返回绿色 RGB
+  return '26, 188, 156'
+}
 
 /** 本地缓存的群组列表 key */
 const GROUPS_CACHE_KEY = 'cachedGroups'
@@ -103,12 +113,17 @@ Component({
     statsLoading: false,
     // 动态主题色
     themeColor: '#1ABC9C',
+    themeColorRgb: '26, 188, 156',
     // 定时刷新
     rankTimer: null as any,
   },
   lifetimes: {
     attached() {
       console.log('[Index] lifetimes.attached() 组件 attached')
+      // 使用动态主题色（根据时间变化）
+      const dynamicColor = getSimpleThemeColor()
+      const dynamicColorRgb = hexToRgb(dynamicColor)
+      this.setData({ themeColor: dynamicColor, themeColorRgb: dynamicColorRgb })
       this.init()
       // 启动排行榜定时刷新（每5秒）
       this.startRankAutoRefresh()
@@ -121,9 +136,12 @@ Component({
   pageLifetimes: {
     show() {
       console.log('[Index] pageLifetimes.show() 页面显示')
-      // 同步主题色
+      // 使用动态主题色（根据时间变化）
+      const dynamicColor = getSimpleThemeColor()
+      const dynamicColorRgb = hexToRgb(dynamicColor)
       this.setData({
-        themeColor: app.globalData.themeColor
+        themeColor: dynamicColor,
+        themeColorRgb: dynamicColorRgb
       })
       // 每次页面显示时都强制刷新数据，确保补卡后能更新
       console.log('[Index] pageLifetimes.show() 准备调用 loadData(true)')
@@ -247,7 +265,7 @@ Component({
         let stats = null
         let rankList: RankUser[] = []
         if (cur) {
-          console.log('[Index] loadData() 准备获取打卡状态和统计数据, groupId:', cur._id)
+          console.log('[Index] loadData() 准备获取记录状态和统计数据, groupId:', cur._id)
           checkedToday = await isCheckedToday(openid, cur._id)
           console.log('[Index] loadData() isCheckedToday 返回:', checkedToday)
           const [streak, totalDays, totalCount, missStreak] = await Promise.all([
@@ -272,7 +290,7 @@ Component({
           console.log('[Index] loadData() getYesterdayCheckin 返回:', checkedYesterday)
           app.updateTheme!(checkedToday, checkedYesterday)
         } else {
-          console.warn('[Index] loadData() cur (当前群组) 为空，不获取打卡和统计')
+          console.warn('[Index] loadData() cur (当前群组) 为空，不获取记录和统计')
         }
         console.log('[Index] loadData() 准备 setData')
         this.setData({
@@ -618,20 +636,20 @@ Component({
       this.refreshRankForNewGroup(g._id)
     },
     async onCheckin() {
-      console.log('[Index] onCheckin() 点击打卡')
+      console.log('[Index] onCheckin() 点击记录')
       const { currentGroup, checkinAnimating, groups } = this.data
       console.log('[Index] onCheckin() currentGroup:', currentGroup, 'groups.length:', groups ? groups.length : 0)
       if (checkinAnimating) {
-        console.warn('[Index] onCheckin() 打卡动画中，忽略')
+        console.warn('[Index] onCheckin() 记录动画中，忽略')
         return
       }
 
-      // 构建打卡URL，可选传入当前选中的小组用于排名对比
+      // 构建记录URL，可选传入当前选中的小组用于排名对比
       const groupId = currentGroup ? currentGroup._id : (groups[0] ? groups[0]._id : '')
       const groupName = currentGroup ? currentGroup.name : (groups[0] ? groups[0].name : '')
 
-      console.log('[Index] onCheckin() 准备跳转到打卡页, groupId:', groupId, 'groupName:', groupName)
-      // 支持多次打卡，始终使用创建模式
+      console.log('[Index] onCheckin() 准备跳转到记录页, groupId:', groupId, 'groupName:', groupName)
+      // 支持多次记录，始终使用创建模式
       wx.navigateTo({
         url: `/pages/checkin/checkin?groupId=${groupId}&groupName=${encodeURIComponent(groupName)}`
       })

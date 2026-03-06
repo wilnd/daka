@@ -14,7 +14,7 @@ App({
     themeType: 'normal' as ThemeType,
     /** 主题配置 */
     themeConfig: null as any,
-    /** 用户已打卡状态（用于定时刷新） */
+    /** 用户已记录状态（用于定时刷新） */
     userCheckedToday: false,
     userCheckedYesterday: false,
   },
@@ -34,17 +34,17 @@ App({
   refreshThemeByTime() {
     const { userCheckedToday, userCheckedYesterday } = this.globalData
 
-    // 如果已打卡，保持绿色
+    // 如果已记录，保持绿色
     if (userCheckedToday) {
       return
     }
 
-    // 如果昨天也没打卡，保持冻结色
+    // 如果昨天也没记录，保持冻结色
     if (!userCheckedYesterday) {
       return
     }
 
-    // 未打卡：根据时间重新计算主题
+    // 未记录：根据时间重新计算主题
     const now = new Date()
     const hour = now.getHours() + now.getMinutes() / 60
 
@@ -96,9 +96,9 @@ App({
     // 应用到导航栏（使用绿色）
     this.applyNavigationBarColor(THEMES.normal.color)
   },
-  /** 更新主题（根据打卡状态） */
+  /** 更新主题（根据记录状态） */
   updateTheme(checkedToday: boolean, checkedYesterday: boolean) {
-    // 保存用户打卡状态，用于定时刷新
+    // 保存用户记录状态，用于定时刷新
     this.globalData.userCheckedToday = checkedToday
     this.globalData.userCheckedYesterday = checkedYesterday
 
@@ -115,7 +115,7 @@ App({
       themeType = 'frozen'
       themeColor = THEMES.frozen.color
     } else {
-      // 未打卡，根据时间计算颜色
+      // 未记录，根据时间计算颜色
       if (hour < 18) {
         themeType = 'normal'
         themeColor = THEMES.normal.color

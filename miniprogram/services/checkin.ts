@@ -1,5 +1,5 @@
 /**
- * 打卡服务
+ * 记录服务
  */
 import { db, checkinsCol, makeupQuotaCol, momentsCol, momentCommentsCol, getTodayStr, getCurrentMonth, getServerMonth } from './db'
 
@@ -10,13 +10,13 @@ export interface Checkin {
   date: string
   isMakeup: boolean
   createTime: Date
-  /** 打卡内容 */
+  /** 记录内容 */
   content?: CheckinContent
   /** 评分结果 */
   score?: ScoreResult
 }
 
-/** 打卡内容 */
+/** 记录内容 */
 export interface CheckinContent {
   /** 照片云存储路径列表 */
   photos?: string[]
@@ -24,9 +24,9 @@ export interface CheckinContent {
   text?: string
   /** 是否发布成长墙 */
   isPublishToMoments: boolean
-  /** 打卡大类ID */
+  /** 记录大类ID */
   categoryId?: string
-  /** 打卡小类ID */
+  /** 记录小类ID */
   subCategoryId?: string
   /** 成长墙可见范围：'' 或空表示所有群组可见，指定 groupId 表示仅指定群组可见 */
   momentsGroupId?: string
@@ -54,7 +54,7 @@ export interface ScoreResult {
   tags?: string[]
 }
 
-/** 获取用户今日打卡（含内容） */
+/** 获取用户今日记录（含内容） */
 export async function getTodayCheckin(userId: string): Promise<Checkin | null> {
   const today = getTodayStr()
   const { data } = await checkinsCol()
@@ -65,7 +65,7 @@ export async function getTodayCheckin(userId: string): Promise<Checkin | null> {
   return (data && data[0] ? (data[0] as Checkin) : null)
 }
 
-/** 每日打卡（支持同一天多次打卡，每次打卡都会创建新记录） */
+/** 每日记录（支持同一天多次记录，每次记录都会创建新记录） */
 export async function doCheckinWithContent(
   userId: string,
   content?: CheckinContent,
@@ -73,8 +73,8 @@ export async function doCheckinWithContent(
 ): Promise<{ ok: boolean; msg?: string; score?: ScoreResult }> {
   const today = getTodayStr()
 
-  // 支持多次打卡，不再检查是否已打卡
-  // 每次打卡都会创建新记录
+  // 支持多次记录，不再检查是否已记录
+  // 每次记录都会创建新记录
 
   // 如果有内容，先调用评分云函数
   let score: ScoreResult | undefined
@@ -176,20 +176,20 @@ export async function doCheckinWithContent(
   return { ok: true, score }
 }
 
-/** 更新今日打卡内容（可同步更新/创建/删除成长墙动态） */
+/** 更新今日记录内容（可同步更新/创建/删除成长墙动态） */
 export async function updateTodayCheckinWithContent(
   userId: string,
   content: CheckinContent,
   groupId?: string
 ): Promise<{ ok: boolean; msg?: string; score?: ScoreResult }> {
   const existing = await getTodayCheckin(userId)
-  if (!existing || !existing._id) return { ok: false, msg: '今日还未打卡，无法更新' }
+  if (!existing || !existing._id) return { ok: false, msg: '今日还未记录，无法更新' }
 
   if (!content || (!content.text && (!content.photos || content.photos.length === 0))) {
     return { ok: false, msg: '请输入文字或上传照片' }
   }
 
-  // 重新评分（与新增打卡保持一致）
+  // 重新评分（与新增记录保持一致）
   let score: ScoreResult | undefined
   try {
     const scoreRes = await wx.cloud.callFunction({
@@ -279,7 +279,7 @@ export async function doMakeup(
   const d1 = new Date(today).getTime()
   const d2 = new Date(date).getTime()
   const diffDays = Math.floor((d1 - d2) / 86400000)
-  if (diffDays < 1 || diffDays > 3) return { ok: false, msg: '仅可补近3天内未打卡日期' }
+  if (diffDays < 1 || diffDays > 3) return { ok: false, msg: '仅可补近3天内未记录日期' }
 
   const { data: existing } = await checkinsCol()
     // 补卡与群组无关：同一用户同一天只能补一次

@@ -316,10 +316,10 @@ Component({
           }
         }
         if (missList.length === 0) {
-          wx.showToast({ title: '今日全员已打卡' })
+          wx.showToast({ title: '今日全员已记录' })
           return
         }
-        // 生成文案：昨天打卡→显示连续天数+断掉风险；昨天未打卡→显示未打卡+鼓励
+        // 生成文案：昨天记录→显示连续天数+断掉风险；昨天未记录→显示未记录+鼓励
         const txt = missList.map(x => {
           if (x.wasYesterday && x.streak > 0) {
             return `@${x.nick} 已经连续运动${x.streak}天，今天还不运动会断掉连胜哦`

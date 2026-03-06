@@ -1,8 +1,8 @@
 /**
- * 打卡类别配置
+ * 记录类别配置
  */
 
-/** 打卡大类 */
+/** 记录大类 */
 export interface Category {
   id: string
   name: string
@@ -10,13 +10,13 @@ export interface Category {
   subCategories: SubCategory[]
 }
 
-/** 打卡小类 */
+/** 记录小类 */
 export interface SubCategory {
   id: string
   name: string
 }
 
-/** 打卡类别配置 */
+/** 记录类别配置 */
 export const CHECKIN_CATEGORIES: Category[] = [
   {
     id: 'sports',

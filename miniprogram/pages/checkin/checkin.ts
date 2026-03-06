@@ -80,7 +80,7 @@ Page({
   },
 
   onShow() {
-    // 同步主题色（从打卡返回时可能已更新）
+    // 同步主题色（从记录返回时可能已更新）
     this.setData({
       themeColor: '#1ABC9C'
     })
@@ -122,7 +122,7 @@ Page({
 
     // 加载用户的群组列表
     await this.loadGroups()
-    // 加载今日打卡记录（仅用于展示用户历史选择）
+    // 加载今日记录（仅用于展示用户历史选择）
     await this.loadTodayCheckin()
   },
 
@@ -162,8 +162,8 @@ Page({
 
     try {
       const ck = await getTodayCheckin(openid)
-      // 无论是否已打卡，都使用 create 模式（支持多次打卡）
-      // 如果有历史打卡，记录最后一次的类别选择供用户参考
+      // 无论是否已记录，都使用 create 模式（支持多次记录）
+      // 如果有历史记录，记录最后一次的类别选择供用户参考
       if (!ck) {
         this.setData({ mode: 'create' })
         return
@@ -171,7 +171,7 @@ Page({
 
       const content = (ck as any).content || {}
 
-      // 从打卡内容中读取成长墙可见范围
+      // 从记录内容中读取成长墙可见范围
       const momentsGroupId = (content as any).momentsGroupId || ''
 
       // 根据 momentsGroupId 查找群组名称和索引
@@ -199,7 +199,7 @@ Page({
       const subCategoryIndex = subCategories.findIndex(s => s.id === subCategoryId)
 
       this.setData({
-        mode: 'create',  // 始终使用创建模式，支持多次打卡
+        mode: 'create',  // 始终使用创建模式，支持多次记录
         categoryIndex: categoryIndex >= 0 ? categoryIndex : -1,
         subCategoryIndex: subCategoryIndex >= 0 ? subCategoryIndex : -1,
         subCategories,
@@ -212,7 +212,7 @@ Page({
         momentsGroupIndex
       })
     } catch (e) {
-      console.error('加载今日打卡失败', e)
+      console.error('加载今日记录失败', e)
       wx.showToast({ title: '加载失败', icon: 'none' })
     }
   },
@@ -341,7 +341,7 @@ Page({
     })
   },
 
-  // 提交打卡
+  // 提交记录
   async onSubmit() {
     const { text, photos, selectedTag, isPublishToMoments, submitting, groupId } = this.data
     const openid = app.globalData.openid
@@ -353,7 +353,7 @@ Page({
 
     // 使用Tags选择模式：验证 selectedTag
     if (!selectedTag) {
-      wx.showToast({ title: '请选择打卡类别', icon: 'none' })
+      wx.showToast({ title: '请选择记录类别', icon: 'none' })
       return
     }
 
@@ -367,7 +367,7 @@ Page({
     if (submitting) return
 
     this.setData({ submitting: true })
-    wx.showLoading({ title: '打卡中...' })
+    wx.showLoading({ title: '记录中...' })
 
     try {
       const cloudPhotos: string[] = []
@@ -406,15 +406,15 @@ Page({
 
       if (result.ok) {
         wx.showToast({
-          title: isPublishToMoments ? '打卡成功，已发布到成长墙' : '打卡成功',
+          title: isPublishToMoments ? '记录成功，已发布到成长墙' : '记录成功',
           icon: 'none'
         })
 
-        // 打卡成功后更新主题为绿色
+        // 记录成功后更新主题为绿色
         app.updateTheme!(true, true)
 
         // 显示连胜动画和分享海报
-        // 获取当前连胜（打卡后的连胜）
+        // 获取当前连胜（记录后的连胜）
         let currentStreak = 1
         try {
           const openid = app.globalData.openid
@@ -425,7 +425,7 @@ Page({
           console.warn('获取连胜失败', e)
         }
 
-        // 保存打卡结果用于生成海报
+        // 保存记录结果用于生成海报
         const checkinResult = {
           text: text.trim(),
           categoryId,
@@ -441,11 +441,11 @@ Page({
           themeColor: categoryId === 'sports' ? '#FF4500' : categoryId === 'study' ? '#4169E1' : '#32CD32'
         })
       } else {
-        wx.showToast({ title: result.msg || '打卡失败', icon: 'none' })
+        wx.showToast({ title: result.msg || '记录失败', icon: 'none' })
       }
     } catch (e) {
-      console.error('打卡失败', e)
-      wx.showToast({ title: '打卡失败，请稍后重试', icon: 'none' })
+      console.error('记录失败', e)
+      wx.showToast({ title: '记录失败，请稍后重试', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
       wx.hideLoading()
@@ -479,7 +479,7 @@ Page({
   // 分享到成长墙
   onShareTimeline() {
     return {
-      title: '每日运动打卡',
+      title: '每日运动记录',
       query: ''
     }
   }

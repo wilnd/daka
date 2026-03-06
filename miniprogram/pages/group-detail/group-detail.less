@@ -51,6 +51,15 @@
         border-radius: 8rpx;
         border: none;
       }
+      .btn-share {
+        background: @color-primary;
+        color: white;
+        font-size: 24rpx;
+        padding: 12rpx 24rpx;
+        border-radius: 8rpx;
+        border: none;
+        margin-left: 16rpx;
+      }
     }
     .invite-disabled {
       background: #F5F7FA;
@@ -114,7 +123,9 @@
     .nick { flex: 1; }
     .status.checked { color: @color-primary; }
     .status.unchecked { color: @color-secondary; }
-    .role-badge { font-size: @font-size-caption; color: @color-primary; background: fade(@color-primary, 10%); padding: 4rpx 12rpx; border-radius: 8rpx; }
+    .role-badge { font-size: @font-size-caption; color: @color-primary; background: fade(@color-primary, 10%); padding: 4rpx 12rpx; border-radius: 8rpx;
+      &.creator { color: #FFD700; background: fade(#FFD700, 15%); }
+    }
     .arrow { color: @color-text-hint; }
     &.checked { background: fade(@color-primary, 5%); border-radius: 8rpx; margin: 0 -16rpx; padding-left: 16rpx; padding-right: 16rpx; }
   }

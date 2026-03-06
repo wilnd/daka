@@ -55,7 +55,7 @@
     </block>
     <!-- 学习类 -->
     <block wx:elif="{{categoryId === 'study'}}">
-      <text wx:if="{{streak === 1}}">🎉 学习打卡，知识点亮！</text>
+      <text wx:if="{{streak === 1}}">🎉 学习记录，知识点亮！</text>
       <text wx:elif="{{streak < 7}}">📚 学习 {{streak}} 天！坚持就是力量！</text>
       <text wx:elif="{{streak < 14}}">🔥 连续学习 {{streak}} 天！厉害了！</text>
       <text wx:elif="{{streak < 30}}">🏆 {{streak}} 天坚持学习！你是学习达人！</text>
@@ -64,9 +64,9 @@
     </block>
     <!-- 生活类 -->
     <block wx:elif="{{categoryId === 'life'}}">
-      <text wx:if="{{streak === 1}}">🎉 打卡生活，热爱每一天！</text>
+      <text wx:if="{{streak === 1}}">🎉 记录生活，热爱每一天！</text>
       <text wx:elif="{{streak < 7}}">🌱 坚持 {{streak}} 天！好习惯在养成！</text>
-      <text wx:elif="{{streak < 14}}">🔥 连续打卡 {{streak}} 天！生活有你更精彩！</text>
+      <text wx:elif="{{streak < 14}}">🔥 连续记录 {{streak}} 天！生活有你更精彩！</text>
       <text wx:elif="{{streak < 30}}">🏆 {{streak}} 天不间断！你是生活达人！</text>
       <text wx:elif="{{streak < 100}}">👑 超级连胜 {{streak}} 天！活出传奇！</text>
       <text wx:else>🌟 {{streak}} 天！生活传奇非你莫属！</text>

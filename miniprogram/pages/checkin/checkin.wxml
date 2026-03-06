@@ -1,8 +1,8 @@
-<navigation-bar title="打卡" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+<navigation-bar title="记录" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 <view class="page">
-  <!-- 打卡表单 -->
+  <!-- 记录表单 -->
   <view class="form">
-    <!-- 打卡类别 -->
+    <!-- 记录类别 -->
     <view class="form-item">
       <view class="category-header">
         <text class="label">选择类别</text>
@@ -62,9 +62,9 @@
       </view>
     </view>
 
-    <!-- 打卡内容 -->
+    <!-- 记录内容 -->
     <view class="form-item">
-      <text class="label">打卡内容</text>
+      <text class="label">记录内容</text>
       <textarea 
         class="content-input"
         placeholder="记录一下今天的运动感受..." 
@@ -131,7 +131,7 @@
       bindtap="onSubmit"
       disabled="{{submitting}}"
     >
-      {{submitting ? '提交中...' : (mode === 'edit' ? '确认更新' : '确认打卡')}}
+      {{submitting ? '提交中...' : (mode === 'edit' ? '确认更新' : '确认记录')}}
     </button>
   </view>
 </view>

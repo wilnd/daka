@@ -21,7 +21,7 @@
   <view wx:elif="{{!loading && (!moments || moments.length === 0)}}" class="empty-state">
     <view class="empty-icon">📷</view>
     <text class="empty-title">还没有成长墙动态</text>
-    <text class="empty-desc">打卡后会自动发布到成长墙</text>
+    <text class="empty-desc">记录后会自动发布到成长墙</text>
   </view>
 
   <!-- 成长墙列表 -->
@@ -47,7 +47,7 @@
         </view>
       </view>
 
-      <!-- 打卡内容 -->
+      <!-- 记录内容 -->
       <view class="moment-content">
         <text class="text" wx:if="{{item.content && item.content.text}}">{{item.content.text}}</text>
         
@@ -69,7 +69,7 @@
         <!-- 运动得分 -->
         <view class="score-tag" wx:if="{{item.content && item.content.score !== undefined}}">
           <text class="score-value">{{item.content.score}}</text>
-          <text class="score-label">分</text>
+          <text class="score-label">成长值</text>
         </view>
       </view>
 

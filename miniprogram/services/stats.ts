@@ -1,6 +1,6 @@
 /**
- * 数据统计服务：连胜、连续未打卡、打卡率
- * 优化：单次查询打卡记录，本地计算，避免多次 DB 请求卡顿
+ * 数据统计服务：连胜、连续未记录、记录率
+ * 优化：单次查询记录，本地计算，避免多次 DB 请求卡顿
  */
 import { db, checkinsCol, membersCol, usersCol, getTodayStr, getDateBefore } from './db'
 

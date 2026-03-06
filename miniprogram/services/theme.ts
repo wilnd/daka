@@ -1,6 +1,6 @@
 /**
  * 动态主题服务
- * 根据打卡状态和时间动态调整主题颜色
+ * 根据记录状态和时间动态调整主题颜色
  */
 import { checkinsCol } from './db'
 
@@ -30,7 +30,7 @@ const THEMES: Record<ThemeType, ThemeConfig> = {
     color: '#1ABC9C',
     gradientStart: '#48C9B0',
     gradientEnd: '#16A085',
-    label: '未打卡'
+    label: '未记录'
   },
   warning: {
     type: 'warning',
@@ -110,8 +110,8 @@ function getColorByTime(hour: number): string {
 
 /**
  * 获取当前主题类型
- * @param checkedToday 今日是否已打卡
- * @param checkedYesterday 昨日是否已打卡
+ * @param checkedToday 今日是否已记录
+ * @param checkedYesterday 昨日是否已记录
  */
 export function getThemeType(checkedToday: boolean, checkedYesterday: boolean): ThemeType {
   if (checkedToday) return 'checked'
@@ -125,8 +125,8 @@ export function getThemeType(checkedToday: boolean, checkedYesterday: boolean): 
 
 /**
  * 计算当前主题
- * @param checkedToday 今日是否已打卡
- * @param checkedYesterday 昨日是否已打卡
+ * @param checkedToday 今日是否已记录
+ * @param checkedYesterday 昨日是否已记录
  */
 export function calculateTheme(checkedToday: boolean, checkedYesterday: boolean): ThemeConfig {
   const themeType = getThemeType(checkedToday, checkedYesterday)
@@ -139,7 +139,7 @@ export function calculateTheme(checkedToday: boolean, checkedYesterday: boolean)
     return THEMES.frozen
   }
 
-  // 未打卡：根据时间计算动态颜色
+  // 未记录：根据时间计算动态颜色
   const hour = new Date().getHours() + new Date().getMinutes() / 60
   const dynamicColor = getColorByTime(hour)
 
@@ -153,7 +153,7 @@ export function calculateTheme(checkedToday: boolean, checkedYesterday: boolean)
 }
 
 /**
- * 获取用户昨日打卡状态
+ * 获取用户昨日记录状态
  */
 export async function getYesterdayCheckin(userId: string): Promise<boolean> {
   const yesterday = new Date()
@@ -180,14 +180,14 @@ export async function getUserTheme(userId: string): Promise<ThemeConfig> {
   const day = String(today.getDate()).padStart(2, '0')
   const todayStr = `${year}-${month}-${day}`
 
-  // 查询今日打卡
+  // 查询今日记录
   const { total: todayTotal } = await checkinsCol()
     .where({ userId, date: todayStr })
     .count()
 
   const checkedToday = todayTotal > 0
 
-  // 查询昨日打卡
+  // 查询昨日记录
   const checkedYesterday = await getYesterdayCheckin(userId)
 
   return calculateTheme(checkedToday, checkedYesterday)
