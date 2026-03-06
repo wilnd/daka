@@ -188,7 +188,7 @@ Page({
         // 转换云存储 URL 为临时 HTTP URL
         const momentsData = result.data || []
         for (const moment of momentsData) {
-          // 转换朋友圈图片
+          // 转换成长墙图片
           if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
             moment.content.photos = await convertCloudUrls(moment.content.photos)
           }
@@ -201,6 +201,17 @@ Page({
             }
           }
         }
+
+        // 确保每个moment的comments和photos字段都有默认值
+        momentsData.forEach((moment) => {
+          if (!moment.comments) {
+            moment.comments = []
+          }
+          if (moment.content && !moment.content.photos) {
+            moment.content.photos = []
+          }
+        })
+
         this.setData({
           moments: momentsData,
           loading: false,
@@ -211,7 +222,7 @@ Page({
         this.setData({ loading: false })
       }
     } catch (e) {
-      console.error('加载朋友圈失败', e)
+      console.error('加载成长墙失败', e)
       this.setData({ loading: false })
       wx.showToast({ title: '加载失败', icon: 'none' })
     }
@@ -247,7 +258,7 @@ Page({
         // 转换云存储 URL 为临时 HTTP URL
         const newMoments = result.data || []
         for (const moment of newMoments) {
-          // 转换朋友圈图片
+          // 转换成长墙图片
           if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
             moment.content.photos = await convertCloudUrls(moment.content.photos)
           }
@@ -260,6 +271,17 @@ Page({
             }
           }
         }
+
+        // 确保每个moment的comments和photos字段都有默认值
+        newMoments.forEach((moment) => {
+          if (!moment.comments) {
+            moment.comments = []
+          }
+          if (moment.content && !moment.content.photos) {
+            moment.content.photos = []
+          }
+        })
+
         this.setData({
           moments: [...moments, ...newMoments],
           loadingMore: false,

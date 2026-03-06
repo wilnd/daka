@@ -4,34 +4,62 @@
   <view class="form">
     <!-- 打卡类别 -->
     <view class="form-item">
-      <text class="label">选择类别</text>
-      <picker 
-        range="{{categories}}"
-        range-key="name"
-        value="{{categoryIndex}}"
-        bindchange="onCategoryChange"
-      >
-        <view class="picker-value">
-          <text>{{categoryIndex >= 0 ? categories[categoryIndex].name : '请选择大类'}}</text>
-          <text class="arrow">></text>
+      <view class="category-header">
+        <text class="label">选择类别</text>
+        <text class="clear-btn" bindtap="onClearTag" wx:if="{{selectedTag}}">清除</text>
+      </view>
+      <!-- 已选择的标签展示 -->
+      <view class="selected-tag" wx:if="{{selectedTag}}">
+        <text class="tag-text">{{selectedTag ? categories[categoryIndex].name + ' · ' + subCategories[subCategoryIndex].name : ''}}</text>
+      </view>
+      <!-- Tags/胶囊选择器 -->
+      <view class="category-tags">
+        <view 
+          wx:for="{{categoryGroups}}" 
+          wx:key="*this"
+          class="category-group"
+        >
+          <view class="group-title">{{item.category.name}}</view>
+          <view class="tags-wrap">
+            <view 
+              wx:for="{{item.subCategories}}" 
+              wx:for-item="sub" 
+              wx:key="id"
+              wx:for-index="subIdx"
+              class="tag-item {{selectedTag === item.category.id + '_' + sub.id ? 'active' : ''}}"
+              bindtap="onSelectTag"
+              data-categoryid="{{item.category.id}}"
+              data-subcategoryid="{{sub.id}}"
+            >
+              {{sub.name}}
+            </view>
+          </view>
         </view>
-      </picker>
+      </view>
     </view>
 
-    <!-- 打卡小类 -->
+    <!-- 时长输入 -->
     <view class="form-item" wx:if="{{categoryIndex >= 0}}">
-      <text class="label">选择小类</text>
-      <picker 
-        range="{{subCategories}}"
-        range-key="name"
-        value="{{subCategoryIndex}}"
-        bindchange="onSubCategoryChange"
-      >
-        <view class="picker-value">
-          <text>{{subCategoryIndex >= 0 ? subCategories[subCategoryIndex].name : '请选择小类'}}</text>
-          <text class="arrow">></text>
-        </view>
-      </picker>
+      <text class="label">时长</text>
+      <view class="duration-input">
+        <input 
+          type="number"
+          class="duration-field"
+          placeholder="请输入时长"
+          value="{{duration}}"
+          bindinput="onDurationInput"
+        />
+        <picker 
+          range="{{durationUnits}}"
+          value="{{durationUnitIndex}}"
+          bindchange="onDurationUnitChange"
+        >
+          <view class="duration-unit">
+            <text>{{durationUnits[durationUnitIndex]}}</text>
+            <text class="arrow">></text>
+          </view>
+        </picker>
+      </view>
     </view>
 
     <!-- 打卡内容 -->
@@ -52,25 +80,25 @@
       <text class="label">上传照片</text>
       <view class="photos-grid">
         <view 
-          wx:for="{{photos}}" 
+          wx:for="{{photos || []}}" 
           wx:key="index"
           class="photo-item"
         >
           <image src="{{item}}" mode="aspectFill" bindtap="onPreviewPhoto" data-url="{{item}}" data-index="{{index}}"></image>
           <view class="remove-btn" bindtap="onRemovePhoto" data-index="{{index}}">×</view>
         </view>
-        <view class="add-photo" bindtap="onChoosePhoto" wx:if="{{photos.length < maxPhotos}}">
+        <view class="add-photo" bindtap="onChoosePhoto" wx:if="{{photos && photos.length < maxPhotos}}">
           <text class="plus">+</text>
           <text class="desc">添加照片</text>
         </view>
       </view>
     </view>
 
-    <!-- 发布到朋友圈 -->
+    <!-- 发布到成长墙 -->
     <view class="form-item switch-item">
       <view class="switch-left">
-        <text class="label">发布到朋友圈</text>
-        <text class="desc">开启后朋友圈可见</text>
+        <text class="label">发布到成长墙</text>
+        <text class="desc">开启后成长墙可见</text>
       </view>
       <switch
         checked="{{isPublishToMoments}}"
@@ -79,9 +107,9 @@
       />
     </view>
 
-    <!-- 朋友圈可见范围 -->
-    <view class="form-item" wx:if="{{isPublishToMoments && momentsGroupRange.length > 1}}">
-      <text class="label">朋友圈可见</text>
+    <!-- 成长墙可见范围 -->
+    <view class="form-item" wx:if="{{isPublishToMoments && momentsGroupRange && momentsGroupRange.length > 1}}">
+      <text class="label">成长墙可见</text>
       <picker
         range="{{momentsGroupRange}}"
         range-key="name"

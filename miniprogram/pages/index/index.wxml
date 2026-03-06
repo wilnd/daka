@@ -86,18 +86,44 @@
             </view>
           </view>
           <view class="rank-tabs">
-            <view class="rank-tab {{rankType === 'day' ? 'active' : ''}}" bindtap="switchRank" data-type="day">日榜</view>
             <view class="rank-tab {{rankType === 'week' ? 'active' : ''}}" bindtap="switchRank" data-type="week">周榜</view>
             <view class="rank-tab {{rankType === 'month' ? 'active' : ''}}" bindtap="switchRank" data-type="month">月榜</view>
+            <view class="rank-tab {{rankType === 'all' ? 'active' : ''}}" bindtap="switchRank" data-type="all">总榜</view>
           </view>
-          <view wx:if="{{rankLoading}}" class="rank-loading">加载中...</view>
-          <view wx:elif="{{rankList.length === 0}}" class="rank-empty">暂无数据</view>
+          <!-- 多维度切换 -->
+          <view class="dimension-tabs">
+            <view class="dimension-tab {{rankDimension === 'days' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="days">打卡天数</view>
+            <view class="dimension-tab {{rankDimension === 'minutes' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="minutes">运动时长</view>
+            <view class="dimension-tab {{rankDimension === 'score' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="score">平均分</view>
+          </view>
+          <!-- 统计对比 -->
+          <view wx:if="{{myRank && myRank.minutes && myRank.days && myRank.score && groupAvg && !statsLoading}}" class="stats-compare">
+            <view class="compare-header">
+              <text class="compare-title">我的排名</text>
+              <text class="compare-rank">第{{rankDimension === 'minutes' ? myRank.minutes.rank : rankDimension === 'days' ? myRank.days.rank : myRank.score.rank}}名 / {{totalMembers}}人</text>
+            </view>
+            <view class="compare-stats">
+              <view class="compare-item">
+                <text class="compare-value">{{rankDimension === 'minutes' ? myRank.minutes.totalMinutes : rankDimension === 'days' ? myRank.days.checkinDays : myRank.score.avgScore}}</text>
+                <text class="compare-label">{{rankDimension === 'minutes' ? '分钟' : rankDimension === 'days' ? '天' : '分'}}</text>
+              </view>
+              <view class="compare-item group">
+                <text class="compare-value">{{rankDimension === 'minutes' ? groupAvg.totalMinutes : rankDimension === 'days' ? groupAvg.checkinDays : groupAvg.avgScore}}</text>
+                <text class="compare-label">群平均</text>
+              </view>
+            </view>
+            <view class="compare-percent">
+              <text wx:if="{{groupPercentiles}}">超越群内 {{rankDimension === 'minutes' ? groupPercentiles.minutes : rankDimension === 'days' ? groupPercentiles.days : groupPercentiles.score}}% 的用户</text>
+            </view>
+          </view>
+          <view wx:if="{{statsLoading}}" class="rank-loading">加载统计中...</view>
+          <view wx:elif="{{!currentRankList || currentRankList.length === 0}}" class="rank-empty">暂无数据</view>
           <view wx:else class="rank-list">
-            <view wx:for="{{rankList}}" wx:key="userId" class="rank-item" bindtap="onViewUserMoments" data-user-id="{{item.userId}}" data-nick-name="{{item.nickName}}" data-avatar-url="{{item.avatarUrl}}">
+            <view wx:for="{{currentRankList || []}}" wx:key="userId" class="rank-item" bindtap="onViewUserMoments" data-user-id="{{item.userId}}" data-nick-name="{{item.nickName}}" data-avatar-url="{{item.avatarUrl}}">
               <view class="rank-index {{index < 3 ? 'top' : ''}}">{{index + 1}}</view>
               <image class="rank-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
               <text class="rank-name">{{item.nickName}}</text>
-              <text class="rank-streak">{{item.streak}} 天</text>
+              <text class="rank-streak">{{rankDimension === 'minutes' ? item.totalMinutes + ' 分钟' : rankDimension === 'days' ? item.checkinDays + ' 天' : item.avgScore + ' 分'}}</text>
             </view>
           </view>
         </view>

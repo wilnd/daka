@@ -1,7 +1,7 @@
 <view class="poster-overlay" wx:if="{{visible}}" catchtap="onClose">
   <view class="poster-container" catchtap="preventTap">
     <view class="poster-header">
-      <text class="title">分享到朋友圈</text>
+      <text class="title">分享到成长墙</text>
       <view class="close-btn" bindtap="onClose">×</view>
     </view>
 
@@ -52,8 +52,8 @@
     </view>
 
     <view class="poster-tips" wx:if="{{!posterLoading}}">
-      <text>保存图片后，打开微信朋友圈</text>
-      <text>点击右上角「...」选择相册图片发布</text>
+      <text class="tips-text">保存图片后，打开微信成长墙</text>
+      <text class="tips-text">点击右上角「...」选择相册图片发布</text>
     </view>
   </view>
 </view>

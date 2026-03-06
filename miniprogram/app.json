@@ -25,21 +25,25 @@
     "list": [
       {
         "pagePath": "pages/index/index",
+        "text": "首页",
         "iconPath": "assets/icons/normal/index.png",
         "selectedIconPath": "assets/icons/selected/index.png"
       },
       {
         "pagePath": "pages/group/group",
+        "text": "小组",
         "iconPath": "assets/icons/normal/group.png",
         "selectedIconPath": "assets/icons/selected/group.png"
       },
       {
         "pagePath": "pages/moments/moments",
+        "text": "成长墙",
         "iconPath": "assets/icons/normal/moments.png",
         "selectedIconPath": "assets/icons/selected/moments.png"
       },
       {
         "pagePath": "pages/profile/profile",
+        "text": "我的",
         "iconPath": "assets/icons/normal/profile.png",
         "selectedIconPath": "assets/icons/selected/profile.png"
       }

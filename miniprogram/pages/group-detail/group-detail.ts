@@ -327,7 +327,7 @@ Component({
       const member = e.currentTarget.dataset.member
       if (!member) return
 
-      // 点击头像进入对方朋友圈
+      // 点击头像进入对方成长墙
       const { userId, nickName, avatarUrl } = member
       if (userId) {
         const params = [

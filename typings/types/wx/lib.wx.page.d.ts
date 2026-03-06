@@ -100,9 +100,9 @@ declare namespace WechatMiniprogram.Page {
             options: IShareAppMessageOption
         ): ICustomShareContent | void
         /**
-         * 监听右上角菜单“分享到朋友圈”按钮的行为，并自定义分享内容
+         * 监听右上角菜单“分享到成长墙”按钮的行为，并自定义分享内容
          *
-         * 本接口为 Beta 版本，暂只在 Android 平台支持，详见 [分享到朋友圈 (Beta)](https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/share-timeline.html)
+         * 本接口为 Beta 版本，暂只在 Android 平台支持，详见 [分享到成长墙 (Beta)](https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/share-timeline.html)
          *
          * 基础库 2.11.3 开始支持，低版本需做兼容处理。
          */
@@ -173,7 +173,7 @@ declare namespace WechatMiniprogram.Page {
     }
 
     interface ICustomTimelineContent {
-        /** 自定义标题，即朋友圈列表页上显示的标题。默认值：当前小程序名称 */
+        /** 自定义标题，即成长墙列表页上显示的标题。默认值：当前小程序名称 */
         title?: string
         /** 自定义页面路径中携带的参数，如 `path?a=1&b=2` 的 “?” 后面部分 默认值：当前页面路径携带的参数 */
         query?: string

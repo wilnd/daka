@@ -2,7 +2,7 @@
   "usingComponents": {
     "navigation-bar": "/components/navigation-bar/navigation-bar"
   },
-  "navigationBarTitleText": "朋友圈",
+  "navigationBarTitleText": "成长墙",
   "navigationBarBackgroundColor": "#2E8B57",
   "navigationBarTextStyle": "white",
   "enablePullDownRefresh": true

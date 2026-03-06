@@ -1,10 +1,9 @@
 {
   "name": "scoreCheckin",
   "version": "1.0.0",
-  "description": "打卡内容评分云函数",
+  "description": "打卡内容评分云函数 - 使用微信云开发免鉴权AI集成",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "~2.6.3",
-    "axios": "^1.6.0"
+    "wx-server-sdk": "~3.0.5-beta.1"
   }
 }

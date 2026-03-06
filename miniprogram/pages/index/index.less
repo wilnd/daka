@@ -325,6 +325,75 @@
       }
     }
   }
+  // 多维度切换
+  .dimension-tabs {
+    display: flex;
+    background: @color-bg-page;
+    border-radius: @radius-md;
+    padding: 4rpx;
+    margin-bottom: 24rpx;
+    .dimension-tab {
+      flex: 1;
+      text-align: center;
+      padding: 12rpx 0;
+      font-size: @font-size-caption;
+      color: @color-text-hint;
+      border-radius: @radius-sm;
+      transition: all 0.3s ease;
+      &.active {
+        background: @color-white;
+        color: @color-primary;
+        font-weight: @font-weight-medium;
+      }
+    }
+  }
+  // 统计对比
+  .stats-compare {
+    background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+    border-radius: @radius-lg;
+    padding: 24rpx;
+    margin-bottom: 24rpx;
+    color: white;
+    .compare-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16rpx;
+      .compare-title {
+        font-size: @font-size-body;
+        font-weight: @font-weight-medium;
+      }
+      .compare-rank {
+        font-size: @font-size-caption;
+        opacity: 0.9;
+      }
+    }
+    .compare-stats {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 16rpx;
+      .compare-item {
+        text-align: center;
+        &.group {
+          opacity: 0.8;
+        }
+        .compare-value {
+          font-size: 48rpx;
+          font-weight: @font-weight-bold;
+          display: block;
+        }
+        .compare-label {
+          font-size: @font-size-caption;
+          opacity: 0.8;
+        }
+      }
+    }
+    .compare-percent {
+      text-align: center;
+      font-size: @font-size-caption;
+      opacity: 0.9;
+    }
+  }
   .rank-loading, .rank-empty {
     text-align: center;
     padding: 48rpx;

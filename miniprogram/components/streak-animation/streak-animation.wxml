@@ -2,7 +2,7 @@
   <!-- 彩色纸屑 -->
   <view class="confetti-container">
     <view 
-      wx:for="{{particles}}" 
+      wx:for="{{particles || []}}" 
       wx:key="id"
       class="confetti"
       style="left: {{item.left}}%; background-color: {{item.color}}; animation-delay: {{item.delay}}s; animation-duration: {{item.duration}}s; width: {{item.size}}rpx; height: {{item.size}}rpx; transform: rotate({{item.rotate}}deg); opacity: {{item.opacity}};"
@@ -52,6 +52,6 @@
 
   <!-- 跳过按钮 -->
   <view class="skip-btn {{canSkip ? 'show' : ''}}" bindtap="onSkip">
-    <text>跳过</text>
+    <text class="btn-text">跳过</text>
   </view>
 </view>

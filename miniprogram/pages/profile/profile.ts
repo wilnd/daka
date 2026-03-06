@@ -11,8 +11,6 @@ Component({
     hasUserInfo: false,
     userInfo: {} as any,
     stats: {} as any,
-    records: [] as any[],
-    showRecordsModal: false,
     showEditModal: false,
     showTimePickerModal: false,
     // 生成提醒文案时需要群组选择
@@ -79,21 +77,6 @@ Component({
         console.error(e)
       }
     },
-    async showRecords() {
-      wx.showLoading({ title: '加载中' })
-      try {
-        const { getCheckinRecordsWithGroup } = await import('../../services/checkin')
-        const records = await getCheckinRecordsWithGroup(app.globalData.openid!, 50)
-        this.setData({ records, showRecordsModal: true })
-        wx.hideLoading()
-      } catch (e) {
-        wx.hideLoading()
-        wx.showToast({ title: '加载失败', icon: 'none' })
-      }
-    },
-    hideRecords() {
-      this.setData({ showRecordsModal: false })
-    },
     onEditUserInfo() {
       this.setData({
         showEditModal: true,
@@ -104,7 +87,7 @@ Component({
       this.setData({ showEditModal: false })
     },
 
-    // 查看自己的朋友圈
+    // 查看自己的成长墙
     onViewMyMoments(e: any) {
       const { userInfo } = this.data
       const openid = app.globalData.openid

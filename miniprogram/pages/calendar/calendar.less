@@ -28,21 +28,9 @@
       color: @color-text-hint;
     }
   }
-  .month-center {
-    display: flex;
-    align-items: center;
-    gap: 16rpx;
-    .month-title {
-      font-size: @font-size-title;
-      font-weight: @font-weight-bold;
-    }
-    .today-btn {
-      font-size: @font-size-caption;
-      color: @color-primary;
-      border: 1rpx solid @color-primary;
-      padding: 4rpx 12rpx;
-      border-radius: @radius-sm;
-    }
+  .month-title {
+    font-size: @font-size-title;
+    font-weight: @font-weight-bold;
   }
 }
 
@@ -103,8 +91,127 @@
   &.today:not(.checked) {
     background: @color-calendar-today;
   }
+  // 选中状态：外圈高亮
+  &.selected.checked {
+    box-shadow: 0 0 0 3rpx white, 0 0 0 6rpx @color-primary;
+    transform: scale(1.08);
+  }
   .day-tag {
     font-size: 20rpx;
     margin-top: 2rpx;
+  }
+}
+
+// ── 选中日期记录面板 ──────────────────────────
+.day-records {
+  margin-top: 32rpx;
+  min-height: 120rpx;
+}
+
+.records-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48rpx 32rpx;
+  background: @color-white;
+  border-radius: @radius-xl;
+  box-shadow: @shadow-sm;
+  .hint-icon {
+    font-size: 48rpx;
+    margin-bottom: 16rpx;
+  }
+  .hint-text {
+    font-size: @font-size-caption;
+    color: @color-text-hint;
+    &.records-date-label {
+      font-size: @font-size-body;
+      font-weight: @font-weight-bold;
+      color: @color-text-title;
+      margin-bottom: 8rpx;
+    }
+  }
+}
+
+.records-body {
+  .records-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20rpx;
+    padding: 0 4rpx;
+    .records-date {
+      font-size: @font-size-title;
+      font-weight: @font-weight-bold;
+      color: @color-text-title;
+    }
+    .records-count {
+      font-size: @font-size-caption;
+      color: @color-text-hint;
+    }
+  }
+}
+
+.record-card {
+  background: @color-white;
+  border-radius: @radius-xl;
+  padding: 32rpx;
+  margin-bottom: 20rpx;
+  box-shadow: @shadow-sm;
+
+  .record-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20rpx;
+    .record-time {
+      font-size: @font-size-caption;
+      color: @color-text-hint;
+    }
+    .record-badges {
+      display: flex;
+      gap: 12rpx;
+    }
+  }
+
+  .badge {
+    font-size: 22rpx;
+    padding: 4rpx 16rpx;
+    border-radius: @radius-full;
+    &.badge-makeup {
+      background: rgba(255, 179, 0, 0.15);
+      color: @color-gold;
+    }
+    &.badge-score {
+      background: rgba(52, 168, 83, 0.12);
+      color: @color-primary;
+    }
+  }
+
+  .record-detail {
+    .record-row {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 12rpx;
+      &:last-child { margin-bottom: 0; }
+      .record-label {
+        font-size: @font-size-caption;
+        color: @color-text-hint;
+        width: 72rpx;
+        flex-shrink: 0;
+      }
+      .record-value {
+        flex: 1;
+        font-size: @font-size-caption;
+        color: @color-text-body;
+        &.record-text {
+          line-height: 1.6;
+        }
+      }
+    }
+  }
+
+  .record-plain {
+    font-size: @font-size-caption;
+    color: @color-primary;
   }
 }

@@ -360,6 +360,59 @@ export async function getMonthRank(groupId: string): Promise<RankUser[]> {
   return monthRank
 }
 
+/** 获取总榜：累计打卡天数排名 */
+export async function getAllRank(groupId: string): Promise<RankUser[]> {
+  // 获取小组所有成员
+  const { data: members } = await membersCol()
+    .where({ groupId, status: 'normal' })
+    .get()
+
+  if (members.length === 0) {
+    return []
+  }
+
+  // 获取用户信息（批量查询）
+  const userIds = members.map(m => m.userId).filter(Boolean)
+  const users = await getUsersInfo(userIds || [])
+  const userInfoMap: Record<string, any> = {}
+  for (const u of (users || [])) {
+    userInfoMap[u.openid] = u
+  }
+
+  // 查询所有打卡记录，按日期去重
+  const _ = db.command
+  const { data: allCheckins } = await checkinsCol()
+    .where({ userId: _.in(userIds) })
+    .get()
+
+  // 按用户分组，统计累计打卡天数
+  const userTotalDays: Record<string, number> = {}
+  const userCheckinDates: Record<string, Set<string>> = {}
+
+  for (const checkin of (allCheckins || [])) {
+    const uid = checkin.userId
+    if (!userCheckinDates[uid]) {
+      userCheckinDates[uid] = new Set()
+    }
+    userCheckinDates[uid].add(checkin.date)
+  }
+
+  // 统计每个用户的累计打卡天数
+  for (const uid of userIds) {
+    userTotalDays[uid] = userCheckinDates[uid] ? userCheckinDates[uid].size : 0
+  }
+
+  // 构建结果并按累计天数排序
+  const result: RankUser[] = members.map(m => ({
+    userId: m.userId,
+    nickName: (userInfoMap[m.userId] && userInfoMap[m.userId].nickName) || '未知',
+    avatarUrl: (userInfoMap[m.userId] && userInfoMap[m.userId].avatarUrl) || '',
+    streak: userTotalDays[m.userId] || 0,
+  }))
+
+  return result.sort((a, b) => b.streak - a.streak)
+}
+
 /** 获取一组用户在日期区间内的打卡记录（分批 + 分页） */
 async function getCheckinsForUsersInRange(userIds: string[], start: string, end: string): Promise<any[]> {
   if (!userIds || userIds.length === 0) return []

@@ -8,7 +8,7 @@ export interface CheckinContent {
   photos?: string[]
   /** 文字内容 */
   text?: string
-  /** 是否发布朋友圈 */
+  /** 是否发布成长墙 */
   isPublishToMoments: boolean
 }
 
@@ -74,7 +74,7 @@ export interface ScoreResult {
   amountScore: number
   /** 内容完整度得分 (0-100) */
   completenessScore: number
-  /** 朋友圈发布奖励分 (0-100) */
+  /** 成长墙发布奖励分 (0-100) */
   publishScore: number
   /** 评语/建议 */
   feedback: string
@@ -254,7 +254,7 @@ export function calculateCompletenessScore(content: CheckinContent): number {
     score += 10
   }
 
-  // 有朋友圈发布 +10分
+  // 有成长墙发布 +10分
   if (content.isPublishToMoments) {
     score += 10
   }
@@ -263,7 +263,7 @@ export function calculateCompletenessScore(content: CheckinContent): number {
 }
 
 /**
- * 朋友圈发布奖励
+ * 成长墙发布奖励
  */
 export function calculatePublishScore(isPublishToMoments: boolean): number {
   return isPublishToMoments ? 100 : 0
@@ -319,9 +319,9 @@ function generateFeedback(
     }
   }
 
-  // 朋友圈评语
+  // 成长墙评语
   if (content.isPublishToMoments) {
-    feedbacks.push('分享到朋友圈正能量满满')
+    feedbacks.push('分享到成长墙正能量满满')
   }
 
   if (feedbacks.length === 0) {
@@ -350,7 +350,7 @@ export function calculateScore(
     activity: 0.4,    // 运动完成度 40%
     amount: 0.3,      // 运动量 30%
     completeness: 0.2, // 内容完整度 20%
-    publish: 0.1      // 朋友圈发布 10%
+    publish: 0.1      // 成长墙发布 10%
   }
 
   const totalScore = Math.min(100, Math.round(
@@ -411,15 +411,18 @@ export function estimateScore(content: CheckinContent): ScoreResult {
 export async function callScoreCheckin(
   text?: string,
   photos?: string[],
-  isPublishToMoments: boolean = true
+  isPublishToMoments: boolean = true,
+  groupId?: string
 ): Promise<ScoreResult | null> {
   try {
     const scoreRes = await wx.cloud.callFunction({
       name: 'scoreCheckin',
       data: {
+        action: 'score',
         text,
         photos,
         isPublishToMoments,
+        groupId,
         useLLM: true
       }
     })
@@ -431,5 +434,315 @@ export async function callScoreCheckin(
   } catch (e) {
     console.warn('评分调用失败', e)
     return null
+  }
+}
+
+/**
+ * 评分结果扩展（包含更多统计信息）
+ */
+export interface ScoreResultEnhanced extends ScoreResult {
+  /** 连续打卡天数 */
+  streakDays?: number
+  /** 奖励分 */
+  bonusScore?: number
+  /** 识别方式 */
+  analysisMethod?: 'local' | 'llm' | 'none'
+  /** 新解锁成就 */
+  newAchievements?: Achievement[]
+}
+
+/**
+ * 成就信息
+ */
+export interface Achievement {
+  id: string
+  name: string
+  desc: string
+  icon: string
+  type: string
+  unlockedAt?: string
+}
+
+/**
+ * 用户目标
+ */
+export interface UserGoal {
+  weeklyMinutes: number
+  weeklyDays: number
+  dailyMinutes: number
+}
+
+/**
+ * 目标进度
+ */
+export interface GoalProgress {
+  weeklyMinutes: number
+  weeklyDays: number
+  dailyMinutes: number
+  weeklyProgress: number
+  dailyProgress: number
+  daysProgress: number
+  overallProgress: number
+  isGoalAchieved: boolean
+}
+
+/**
+ * 设置用户运动目标
+ */
+export async function callSetGoal(
+  groupId: string,
+  goal: Partial<UserGoal>
+): Promise<{ success: boolean; goal?: UserGoal; progress?: GoalProgress }> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: {
+        action: 'setGoal',
+        groupId,
+        ...goal
+      }
+    })
+
+    if (res.result && res.result.success) {
+      return {
+        success: true,
+        goal: res.result.data.goal,
+        progress: res.result.data.progress
+      }
+    }
+    return { success: false }
+  } catch (e) {
+    console.warn('设置目标失败', e)
+    return { success: false }
+  }
+}
+
+/**
+ * 获取用户运动目标
+ */
+export async function callGetGoal(groupId: string): Promise<{ success: boolean; goal?: UserGoal; progress?: GoalProgress }> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: {
+        action: 'getGoal',
+        groupId
+      }
+    })
+
+    if (res.result && res.result.success) {
+      return {
+        success: true,
+        goal: res.result.data.goal,
+        progress: res.result.data.progress
+      }
+    }
+    return { success: false }
+  } catch (e) {
+    console.warn('获取目标失败', e)
+    return { success: false }
+  }
+}
+
+/**
+ * 用户统计数据
+ */
+export interface UserStats {
+  period: string
+  totalCheckins: number
+  totalMinutes: number
+  totalScore: number
+  avgScore: number
+  sports: { name: string; count: number }[]
+  days: number
+  streak: number
+  bestStreak: number
+}
+
+/**
+ * 获取用户统计报告
+ */
+export async function callGetStats(groupId: string, period: 'week' | 'month' | 'year' = 'week'): Promise<{ success: boolean; stats?: UserStats }> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: {
+        action: 'getStats',
+        groupId,
+        period
+      }
+    })
+
+    if (res.result && res.result.success) {
+      return {
+        success: true,
+        stats: res.result.data
+      }
+    }
+    return { success: false }
+  } catch (e) {
+    console.warn('获取统计失败', e)
+    return { success: false }
+  }
+}
+
+/**
+ * 用户成就
+ */
+export interface UserAchievement {
+  achievementId: string
+  type: string
+  name: string
+  desc: string
+  icon: string
+  unlockedAt: string
+}
+
+/**
+ * 成就结果
+ */
+export interface AchievementsResult {
+  unlocked: UserAchievement[]
+  total: number
+  unlockedCount: number
+  progress: number
+}
+
+/**
+ * 获取用户成就列表
+ */
+export async function callGetAchievements(groupId: string): Promise<{ success: boolean; achievements?: AchievementsResult }> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: {
+        action: 'getAchievements',
+        groupId
+      }
+    })
+
+    if (res.result && res.result.success) {
+      return {
+        success: true,
+        achievements: res.result.data
+      }
+    }
+    return { success: false }
+  } catch (e) {
+    console.warn('获取成就失败', e)
+    return { success: false }
+  }
+}
+
+/**
+ * 群组成员统计数据
+ */
+export interface GroupMemberStats {
+  userId: string
+  nickName: string
+  avatarUrl: string
+  totalMinutes: number
+  checkinDays: number
+  avgScore: number
+  rank: number
+}
+
+/**
+ * 群组统计数据
+ */
+export interface GroupStats {
+  period: string
+  memberCount: number
+  groupAvg: {
+    totalMinutes: number
+    checkinDays: number
+    avgScore: number
+  }
+  leaderboard: {
+    byMinutes: GroupMemberStats[]
+    byDays: GroupMemberStats[]
+    byScore: GroupMemberStats[]
+  }
+}
+
+/**
+ * 我的排名信息
+ */
+export interface MyRankInfo {
+  minutes: GroupMemberStats
+  days: GroupMemberStats
+  score: GroupMemberStats
+}
+
+/**
+ * 排名结果
+ */
+export interface RankResult {
+  period: string
+  myRank: MyRankInfo
+  groupAvg: {
+    totalMinutes: number
+    checkinDays: number
+    avgScore: number
+  }
+  percentiles: {
+    minutes: number
+    days: number
+    score: number
+  }
+  totalMembers: number
+}
+
+/**
+ * 获取群组统计
+ */
+export async function callGetGroupStats(groupId: string, period: 'all' | 'day' | 'week' | 'month' = 'week'): Promise<{ success: boolean; stats?: GroupStats }> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: {
+        action: 'getGroupStats',
+        groupId,
+        period
+      }
+    })
+
+    if (res.result && res.result.success) {
+      return {
+        success: true,
+        stats: res.result.data
+      }
+    }
+    return { success: false }
+  } catch (e) {
+    console.warn('获取群组统计失败', e)
+    return { success: false }
+  }
+}
+
+/**
+ * 获取我的排名
+ */
+export async function callGetMyRank(groupId: string, period: 'all' | 'day' | 'week' | 'month' = 'week'): Promise<{ success: boolean; rank?: RankResult }> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: {
+        action: 'getMyRank',
+        groupId,
+        period
+      }
+    })
+
+    if (res.result && res.result.success) {
+      return {
+        success: true,
+        rank: res.result.data
+      }
+    }
+    return { success: false }
+  } catch (e) {
+    console.warn('获取我的排名失败', e)
+    return { success: false }
   }
 }

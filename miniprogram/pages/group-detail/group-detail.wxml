@@ -42,7 +42,7 @@
 
       <!-- 今日打卡 -->
       <view wx:if="{{currentTab === 'today'}}" class="section">
-        <view wx:if="{{todayMembers.length === 0}}" class="empty-section">暂无成员</view>
+        <view wx:if="{{!todayMembers || todayMembers.length === 0}}" class="empty-section">暂无成员</view>
         <view wx:for="{{todayMembers || []}}" wx:key="_id" class="member-row {{item.checked ? 'checked' : ''}}">
           <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
           <text class="nick">{{item.nickName || '未知'}}</text>
@@ -53,9 +53,9 @@
       <!-- 成员列表 -->
       <view wx:if="{{currentTab === 'members'}}" class="section">
         <view class="section-header">
-          <text class="member-count">{{members.length}} 人</text>
+          <text class="member-count">{{members ? members.length : 0}} 人</text>
         </view>
-        <view wx:if="{{members.length === 0}}" class="empty-section">暂无成员</view>
+        <view wx:if="{{!members || members.length === 0}}" class="empty-section">暂无成员</view>
         <view wx:for="{{members || []}}" wx:key="_id" class="member-row" bindtap="onMemberTap" data-member="{{item}}">
           <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
           <text class="nick">{{item.nickName || '未知'}}</text>
@@ -66,7 +66,7 @@
 
       <!-- 打卡排行 -->
       <view wx:if="{{currentTab === 'rank'}}" class="section">
-        <view wx:if="{{rankMembers.length === 0}}" class="empty-section">暂无数据</view>
+        <view wx:if="{{!rankMembers || rankMembers.length === 0}}" class="empty-section">暂无数据</view>
         <view wx:for="{{rankMembers || []}}" wx:key="_id" class="rank-row {{index < 3 ? 'top' : ''}}">
           <view class="rank-num">{{index + 1}}</view>
           <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>

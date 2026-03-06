@@ -7,7 +7,7 @@ const _ = db.command
 exports.main = async (event, context) => {
   const wxContext = cloud.getWXContext()
   const currentUserId = wxContext.OPENID  // 当前登录用户，用于点赞、评论等操作
-  // 从 event 中解构 userId（这是传入的目标用户，用于获取指定用户的朋友圈等）
+  // 从 event 中解构 userId（这是传入的目标用户，用于获取指定用户的成长墙等）
   const { action, groupId, momentId, limit = 20, lastId, content, userId: targetUserId } = event
 
   const pickUserInfo = (u) => {
@@ -17,6 +17,18 @@ exports.main = async (event, context) => {
       nickName: u.nickName,
       avatarUrl: u.avatarUrl
     }
+  }
+
+  const AI_USER_INFO = {
+    _id: 'ai_xiaoqin',
+    nickName: '小勤同学(AI)',
+    avatarUrl: 'https://img.icons8.com/fluency/96/bot.png',
+    isAI: true
+  }
+
+  const pickCommentUserInfo = (c, userMap) => {
+    if (c.isAIFeedback) return AI_USER_INFO
+    return pickUserInfo(userMap.get(c.userId))
   }
 
   // 兼容老数据：users 可能只有系统字段 _openid，没有自定义 openid
@@ -57,7 +69,7 @@ exports.main = async (event, context) => {
   try {
     switch (action) {
       case 'getMoments': {
-        // 获取用户在某个群组的朋友圈列表（带发布者信息）
+        // 获取用户在某个群组的成长墙列表（带发布者信息）
         // 同时返回：1. 当前群组专属动态 2. 全局动态（groupId 为空，表示所有群组可见）
         const _ = db.command
         let query = db.collection('moments')
@@ -117,7 +129,7 @@ exports.main = async (event, context) => {
               return { data: [] }
             }
           })(),
-          // 当前用户对每条朋友圈的点赞状态
+          // 当前用户对每条成长墙的点赞状态
           db.collection('momentLikes')
             .where({
               momentId: _.in(moments.map(m => m._id)),
@@ -153,7 +165,7 @@ exports.main = async (event, context) => {
             .filter(c => c.momentId === moment._id)
             .map(c => ({
               ...c,
-              userInfo: pickUserInfo(userMap.get(c.userId))
+              userInfo: pickCommentUserInfo(c, userMap)
             }))
 
           // 全局动态（groupId 为空或 null）不显示群组名称
@@ -174,7 +186,7 @@ exports.main = async (event, context) => {
       }
 
       case 'like': {
-        // 点赞朋友圈
+        // 点赞成长墙
         const { data: existing } = await db.collection('momentLikes')
           .where({ momentId, userId: currentUserId })
           .get()
@@ -224,7 +236,7 @@ exports.main = async (event, context) => {
       }
 
       case 'comment': {
-        // 评论朋友圈
+        // 评论成长墙
         if (!momentId) {
           return { success: false, msg: '参数错误：缺少momentId' }
         }
@@ -319,7 +331,7 @@ exports.main = async (event, context) => {
       }
 
       case 'getComments': {
-        // 获取朋友圈的评论列表
+        // 获取成长墙的评论列表
         const { data: comments } = await db.collection('momentComments')
           .where({ momentId })
           .orderBy('createTime', 'asc')
@@ -335,14 +347,14 @@ exports.main = async (event, context) => {
 
         const result = comments.map(c => ({
           ...c,
-          userInfo: pickUserInfo(userMap.get(c.userId))
+          userInfo: pickCommentUserInfo(c, userMap)
         }))
 
         return { success: true, data: result }
       }
 
       case 'getAllMoments': {
-        // 获取用户在所有群组的朋友圈列表（首页展示）
+        // 获取用户在所有群组的成长墙列表（首页展示）
         const { data: members } = await db.collection('members')
           .where({ userId: currentUserId, status: 'normal' })
           .get()
@@ -394,7 +406,7 @@ exports.main = async (event, context) => {
           groupMap.set(group._id, group)
         }
 
-        // 获取当前用户对每条朋友圈的点赞状态
+        // 获取当前用户对每条成长墙的点赞状态
         const { data: likes } = await db.collection('momentLikes')
           .where({ 
             momentId: _.in(moments.map(m => m._id)),
@@ -436,7 +448,7 @@ exports.main = async (event, context) => {
       }
 
       case 'getUserMoments': {
-        // 获取指定用户的朋友圈列表（不限制群组）
+        // 获取指定用户的成长墙列表（不限制群组）
         if (!targetUserId) {
           return { success: false, msg: '参数错误：缺少userId' }
         }
@@ -486,7 +498,7 @@ exports.main = async (event, context) => {
           return { success: true, data: [] }
         }
 
-        // 获取当前用户对每条朋友圈的点赞状态
+        // 获取当前用户对每条成长墙的点赞状态
         const { data: likes } = await db.collection('momentLikes')
           .where({ 
             momentId: _.in(moments.map(m => m._id)),
@@ -496,7 +508,7 @@ exports.main = async (event, context) => {
 
         const likedSet = new Set(likes.map(l => l.momentId))
 
-        // 获取每条朋友圈的评论
+        // 获取每条成长墙的评论
         const { data: allComments } = await db.collection('momentComments')
           .where({ 
             momentId: _.in(moments.map(m => m._id))
@@ -526,7 +538,7 @@ exports.main = async (event, context) => {
             .filter(c => c.momentId === moment._id)
             .map(c => ({
               ...c,
-              userInfo: pickUserInfo(commentUserMap.get(c.userId))
+              userInfo: pickCommentUserInfo(c, commentUserMap)
             }))
 
           return {

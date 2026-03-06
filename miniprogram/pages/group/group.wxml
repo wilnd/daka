@@ -30,7 +30,7 @@
 
       <view class="group-list">
         <view wx:for="{{groups || []}}" wx:key="_id" class="group-item" bindtap="goDetail" data-id="{{item._id}}">
-          <view class="group-icon">👥</view>
+          <image class="group-icon" src="/assets/icons/selected/group.png" mode="aspectFit"></image>
           <view class="group-info">
             <text class="group-name">{{item.name}}</text>
             <text class="group-meta">{{item.memberCount || 0}} 人</text>
@@ -38,7 +38,7 @@
           <text class="arrow">></text>
         </view>
         <view wx:if="{{groups.length === 0 && !loading}}" class="empty">
-          <text class="empty-icon">📋</text>
+          <image class="empty-icon" src="/assets/icons/normal/moments.png" mode="aspectFit"></image>
           <text class="empty-text">暂无小组</text>
           <text class="empty-hint">创建或加入小组开始打卡</text>
         </view>

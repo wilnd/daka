@@ -40,8 +40,16 @@ Page({
     subCategoryIndex: -1,
     categories: [] as Category[],
     subCategories: [] as SubCategory[],
+    // Tags选择模式的数据
+    categoryGroups: [] as { category: Category; subCategories: SubCategory[] }[],
+    // 当前选中的标签（categoryId_subCategoryId 格式）
+    selectedTag: '',
+    // 时长输入
+    duration: '',
+    durationUnits: ['分钟', '小时'],
+    durationUnitIndex: 0,
     isPublishToMoments: true,
-    // 朋友圈可见范围
+    // 成长墙可见范围
     momentsGroupId: '',
     momentsGroupName: '',
     momentsGroupIndex: 0,
@@ -84,7 +92,12 @@ Page({
 
     // 初始化类别数据
     const categories = getCategories()
-    this.setData({ categories })
+    // 构建分类后的Tags数据（按大类分组）
+    const categoryGroups = categories.map(cat => ({
+      category: cat,
+      subCategories: cat.subCategories
+    }))
+    this.setData({ categories, categoryGroups })
 
     const openid = app.globalData.openid || wx.getStorageSync('openid')
     if (!openid) {
@@ -132,7 +145,7 @@ Page({
       const groups = await getMyGroups(openid) || []
       // 保存到本地缓存
       setCachedGroups(groups)
-      // 构建朋友圈可见范围选项：第一个是"所有群组"，后面是实际群组
+      // 构建成长墙可见范围选项：第一个是"所有群组"，后面是实际群组
       const momentsGroupRange = [
         { _id: '', name: '所有群组' },
         ...groups
@@ -158,7 +171,7 @@ Page({
 
       const content = (ck as any).content || {}
 
-      // 从打卡内容中读取朋友圈可见范围
+      // 从打卡内容中读取成长墙可见范围
       const momentsGroupId = (content as any).momentsGroupId || ''
 
       // 根据 momentsGroupId 查找群组名称和索引
@@ -177,6 +190,9 @@ Page({
       // 回显上次的类别选择（根据ID找到对应的索引）
       const categoryId = content.categoryId || ''
       const subCategoryId = content.subCategoryId || ''
+      // 构建选中标签的标识
+      const selectedTag = categoryId && subCategoryId ? `${categoryId}_${subCategoryId}` : ''
+
       const categories = this.data.categories
       const categoryIndex = categories.findIndex(c => c.id === categoryId)
       const subCategories = categoryId ? getSubCategories(categoryId) : []
@@ -187,6 +203,7 @@ Page({
         categoryIndex: categoryIndex >= 0 ? categoryIndex : -1,
         subCategoryIndex: subCategoryIndex >= 0 ? subCategoryIndex : -1,
         subCategories,
+        selectedTag,  // 回显上次选择的标签
         text: content.text || '',
         photos: content.photos || [],
         isPublishToMoments: content.isPublishToMoments !== false,
@@ -202,6 +219,34 @@ Page({
 
   onTextInput(e: any) {
     this.setData({ text: e.detail.value })
+  },
+
+  // 选择标签（Tags/胶囊选择模式）
+  onSelectTag(e: any) {
+    const { categoryid, subcategoryid } = e.currentTarget.dataset
+    const selectedTag = `${categoryid}_${subcategoryid}`
+
+    // 查找对应的索引用于内部处理
+    const categories = this.data.categories
+    const categoryIndex = categories.findIndex(c => c.id === categoryid)
+    const subCategories = categoryIndex >= 0 ? getSubCategories(categoryid) : []
+    const subCategoryIndex = subCategories.findIndex(s => s.id === subcategoryid)
+
+    this.setData({
+      selectedTag,
+      categoryIndex,
+      subCategoryIndex,
+      subCategories
+    })
+  },
+
+  // 清除标签选择
+  onClearTag() {
+    this.setData({
+      selectedTag: '',
+      categoryIndex: -1,
+      subCategoryIndex: -1
+    })
   },
 
   onCategoryChange(e: any) {
@@ -223,11 +268,19 @@ Page({
     this.setData({ subCategoryIndex: index })
   },
 
+  onDurationInput(e: any) {
+    this.setData({ duration: e.detail.value })
+  },
+
+  onDurationUnitChange(e: any) {
+    this.setData({ durationUnitIndex: e.detail.value })
+  },
+
   onToggleMomentsPublish() {
     this.setData({ isPublishToMoments: !this.data.isPublishToMoments })
   },
 
-  // 切换朋友圈可见范围
+  // 切换成长墙可见范围
   onMomentsGroupChange(e: any) {
     const index = e.detail.value
     const momentsGroupRange = this.data.momentsGroupRange
@@ -290,7 +343,7 @@ Page({
 
   // 提交打卡
   async onSubmit() {
-    const { text, photos, categoryIndex, subCategoryIndex, categories, subCategories, isPublishToMoments, submitting, groupId } = this.data
+    const { text, photos, selectedTag, isPublishToMoments, submitting, groupId } = this.data
     const openid = app.globalData.openid
 
     if (!openid) {
@@ -298,13 +351,13 @@ Page({
       return
     }
 
-    if (categoryIndex < 0 || subCategoryIndex < 0) {
+    // 使用Tags选择模式：验证 selectedTag
+    if (!selectedTag) {
       wx.showToast({ title: '请选择打卡类别', icon: 'none' })
       return
     }
 
-    const categoryId = categories[categoryIndex] ? categories[categoryIndex].id : undefined
-    const subCategoryId = subCategories[subCategoryIndex] ? subCategories[subCategoryIndex].id : undefined
+    const [categoryId, subCategoryId] = selectedTag.split('_')
 
     if (!text && photos.length === 0) {
       wx.showToast({ title: '请输入文字或上传照片', icon: 'none' })
@@ -344,14 +397,16 @@ Page({
         isPublishToMoments,
         categoryId,
         subCategoryId,
-        momentsGroupId: this.data.momentsGroupId
+        momentsGroupId: this.data.momentsGroupId,
+        duration: this.data.duration ? parseFloat(this.data.duration) : 0,
+        durationUnit: this.data.durationUnits[this.data.durationUnitIndex]
       }
 
       const result = await doCheckinWithContent(openid, content, groupId)
 
       if (result.ok) {
         wx.showToast({
-          title: isPublishToMoments ? '打卡成功，已发布到朋友圈' : '打卡成功',
+          title: isPublishToMoments ? '打卡成功，已发布到成长墙' : '打卡成功',
           icon: 'none'
         })
 
@@ -419,7 +474,7 @@ Page({
     wx.switchTab({ url: '/pages/index/index' })
   },
 
-  // 分享到朋友圈
+  // 分享到成长墙
   onShareTimeline() {
     return {
       title: '每日运动打卡',

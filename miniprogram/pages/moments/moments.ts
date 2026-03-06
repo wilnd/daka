@@ -10,7 +10,7 @@ const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQ
 /** 本地缓存的群组列表 key */
 const GROUPS_CACHE_KEY = 'cachedGroups'
 
-/** 本地缓存的朋友圈数据 key */
+/** 本地缓存的成长墙数据 key */
 const MOMENTS_CACHE_KEY = 'cachedMoments'
 const MOMENTS_GROUP_ID_KEY = 'cachedMomentsGroupId'
 
@@ -29,7 +29,7 @@ function setCachedGroups(groups: any[]): void {
   wx.setStorageSync(GROUPS_CACHE_KEY, groups)
 }
 
-/** 从本地缓存获取朋友圈数据 */
+/** 从本地缓存获取成长墙数据 */
 function getCachedMoments(): { moments: any[]; groupId: string } | null {
   try {
     const cached = wx.getStorageSync(MOMENTS_CACHE_KEY)
@@ -43,7 +43,7 @@ function getCachedMoments(): { moments: any[]; groupId: string } | null {
   }
 }
 
-/** 保存朋友圈数据到本地缓存 */
+/** 保存成长墙数据到本地缓存 */
 function setCachedMoments(moments: any[], groupId: string): void {
   wx.setStorageSync(MOMENTS_CACHE_KEY, moments)
   wx.setStorageSync(MOMENTS_GROUP_ID_KEY, groupId)
@@ -140,7 +140,7 @@ Page({
       : Promise.resolve()
 
     // 先并行加载群组和用户信息（群组会先显示缓存，再更新）
-    // 朋友圈加载也可以并行进行（如果有缓存会立即显示）
+    // 成长墙加载也可以并行进行（如果有缓存会立即显示）
     await Promise.all([
       this.loadGroups(),
       syncUserPromise,
@@ -246,7 +246,7 @@ Page({
             allFileIds.avatars.push(moment.userInfo.avatarUrl)
             avatarToMomentIndex.set(moment.userInfo.avatarUrl, momentIndex)
           }
-          // 朋友圈图片
+          // 成长墙图片
           if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
             moment.content.photos.forEach((photo: string, photoIndex: number) => {
               if (photo && photo.startsWith('cloud://')) {
@@ -299,7 +299,7 @@ Page({
               moment.userInfo.avatarUrl = defaultAvatar
             }
           }
-          // 朋友圈图片
+          // 成长墙图片
           if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
             moment.content.photos = moment.content.photos.map((photo: string) => {
               if (urlMap.has(photo)) {
@@ -335,6 +335,18 @@ Page({
             }
           }
         })
+
+        // 确保每个moment的comments字段都有默认值（空数组），避免渲染层遍历undefined报错
+        momentsData.forEach((moment) => {
+          if (!moment.comments) {
+            moment.comments = []
+          }
+          // 确保content.photos也有默认值
+          if (moment.content && !moment.content.photos) {
+            moment.content.photos = []
+          }
+        })
+
         this.setData({
           moments: momentsData,
           loading: false,
@@ -347,7 +359,7 @@ Page({
         this.setData({ loading: false })
       }
     } catch (e) {
-      console.error('加载朋友圈失败', e)
+      console.error('加载成长墙失败', e)
       this.setData({ loading: false })
       wx.showToast({ title: '加载失败', icon: 'none' })
     }
@@ -397,7 +409,7 @@ Page({
           if (moment.userInfo && moment.userInfo.avatarUrl && moment.userInfo.avatarUrl.startsWith('cloud://')) {
             allFileIds.avatars.push(moment.userInfo.avatarUrl)
           }
-          // 朋友圈图片
+          // 成长墙图片
           if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
             moment.content.photos.forEach((photo: string) => {
               if (photo && photo.startsWith('cloud://')) {
@@ -444,7 +456,7 @@ Page({
               moment.userInfo.avatarUrl = defaultAvatar
             }
           }
-          // 朋友圈图片
+          // 成长墙图片
           if (moment.content && moment.content.photos && moment.content.photos.length > 0) {
             moment.content.photos = moment.content.photos.map((photo: string) => {
               if (urlMap.has(photo)) {
@@ -480,6 +492,17 @@ Page({
             }
           }
         })
+
+        // 确保每个moment的comments和photos字段都有默认值
+        newMoments.forEach((moment) => {
+          if (!moment.comments) {
+            moment.comments = []
+          }
+          if (moment.content && !moment.content.photos) {
+            moment.content.photos = []
+          }
+        })
+
         this.setData({
           moments: [...moments, ...newMoments],
           loadingMore: false,
@@ -729,7 +752,7 @@ Page({
     })
   },
 
-  // 查看用户朋友圈
+  // 查看用户成长墙
   onViewUserMoments(e: any) {
     const { userId, nickName, avatarUrl } = e.currentTarget.dataset
     if (!userId) {

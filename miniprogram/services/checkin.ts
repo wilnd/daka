@@ -1,7 +1,7 @@
 /**
  * 打卡服务
  */
-import { db, checkinsCol, makeupQuotaCol, momentsCol, getTodayStr, getCurrentMonth, getServerMonth } from './db'
+import { db, checkinsCol, makeupQuotaCol, momentsCol, momentCommentsCol, getTodayStr, getCurrentMonth, getServerMonth } from './db'
 
 export interface Checkin {
   _id: string
@@ -22,14 +22,18 @@ export interface CheckinContent {
   photos?: string[]
   /** 文字内容 */
   text?: string
-  /** 是否发布朋友圈 */
+  /** 是否发布成长墙 */
   isPublishToMoments: boolean
   /** 打卡大类ID */
   categoryId?: string
   /** 打卡小类ID */
   subCategoryId?: string
-  /** 朋友圈可见范围：'' 或空表示所有群组可见，指定 groupId 表示仅指定群组可见 */
+  /** 成长墙可见范围：'' 或空表示所有群组可见，指定 groupId 表示仅指定群组可见 */
   momentsGroupId?: string
+  /** 时长数值 */
+  duration?: number
+  /** 时长单位：分钟/小时 */
+  durationUnit?: string
 }
 
 /** 评分结果 */
@@ -42,7 +46,7 @@ export interface ScoreResult {
   textScore: number
   /** 内容质量分 (0-100) */
   contentScore: number
-  /** 朋友圈发布奖励分 (0-100) */
+  /** 成长墙发布奖励分 (0-100) */
   publishScore: number
   /** 评语/建议 */
   feedback: string
@@ -74,14 +78,18 @@ export async function doCheckinWithContent(
 
   // 如果有内容，先调用评分云函数
   let score: ScoreResult | undefined
-  if (content && (content.text || (content.photos && content.photos.length > 0))) {
+  if (content && (content.text || (content.photos && content.photos.length > 0) || (content.duration && content.duration > 0))) {
     try {
       const scoreRes = await wx.cloud.callFunction({
         name: 'scoreCheckin',
         data: {
           text: content.text,
           photos: content.photos,
-          isPublishToMoments: content.isPublishToMoments
+          isPublishToMoments: content.isPublishToMoments,
+          categoryId: content.categoryId,
+          subCategoryId: content.subCategoryId,
+          duration: content.duration,
+          durationUnit: content.durationUnit
         }
       })
       if (scoreRes.result && scoreRes.result.success) {
@@ -102,17 +110,21 @@ export async function doCheckinWithContent(
       isMakeup: false,
       createTime: now,
       content: content || null,
-      score: score || null
+      score: score ? {
+        ...score,
+        totalMinutes: score.totalMinutes || 0,
+        aiFeedback: score.feedback || ''
+      } : null
     }
   })
 
-  // 如果需要发布到朋友圈，自动发布
-  // momentsGroupId 表示朋友圈可见范围：'' 表示所有群组可见，指定 groupId 表示仅指定群组可见
-  if (content && content.isPublishToMoments && (content.text || (content.photos && content.photos.length > 0))) {
+  // 如果需要发布到成长墙，自动发布
+  // momentsGroupId 表示成长墙可见范围：'' 表示所有群组可见，指定 groupId 表示仅指定群组可见
+  if (content && content.isPublishToMoments && (content.text || (content.photos && content.photos.length > 0) || (content.duration && content.duration > 0))) {
     // 使用 momentsGroupId，如果未指定则为空字符串（表示全局可见）
     const momentsGroupId = content.momentsGroupId || ''
     try {
-      await momentsCol().add({
+      const momentsRes = await momentsCol().add({
         data: {
           userId,
           groupId: momentsGroupId, // 可能是空字符串（全局可见）或指定群组（仅该群组可见）
@@ -122,7 +134,11 @@ export async function doCheckinWithContent(
             text: content.text || '',
             categoryId: content.categoryId || '',
             subCategoryId: content.subCategoryId || '',
+            duration: content.duration || 0,
+            durationUnit: content.durationUnit || '',
             score: (score && score.totalScore),
+            totalMinutes: (score && score.totalMinutes) || 0,
+            aiFeedback: (score && score.feedback) || '',
             tags: (score && score.tags) || []
           },
           likeCount: 0,
@@ -130,15 +146,37 @@ export async function doCheckinWithContent(
           createTime: now
         }
       })
+
+      // 如果有AI点评，自动添加为第一条评论
+      if (score && score.feedback) {
+        try {
+          const momentId = momentsRes._id
+          await momentCommentsCol().add({
+            data: {
+              momentId,
+              userId,
+              content: score.feedback,
+              isAIFeedback: true,
+              createTime: now
+            }
+          })
+          // 更新评论数
+          await momentsCol().doc(momentId).update({
+            data: { commentCount: 1 }
+          })
+        } catch (e) {
+          console.warn('添加AI评论失败', e)
+        }
+      }
     } catch (e) {
-      console.warn('发布朋友圈失败', e)
+      console.warn('发布成长墙失败', e)
     }
   }
 
   return { ok: true, score }
 }
 
-/** 更新今日打卡内容（可同步更新/创建/删除朋友圈动态） */
+/** 更新今日打卡内容（可同步更新/创建/删除成长墙动态） */
 export async function updateTodayCheckinWithContent(
   userId: string,
   content: CheckinContent,
@@ -177,7 +215,7 @@ export async function updateTodayCheckinWithContent(
     } as any
   })
 
-  // 同步朋友圈：按 checkinId 关联
+  // 同步成长墙：按 checkinId 关联
   try {
     const { data: momentList } = await momentsCol()
       .where({ checkinId: existing._id, userId })
@@ -222,11 +260,11 @@ export async function updateTodayCheckinWithContent(
         })
       }
     } else if (moment && moment._id) {
-      // 用户取消发布：删除对应朋友圈动态
+      // 用户取消发布：删除对应成长墙动态
       await momentsCol().doc((moment as any)._id).remove()
     }
   } catch (e) {
-    console.warn('同步朋友圈失败', e)
+    console.warn('同步成长墙失败', e)
   }
 
   return { ok: true, score }

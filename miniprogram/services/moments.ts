@@ -1,6 +1,6 @@
 /**
- * 朋友圈服务
- * 打卡内容默认发布到朋友圈，同一群组成员可见
+ * 成长墙服务
+ * 打卡内容默认发布到成长墙，同一群组成员可见
  */
 import { db, momentsCol, momentLikesCol, momentCommentsCol, membersCol, groupsCol } from './db'
 import { getTodayStr } from './db'
@@ -40,7 +40,7 @@ export interface MomentComment {
   createTime: Date
 }
 
-/** 打卡时自动发布到朋友圈 */
+/** 打卡时自动发布到成长墙 */
 export async function publishMomentFromCheckin(
   userId: string,
   groupId: string,
@@ -62,7 +62,7 @@ export async function publishMomentFromCheckin(
   return _id
 }
 
-/** 获取用户在某个群组的朋友圈列表 */
+/** 获取用户在某个群组的成长墙列表 */
 export async function getMomentsByGroup(
   groupId: string,
   limit = 20,
@@ -84,7 +84,7 @@ export async function getMomentsByGroup(
   return (data || []) as Moment[]
 }
 
-/** 获取用户在所有群组的朋友圈列表（首页展示） */
+/** 获取用户在所有群组的成长墙列表（首页展示） */
 export async function getAllMomentsByUserId(
   userId: string,
   limit = 20,
@@ -121,13 +121,13 @@ export async function getAllMomentsByUserId(
   return (data || []) as Moment[]
 }
 
-/** 获取单条朋友圈详情 */
+/** 获取单条成长墙详情 */
 export async function getMomentById(momentId: string): Promise<Moment | null> {
   const { data } = await momentsCol().doc(momentId).get()
   return data as Moment | null
 }
 
-/** 点赞朋友圈 */
+/** 点赞成长墙 */
 export async function likeMoment(momentId: string, userId: string): Promise<{ ok: boolean; msg?: string }> {
   // 检查是否已点赞
   const { data: existing } = await momentLikesCol()
@@ -178,7 +178,7 @@ export async function unlikeMoment(momentId: string, userId: string): Promise<{ 
   return { ok: true }
 }
 
-/** 获取用户对某条朋友圈的点赞状态 */
+/** 获取用户对某条成长墙的点赞状态 */
 export async function getLikeStatus(momentId: string, userId: string): Promise<boolean> {
   const { data } = await momentLikesCol()
     .where({ momentId, userId })
@@ -186,7 +186,7 @@ export async function getLikeStatus(momentId: string, userId: string): Promise<b
   return data.length > 0
 }
 
-/** 获取朋友圈的所有点赞用户 */
+/** 获取成长墙的所有点赞用户 */
 export async function getMomentLikes(momentId: string): Promise<MomentLike[]> {
   const { data } = await momentLikesCol()
     .where({ momentId })
@@ -195,7 +195,7 @@ export async function getMomentLikes(momentId: string): Promise<MomentLike[]> {
   return data as MomentLike[]
 }
 
-/** 评论朋友圈 */
+/** 评论成长墙 */
 export async function commentMoment(
   momentId: string,
   userId: string,
@@ -254,7 +254,7 @@ export async function deleteComment(
   return { ok: true }
 }
 
-/** 获取朋友圈的所有评论 */
+/** 获取成长墙的所有评论 */
 export async function getMomentComments(momentId: string): Promise<MomentComment[]> {
   const { data } = await momentCommentsCol()
     .where({ momentId })
@@ -263,7 +263,7 @@ export async function getMomentComments(momentId: string): Promise<MomentComment
   return data as MomentComment[]
 }
 
-/** 删除朋友圈（仅发布者本人可删除） */
+/** 删除成长墙（仅发布者本人可删除） */
 export async function deleteMoment(
   momentId: string,
   userId: string
@@ -271,11 +271,11 @@ export async function deleteMoment(
   const { data: moment } = await momentsCol().doc(momentId).get()
   
   if (!moment) {
-    return { ok: false, msg: '朋友圈不存在' }
+    return { ok: false, msg: '成长墙不存在' }
   }
 
   if ((moment as any).userId !== userId) {
-    return { ok: false, msg: '只能删除自己的朋友圈' }
+    return { ok: false, msg: '只能删除自己的成长墙' }
   }
 
   // 删除所有相关点赞
@@ -295,7 +295,7 @@ export async function deleteMoment(
   return { ok: true }
 }
 
-/** 批量获取朋友圈列表（带发布者信息） */
+/** 批量获取成长墙列表（带发布者信息） */
 export interface MomentWithUser extends Moment {
   userInfo?: {
     nickName: string
@@ -324,7 +324,7 @@ export async function getMomentsWithUserInfo(
     userMap.set(user._id, user)
   }
 
-  // 获取当前用户对每条朋友圈的点赞状态
+  // 获取当前用户对每条成长墙的点赞状态
   const result: MomentWithUser[] = []
   for (const moment of moments) {
     const isLiked = await getLikeStatus(moment._id, userId)

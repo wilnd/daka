@@ -1,5 +1,5 @@
 <page-meta>
-  <navigation-bar title="{{userInfo.nickName || 'TA的朋友圈'}}" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+  <navigation-bar title="{{userInfo.nickName || 'TA的成长墙'}}" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 </page-meta>
 <scroll-view class="page" scroll-y refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="refreshMoments">
   <!-- 用户信息头部 -->
@@ -10,31 +10,31 @@
       mode="aspectFill"
     ></image>
     <text class="user-nickname">{{userInfo.nickName || '匿名用户'}}</text>
-    <text class="moments-count">{{moments.length}} 条动态</text>
+    <text class="moments-count">{{moments ? moments.length : 0}} 条动态</text>
   </view>
 
   <!-- 加载中 -->
-  <view wx:if="{{loading && moments.length === 0}}" class="loading-wrap">
+  <view wx:if="{{loading && (!moments || moments.length === 0)}}" class="loading-wrap">
     <text>加载中...</text>
   </view>
 
   <!-- 空状态 -->
-  <view wx:elif="{{!loading && moments.length === 0}}" class="empty-state">
+  <view wx:elif="{{!loading && (!moments || moments.length === 0)}}" class="empty-state">
     <view class="empty-icon">📷</view>
     <text class="empty-title">还没有发布过动态</text>
   </view>
 
-  <!-- 朋友圈列表 -->
+  <!-- 成长墙列表 -->
   <view wx:else class="moments-list">
-    <view wx:for="{{moments}}" wx:key="_id" class="moment-item">
+    <view wx:for="{{moments || []}}" wx:key="_id" class="moment-item">
       <!-- 打卡内容 -->
       <view class="moment-content">
-        <text class="text" wx:if="{{item.content.text}}">{{item.content.text}}</text>
-        
+        <text class="text" wx:if="{{item.content && item.content.text}}">{{item.content.text}}</text>
+
         <!-- 照片网格 -->
-        <view class="photos-grid" wx:if="{{item.content.photos && item.content.photos.length > 0}}">
+        <view class="photos-grid" wx:if="{{item.content && item.content.photos && item.content.photos.length > 0}}">
           <view 
-            wx:for="{{item.content.photos}}" 
+            wx:for="{{item.content && item.content.photos || []}}" 
             wx:for-item="photo" 
             wx:key="index"
             class="photo-item {{item.content.photos.length === 1 ? 'single' : ''}}"
@@ -47,7 +47,7 @@
         </view>
 
         <!-- 运动得分 -->
-        <view class="score-tag" wx:if="{{item.content.score !== undefined}}">
+        <view class="score-tag" wx:if="{{item.content && item.content.score !== undefined}}">
           <text class="score-value">{{item.content.score}}</text>
           <text class="score-label">分</text>
         </view>
@@ -64,7 +64,7 @@
 
       <!-- 评论列表 -->
       <view class="comments-section" wx:if="{{item.comments && item.comments.length > 0}}">
-        <view wx:for="{{item.comments}}" wx:key="_id" wx:for-item="comment" class="comment-item">
+        <view wx:for="{{item.comments || []}}" wx:key="_id" wx:for-item="comment" class="comment-item">
           <text class="comment-user">{{comment.userInfo && comment.userInfo.nickName || '匿名用户'}}：</text>
           <text class="comment-content">{{comment.content}}</text>
         </view>
@@ -76,7 +76,7 @@
   <view class="loading-more" wx:if="{{loadingMore}}">
     <text>加载中...</text>
   </view>
-  <view class="no-more" wx:if="{{noMore && moments.length > 0}}">
+  <view class="no-more" wx:if="{{noMore && moments && moments.length > 0}}">
     <text>没有更多了</text>
   </view>
 </scroll-view>
