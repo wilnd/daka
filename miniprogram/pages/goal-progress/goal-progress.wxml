@@ -1,0 +1,251 @@
+<navigation-bar title="{{isConfirmorMode ? '待确认目标' : '目标详情'}}" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <view class="container">
+    <!-- 单一目标详情 -->
+    <block wx:if="{{goal}}">
+      <view class="goal-detail-card">
+        <view class="goal-header">
+          <text class="goal-title">{{goal.title}}</text>
+          <text class="goal-period {{goal.period}}">{{goal.period === 'daily' ? '每日' : goal.period === 'weekly' ? '每周' : '每月'}}</text>
+        </view>
+        <!-- 分类信息（仅成长墙类型显示） -->
+        <view class="goal-category" wx:if="{{goal.category && goal.category.categoryId}}">
+          <text class="category-label">分类：</text>
+          <text class="category-value">{{goal.category.categoryName}}{{goal.category.subCategoryName ? ' - ' + goal.category.subCategoryName : ''}}</text>
+        </view>
+        <view class="goal-dates">
+          <text>{{goal.startDate}} ~ {{goal.endDate}}</text>
+        </view>
+
+        <!-- 确认人信息 -->
+        <view class="confirmor-section" wx:if="{{goal.needConfirmorVerify}}">
+          <view class="confirmor-header">
+            <text class="confirmor-label">确认人</text>
+            <text class="confirmor-status {{goal.confirmor.confirmStatus}}">
+              {{goal.confirmor.confirmStatus === 'pending' ? '待确认' : goal.confirmor.confirmStatus === 'confirmed' ? '已确认' : '已拒绝'}}
+            </text>
+          </view>
+          <view class="confirmor-info">
+            <view class="confirmor-avatar"></view>
+            <text class="confirmor-name">{{goal.confirmor.nickname}}</text>
+          </view>
+          <view class="confirmor-remark" wx:if="{{goal.confirmor.confirmRemark}}">
+            <text class="remark-label">备注：</text>
+            <text class="remark-text">{{goal.confirmor.confirmRemark}}</text>
+          </view>
+        </view>
+
+        <!-- 进度展示 -->
+        <view class="progress-section">
+          <view class="progress-circle">
+            <view class="circle-bg"></view>
+            <view class="circle-progress" style="transform: rotate({{progress.percent * 3.6}}deg)"></view>
+            <view class="circle-text">
+              <text class="percent">{{progress.percent}}%</text>
+              <text class="label">完成度</text>
+            </view>
+          </view>
+          <view class="progress-numbers">
+            <view class="number-item">
+              <text class="number">{{progress.current}}</text>
+              <text class="label">当前进度</text>
+            </view>
+            <view class="number-item">
+              <text class="number">{{progress.target}}</text>
+              <text class="label">目标值</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 状态 -->
+        <view class="status-section {{status}}">
+          <text class="status-text" wx:if="{{status === 'in_progress'}}">进行中，继续加油！</text>
+          <text class="status-text" wx:elif="{{status === 'completed'}}">🎉 目标已完成！</text>
+          <text class="status-text" wx:elif="{{status === 'failed'}}">😔 目标未达成</text>
+          <text class="status-text" wx:else>未开始</text>
+          <text class="status-hint" wx:if="{{goal.needConfirmorVerify && goal.confirmor.confirmStatus === 'pending'}}">等待确认人验收</text>
+        </view>
+
+        <!-- 常用标签 -->
+        <view class="tags-section" wx:if="{{goal.commonRewardTags && goal.commonRewardTags.length > 0}}">
+          <text class="tags-label">奖励标签</text>
+          <view class="tags-list">
+            <view class="tag-item" wx:for="{{goal.commonRewardTags}}" wx:key="id">{{item.name}}</view>
+          </view>
+        </view>
+        <view class="tags-section" wx:if="{{goal.commonPenaltyTags && goal.commonPenaltyTags.length > 0}}">
+          <text class="tags-label">惩罚标签</text>
+          <view class="tags-list">
+            <view class="tag-item" wx:for="{{goal.commonPenaltyTags}}" wx:key="id">{{item.name}}</view>
+          </view>
+        </view>
+
+        <!-- 奖励和惩罚 -->
+        <view class="reward-penalty-section">
+          <view class="rp-item" wx:if="{{goal.reward}}">
+            <text class="rp-label">达成奖励</text>
+            <text class="rp-value reward">🎁 {{goal.reward.name}}</text>
+          </view>
+          <view class="rp-item" wx:if="{{goal.penalty && goal.penalty.type !== 'none'}}">
+            <text class="rp-label">未达成惩罚</text>
+            <text class="rp-value penalty">⚠️ {{goal.penalty.name}}</text>
+          </view>
+        </view>
+
+        <!-- 结算按钮 -->
+        <button
+          class="settle-btn"
+          bindtap="onSettleGoal"
+          wx:if="{{status === 'completed' || status === 'failed'}}"
+        >
+          立即结算
+        </button>
+      </view>
+
+      <!-- 提示 -->
+      <view class="tips" wx:if="{{status === 'in_progress'}}">
+        <text class="tips-title">💡 温馨提示</text>
+        <text class="tips-text" wx:if="{{goal.needConfirmorVerify}}">目标需要确认人验收后才能完成，请联系确认人确认</text>
+        <text class="tips-text" wx:else>目标将在周期结束后自动结算，请继续努力完成目标</text>
+      </view>
+    </block>
+
+    <!-- 确认人模式：待确认目标列表 -->
+    <block wx:elif="{{isConfirmorMode}}">
+      <view class="section">
+        <view class="section-header">
+          <text class="section-title">待确认目标</text>
+        </view>
+
+        <view class="pending-list">
+          <view
+            class="pending-item"
+            wx:for="{{pendingConfirmGoals}}"
+            wx:key="_id"
+          >
+            <view class="pending-header">
+              <text class="pending-title">{{item.title}}</text>
+              <text class="pending-period">{{item.period}}</text>
+            </view>
+            <view class="pending-progress">
+              <view class="progress-bar">
+                <view class="progress-fill" style="width: {{item.progress.percent}}%"></view>
+              </view>
+              <text class="progress-text">{{item.progress.current}}/{{item.progress.target}}</text>
+            </view>
+            <view class="pending-footer">
+              <text class="pending-date">{{item.startDate}} ~ {{item.endDate}}</text>
+            </view>
+            <view class="pending-actions">
+              <button class="btn-confirm" size="mini" bindtap="onConfirmGoal" data-id="{{item._id}}">确认</button>
+              <button class="btn-reject" size="mini" bindtap="onRejectGoal" data-id="{{item._id}}">拒绝</button>
+            </view>
+          </view>
+        </view>
+
+        <view class="empty" wx:if="{{pendingConfirmGoals.length === 0}}">
+          <text>暂无待确认的目标</text>
+        </view>
+      </view>
+    </block>
+
+    <!-- 历史目标列表 -->
+    <block wx:else>
+      <view class="section">
+        <view class="section-header">
+          <text class="section-title">全部目标</text>
+          <view class="header-actions">
+            <text class="go-confirmor" bindtap="goToConfirmorMode">待我确认</text>
+            <text class="go-create" bindtap="goToGoal">+ 创建</text>
+          </view>
+        </view>
+
+        <!-- 筛选器 -->
+        <view class="filter-section">
+          <picker bindchange="onFilterStatusChange" value="0" range="{{['全部', '进行中', '已完成', '未达成', '未开始']}}" range-key="">
+            <view class="filter-btn">
+              <text>状态</text>
+            </view>
+          </picker>
+          <picker bindchange="onFilterPeriodChange" value="0" range="{{['全部', '每日', '每周', '每月']}}" range-key="">
+            <view class="filter-btn">
+              <text>周期</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="history-list">
+          <view
+            class="history-item {{item.status}}"
+            wx:for="{{historyGoals}}"
+            wx:key="_id"
+          >
+            <view class="history-main" bindtap="viewGoalDetail" data-id="{{item._id}}">
+              <view class="history-header">
+                <text class="history-title">{{item.title}}</text>
+                <text class="history-period">{{item.period}}</text>
+              </view>
+              <view class="history-progress">
+                <view class="progress-bar">
+                  <view class="progress-fill" style="width: {{item.progress.percent}}%"></view>
+                </view>
+                <text class="progress-text">{{item.progress.current}}/{{item.progress.target}}</text>
+              </view>
+              <view class="history-footer">
+                <text class="history-date">{{item.startDate}} ~ {{item.endDate}}</text>
+                <view class="history-badges">
+                  <text class="confirmor-badge" wx:if="{{item.needConfirmorVerify}}">{{item.confirmor.confirmStatus}}</text>
+                  <text class="history-status {{item.status}}">{{item.status === 'completed' ? '已完成' : item.status === 'failed' ? '未达成' : '进行中'}}</text>
+                </view>
+              </view>
+            </view>
+            <view class="history-delete" catchtap="onDeleteGoal" data-id="{{item._id}}">
+              <text>删除</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="empty" wx:if="{{historyGoals.length === 0}}">
+          <text>暂无目标记录</text>
+          <button class="create-btn" bindtap="goToGoal">创建第一个目标</button>
+        </view>
+      </view>
+    </block>
+  </view>
+</scroll-view>
+
+<!-- 确认弹窗 -->
+<view class="modal {{showConfirmModal ? 'show' : ''}}" catchtap="hideConfirmModal" wx:if="{{showConfirmModal}}">
+  <view class="modal-content" catchtap="" wx:if="{{goal}}">
+    <text class="modal-title">确认目标</text>
+    <view class="confirm-info">
+      <view class="confirm-item">
+        <text class="confirm-label">目标</text>
+        <text class="confirm-value">{{goal.title}}</text>
+      </view>
+      <view class="confirm-item">
+        <text class="confirm-label">进度</text>
+        <text class="confirm-value">{{goal.progress.current}}/{{goal.progress.target}} ({{goal.progress.percent}}%)</text>
+      </view>
+    </view>
+    <view class="remark-section">
+      <text class="remark-label">确认备注（可选）</text>
+      <input class="remark-input" placeholder="请输入确认备注" value="{{confirmRemark}}" bindinput="onConfirmRemarkInput" />
+    </view>
+    <view class="modal-btns">
+      <button class="btn-secondary" bindtap="hideConfirmModal">取消</button>
+      <button class="btn-primary" bindtap="onConfirmSubmit">确认目标</button>
+    </view>
+  </view>
+</view>
+
+<!-- 结果弹窗 -->
+<view class="modal {{showResultModal ? 'show' : ''}}" catchtap="hideResultModal" wx:if="{{showResultModal}}">
+  <view class="modal-content" catchtap="" wx:if="{{resultInfo}}">
+    <text class="modal-title">{{resultInfo.type === 'reward' ? '🎉 恭喜获得奖励' : '⚠️ 惩罚生效'}}</text>
+    <view class="result-info">
+      <text class="result-name">{{resultInfo.name}}</text>
+    </view>
+    <button class="btn-primary" bindtap="hideResultModal">确定</button>
+  </view>
+</view>

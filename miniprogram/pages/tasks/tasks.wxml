@@ -1,0 +1,151 @@
+<navigation-bar title="任务中心" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+<view class="page-container">
+  <scroll-view class="page" scroll-y>
+    <!-- 顶部用户信息卡片 -->
+    <view class="user-card">
+      <view class="user-info">
+        <view class="avatar-wrapper">
+          <image class="avatar" src="{{userInfo.avatarUrl || '/assets/default-avatar.png'}}" mode="aspectFill"></image>
+          <view class="vip-badge" wx:if="{{vipInfo && vipInfo.level > 0}}">VIP</view>
+        </view>
+        <view class="user-detail">
+          <text class="user-name">{{userInfo.nickName || '运动达人'}}</text>
+          <text class="user-level" wx:if="{{vipInfo && vipInfo.level > 0}}">{{vipLevelNames[vipInfo.level]}}</text>
+          <text class="user-level" wx:else>普通用户</text>
+        </view>
+      </view>
+      <view class="streak-flame">
+        <text class="flame-icon">🔥</text>
+        <text class="streak-count">{{userStats.streak}}</text>
+        <text class="streak-label">天连续打卡</text>
+      </view>
+    </view>
+
+    <!-- 统计数据 -->
+    <view class="stats-row">
+      <view class="stat-card">
+        <text class="stat-icon">📅</text>
+        <view class="stat-content">
+          <text class="stat-value">{{userStats.totalDays}}</text>
+          <text class="stat-label">累计打卡</text>
+        </view>
+      </view>
+      <view class="stat-card">
+        <text class="stat-icon">⭐</text>
+        <view class="stat-content">
+          <text class="stat-value">{{achievements.length}}</text>
+          <text class="stat-label">获得成就</text>
+        </view>
+      </view>
+      <view class="stat-card">
+        <text class="stat-icon">🎯</text>
+        <view class="stat-content">
+          <text class="stat-value">{{completedTasksCount}}</text>
+          <text class="stat-label">完成任务</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 可领取奖励 -->
+    <view class="section claim-section" wx:if="{{claimableTasks.length > 0}}">
+      <view class="section-header">
+        <view class="section-title-row">
+          <text class="section-icon">🎁</text>
+          <text class="section-title">可领取奖励</text>
+          <view class="claim-count-badge">{{claimableTasks.length}}</view>
+        </view>
+      </view>
+      <view class="claim-list">
+        <view class="claim-card" wx:for="{{claimableTasks}}" wx:key="id">
+          <view class="claim-left">
+            <view class="claim-icon-box">
+              <text class="claim-emoji">💎</text>
+            </view>
+            <view class="claim-info">
+              <text class="claim-title">{{item.title}}</text>
+              <text class="claim-desc">{{item.description}}</text>
+            </view>
+          </view>
+          <view class="claim-right">
+            <text class="claim-reward">+{{item.reward}}积分</text>
+            <button class="claim-btn" bindtap="onClaimReward" data-task="{{item}}">立即领取</button>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 任务列表 -->
+    <view class="section">
+      <view class="section-header">
+        <view class="section-title-row">
+          <text class="section-icon">📋</text>
+          <text class="section-title">日常任务</text>
+        </view>
+      </view>
+      <view class="task-list">
+        <view class="task-card {{item.percent >= 100 ? 'completed' : ''}}" wx:for="{{tasks}}" wx:key="id">
+          <view class="task-header">
+            <view class="task-icon-wrapper">
+              <text class="task-emoji">{{item.icon}}</text>
+            </view>
+            <view class="task-info">
+              <text class="task-title">{{item.title}}</text>
+              <text class="task-desc">{{item.description}}</text>
+            </view>
+            <view class="task-status-badge" wx:if="{{item.percent >= 100}}">已完成</view>
+          </view>
+          <view class="task-progress">
+            <view class="progress-track">
+              <view class="progress-fill" style="width: {{item.percent}}%"></view>
+            </view>
+            <view class="progress-info">
+              <text class="progress-text">{{item.current}}/{{item.target}}</text>
+              <text class="progress-percent">{{item.percent}}%</text>
+            </view>
+          </view>
+          <view class="task-footer" wx:if="{{item.percent < 100}}">
+            <view class="task-reward">
+              <text class="reward-icon">🎁</text>
+              <text class="reward-text">完成奖励: +{{item.reward}}积分</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 成就列表 -->
+    <view class="section">
+      <view class="section-header">
+        <view class="section-title-row">
+          <text class="section-icon">🏅</text>
+          <text class="section-title">成就徽章</text>
+        </view>
+      </view>
+      <view class="achievement-grid">
+        <view class="achievement-card {{item.unlocked ? 'unlocked' : 'locked'}}" wx:for="{{achievements}}" wx:key="id">
+          <view class="achievement-icon">
+            <text class="achievement-emoji">{{item.icon}}</text>
+            <view class="achievement-glow" wx:if="{{item.unlocked}}"></view>
+          </view>
+          <text class="achievement-name">{{item.name}}</text>
+          <text class="achievement-desc">{{item.description}}</text>
+          <view class="achievement-status" wx:if="{{item.unlocked}}">
+            <text class="status-text">已解锁</text>
+          </view>
+          <view class="achievement-status locked" wx:else>
+            <text class="status-text">未解锁</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 提示信息 -->
+    <view class="tips-card">
+      <text class="tips-icon">💡</text>
+      <view class="tips-content">
+        <text class="tips-title">温馨提示</text>
+        <text class="tips-text">每天打卡、完成Flag都可以获得积分，积分可以兑换VIP会员和实物奖励。连续打卡还能解锁更多成就！</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>

@@ -289,7 +289,7 @@ function refreshRankInBackground(groupId: string): void {
 
 /** 计算所有榜单数据 */
 async function computeAllRanks(groupId: string): Promise<{ dayRank: RankUser[]; weekRank: RankUser[]; monthRank: RankUser[] }> {
-  // 获取小组所有成员
+  // 获取组织所有成员
   const { data: members } = await membersCol()
     .where({ groupId, status: 'normal' })
     .get()
@@ -362,7 +362,7 @@ export async function getMonthRank(groupId: string): Promise<RankUser[]> {
 
 /** 获取总榜：累计打卡天数排名 */
 export async function getAllRank(groupId: string): Promise<RankUser[]> {
-  // 获取小组所有成员
+  // 获取组织所有成员
   const { data: members } = await membersCol()
     .where({ groupId, status: 'normal' })
     .get()

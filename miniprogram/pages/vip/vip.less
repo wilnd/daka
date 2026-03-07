@@ -1,0 +1,898 @@
+// vip.less
+@primary-color: #1ABC9C;
+@bronze-color: #CD7F32;
+@silver-color: #C0C0C0;
+@gold-color: #FFD700;
+@bg-color: #f8f9fa;
+@text-primary: #1a1a1a;
+@text-secondary: #666;
+@text-light: #999;
+@card-bg: #fff;
+
+.vip-page {
+  min-height: 100vh;
+  background: @bg-color;
+  padding-bottom: 60rpx;
+  position: relative;
+}
+
+// 顶部装饰
+.header-decorations {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 400rpx;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+
+  .decoration-circle {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.15;
+
+    &.circle-1 {
+      width: 400rpx;
+      height: 400rpx;
+      background: @gold-color;
+      top: -150rpx;
+      right: -100rpx;
+    }
+
+    &.circle-2 {
+      width: 300rpx;
+      height: 300rpx;
+      background: @gold-color;
+      top: 50rpx;
+      left: -80rpx;
+    }
+
+    &.circle-3 {
+      width: 200rpx;
+      height: 200rpx;
+      background: @primary-color;
+      top: 150rpx;
+      right: 50rpx;
+    }
+  }
+}
+
+// 页面标题
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 30rpx;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding-top: calc(20rpx + env(safe-area-inset-top));
+  background: linear-gradient(135deg, @primary-color 0%, #16a085 100%);
+
+  .back-btn {
+    width: 70rpx;
+    height: 70rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    backdrop-filter: blur(10rpx);
+
+    &:active {
+      background: rgba(255, 255, 255, 0.35);
+    }
+
+    .back-icon {
+      font-size: 44rpx;
+      color: #fff;
+      font-weight: bold;
+      line-height: 1;
+    }
+  }
+
+  .page-title {
+    font-size: 36rpx;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+  }
+
+  .placeholder {
+    width: 70rpx;
+  }
+}
+
+// 会员卡片区域
+.vip-card-section {
+  padding: 0 30rpx;
+  padding-top: calc(180rpx + env(safe-area-inset-top));
+  position: relative;
+  z-index: 10;
+}
+
+.vip-card {
+  background: @card-bg;
+  border-radius: 24rpx;
+  padding: 40rpx;
+  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.12);
+  position: relative;
+  overflow: hidden;
+
+  // 卡片光效
+  .card-shine {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      135deg,
+      transparent 0%,
+      transparent 40%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 60%,
+      transparent 100%
+    );
+    transform: rotate(30deg);
+    animation: shine 3s ease-in-out infinite;
+  }
+
+  &.active {
+    background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+
+    .card-main {
+      .card-left {
+        .vip-icon-wrapper {
+          background: linear-gradient(135deg, @gold-color 0%, #ffb700 100%);
+        }
+
+        .vip-badge-large {
+          background: linear-gradient(135deg, @gold-color 0%, #ffb700 100%) !important;
+        }
+      }
+
+      .card-right {
+        .vip-status-box {
+          .status-label,
+          .status-value {
+            color: #fff;
+          }
+
+          .status-value.expired {
+            color: rgba(255, 255, 255, 0.5);
+          }
+        }
+      }
+    }
+
+    .card-details {
+      border-top-color: rgba(255, 255, 255, 0.1);
+
+      .detail-item {
+        .detail-label {
+          color: rgba(255, 255, 255, 0.6);
+        }
+
+        .detail-value {
+          color: #fff;
+
+          &.highlight {
+            color: @gold-color;
+          }
+        }
+      }
+
+      .detail-divider {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .tip-box {
+        background: rgba(255, 255, 255, 0.1);
+
+        .tip-icon,
+        .tip-text {
+          color: #fff;
+        }
+      }
+    }
+  }
+}
+
+@keyframes shine {
+  0% {
+    transform: rotate(30deg) translateX(-30%);
+  }
+  50% {
+    transform: rotate(30deg) translateX(30%);
+  }
+  100% {
+    transform: rotate(30deg) translateX(-30%);
+  }
+}
+
+// 卡片主要内容
+.card-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30rpx;
+  position: relative;
+  z-index: 1;
+
+  .card-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16rpx;
+
+    .vip-icon-wrapper {
+      width: 100rpx;
+      height: 100rpx;
+      background: linear-gradient(135deg, #666 0%, #999 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.2);
+
+      .vip-icon {
+        font-size: 48rpx;
+      }
+    }
+
+    .vip-badge-large {
+      padding: 8rpx 20rpx;
+      border-radius: 20rpx;
+      font-size: 22rpx;
+      color: #fff;
+      font-weight: bold;
+    }
+  }
+
+  .card-right {
+    .vip-status-box {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+
+      .status-label {
+        font-size: 24rpx;
+        color: @text-secondary;
+        margin-bottom: 8rpx;
+      }
+
+      .status-value {
+        font-size: 48rpx;
+        font-weight: bold;
+        color: @text-primary;
+
+        &.expired {
+          font-size: 28rpx;
+          color: @text-light;
+        }
+      }
+
+      .status-hint {
+        font-size: 26rpx;
+        color: @text-light;
+      }
+    }
+  }
+}
+
+// 卡片详情
+.card-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 30rpx;
+  border-top: 1rpx solid #f0f0f0;
+  position: relative;
+  z-index: 1;
+
+  .detail-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8rpx;
+
+    .detail-label {
+      font-size: 24rpx;
+      color: @text-light;
+    }
+
+    .detail-value {
+      font-size: 26rpx;
+      color: @text-primary;
+      font-weight: 500;
+
+      &.highlight {
+        color: @gold-color;
+        font-weight: bold;
+      }
+    }
+  }
+
+  .detail-divider {
+    width: 1rpx;
+    height: 60rpx;
+    background: #f0f0f0;
+  }
+
+  .tip-box {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12rpx;
+    padding: 20rpx;
+    background: #f8f8f8;
+    border-radius: 12rpx;
+
+    .tip-icon {
+      font-size: 32rpx;
+    }
+
+    .tip-text {
+      font-size: 26rpx;
+      color: @text-secondary;
+    }
+  }
+}
+
+// 按钮区域
+.action-section {
+  padding: 30rpx;
+
+  .upgrade-btn,
+  .renew-btn {
+    width: 100%;
+    height: 96rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12rpx;
+    border-radius: 48rpx;
+    font-size: 32rpx;
+    font-weight: bold;
+    color: #fff;
+    border: none;
+
+    &::after {
+      border: none;
+    }
+  }
+
+  .upgrade-btn {
+    background: linear-gradient(135deg, @gold-color 0%, #ffb700 100%);
+    box-shadow: 0 8rpx 32rpx rgba(255, 215, 0, 0.4);
+  }
+
+  .renew-btn {
+    background: linear-gradient(135deg, @primary-color 0%, #16a085 100%);
+    box-shadow: 0 8rpx 32rpx rgba(26, 188, 156, 0.4);
+  }
+
+  .btn-icon {
+    font-size: 36rpx;
+  }
+
+  .upgrade-tips {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16rpx;
+    margin-top: 20rpx;
+    font-size: 24rpx;
+    color: @text-light;
+
+    .divider {
+      color: #e0e0e0;
+    }
+  }
+}
+
+// 权益亮点
+.benefits-highlight {
+  display: flex;
+  justify-content: space-around;
+  padding: 30rpx;
+  margin: 0 30rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+
+  .highlight-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8rpx;
+
+    .highlight-icon {
+      font-size: 36rpx;
+    }
+
+    .highlight-text {
+      font-size: 22rpx;
+      color: @text-secondary;
+    }
+  }
+}
+
+// 通用区块样式
+.benefits-section,
+.level-section,
+.faq-section {
+  margin: 30rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 30rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16rpx;
+  margin-bottom: 30rpx;
+
+  .section-title {
+    font-size: 34rpx;
+    font-weight: bold;
+    color: @text-primary;
+  }
+
+  .section-subtitle {
+    font-size: 26rpx;
+    color: @text-light;
+  }
+}
+
+// 权益列表
+.benefits-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.benefit-card {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  background: #fafafa;
+  border-radius: 16rpx;
+  transition: all 0.2s;
+
+  &:active {
+    background: #f0f0f0;
+  }
+
+  .benefit-icon-box {
+    width: 80rpx;
+    height: 80rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40rpx;
+    background: #fff;
+    border-radius: 16rpx;
+    margin-right: 20rpx;
+    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  }
+
+  .benefit-info {
+    flex: 1;
+
+    .benefit-title {
+      font-size: 28rpx;
+      font-weight: 600;
+      color: @text-primary;
+      margin-bottom: 6rpx;
+    }
+
+    .benefit-desc {
+      font-size: 24rpx;
+      color: @text-light;
+    }
+  }
+
+  .benefit-arrow {
+    font-size: 36rpx;
+    color: #ccc;
+    font-weight: 300;
+  }
+}
+
+// 等级卡片
+.level-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20rpx;
+}
+
+.level-card {
+  background: #fafafa;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  position: relative;
+  overflow: hidden;
+  border: 2rpx solid transparent;
+  transition: all 0.3s;
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &.normal {
+    .level-header {
+      .level-name {
+        color: @text-secondary;
+      }
+    }
+  }
+
+  &.bronze {
+    border-color: @bronze-color;
+
+    .level-header {
+      .level-name {
+        color: @bronze-color;
+      }
+    }
+
+    .level-badge {
+      position: absolute;
+      top: 16rpx;
+      right: 16rpx;
+      padding: 4rpx 12rpx;
+      background: @bronze-color;
+      color: #fff;
+      font-size: 20rpx;
+      border-radius: 12rpx;
+    }
+  }
+
+  &.silver {
+    border-color: @silver-color;
+
+    .level-header {
+      .level-name {
+        color: #888;
+      }
+    }
+  }
+
+  &.gold {
+    border-color: @gold-color;
+
+    .level-header {
+      .level-name {
+        color: #b8860b;
+      }
+    }
+  }
+
+  .level-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20rpx;
+
+    .level-name {
+      font-size: 28rpx;
+      font-weight: bold;
+    }
+
+    .level-price {
+      font-size: 26rpx;
+      font-weight: 600;
+      color: @text-primary;
+    }
+  }
+
+  .level-features {
+    display: flex;
+    flex-direction: column;
+    gap: 12rpx;
+
+    .feature-item {
+      font-size: 22rpx;
+      color: @text-secondary;
+      display: flex;
+      align-items: center;
+      gap: 8rpx;
+
+      &::before {
+        content: '✓';
+        color: @primary-color;
+        font-weight: bold;
+      }
+
+      &.disabled {
+        color: #ccc;
+
+        &::before {
+          content: '×';
+          color: #ccc;
+        }
+      }
+    }
+  }
+}
+
+// 常见问题
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.faq-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  padding: 20rpx;
+  background: #fafafa;
+  border-radius: 12rpx;
+
+  .faq-question {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: @text-primary;
+  }
+
+  .faq-answer {
+    font-size: 24rpx;
+    color: @text-secondary;
+    line-height: 1.6;
+  }
+}
+
+.bottom-space {
+  height: 40rpx;
+}
+
+// 开通弹窗
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.upgrade-modal {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 30rpx;
+  padding-bottom: calc(30rpx + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  z-index: 101;
+  animation: slideUp 0.3s;
+
+  &.show {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.modal-handle {
+  width: 60rpx;
+  height: 8rpx;
+  background: #e0e0e0;
+  border-radius: 4rpx;
+  margin: 0 auto 20rpx;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30rpx;
+
+  .modal-title {
+    font-size: 36rpx;
+    font-weight: bold;
+    color: @text-primary;
+  }
+
+  .modal-close {
+    width: 60rpx;
+    height: 60rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 44rpx;
+    color: @text-light;
+  }
+}
+
+.modal-body {
+  // 等级选择器
+  .level-selector {
+    display: flex;
+    gap: 16rpx;
+    margin-bottom: 30rpx;
+  }
+
+  .level-option {
+    flex: 1;
+    padding: 20rpx 16rpx;
+    background: #f5f5f5;
+    border-radius: 16rpx;
+    text-align: center;
+    border: 2rpx solid transparent;
+    transition: all 0.2s;
+    position: relative;
+
+    &.selected {
+      &.normal {
+        background: #f0f0f0;
+        border-color: @text-secondary;
+      }
+
+      &.bronze {
+        background: rgba(205, 127, 50, 0.1);
+        border-color: @bronze-color;
+      }
+
+      &.silver {
+        background: rgba(192, 192, 192, 0.1);
+        border-color: @silver-color;
+      }
+
+      &.gold {
+        background: rgba(255, 215, 0, 0.1);
+        border-color: @gold-color;
+      }
+    }
+
+    .option-name {
+      font-size: 24rpx;
+      color: @text-primary;
+      font-weight: 500;
+    }
+
+    .option-tag {
+      position: absolute;
+      top: -12rpx;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4rpx 12rpx;
+      background: @gold-color;
+      color: #fff;
+      font-size: 18rpx;
+      border-radius: 8rpx;
+    }
+  }
+
+  // 时长选择器
+  .duration-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16rpx;
+    margin-bottom: 30rpx;
+  }
+
+  .duration-option {
+    padding: 24rpx 16rpx;
+    background: #f5f5f5;
+    border-radius: 16rpx;
+    text-align: center;
+    border: 2rpx solid transparent;
+    transition: all 0.2s;
+    position: relative;
+
+    &.selected {
+      background: rgba(26, 188, 156, 0.1);
+      border-color: @primary-color;
+    }
+
+    .duration-days {
+      font-size: 28rpx;
+      font-weight: 600;
+      color: @text-primary;
+      margin-bottom: 8rpx;
+    }
+
+    .duration-price {
+      display: flex;
+      flex-direction: column;
+      gap: 4rpx;
+
+      .original {
+        font-size: 22rpx;
+        color: #ccc;
+        text-decoration: line-through;
+      }
+
+      .current {
+        font-size: 28rpx;
+        font-weight: bold;
+        color: @primary-color;
+      }
+    }
+
+    .duration-tag {
+      position: absolute;
+      top: -12rpx;
+      right: -8rpx;
+      padding: 4rpx 12rpx;
+      background: #ff6b6b;
+      color: #fff;
+      font-size: 18rpx;
+      border-radius: 8rpx;
+    }
+  }
+
+  // 支付按钮
+  .pay-btn {
+    width: 100%;
+    height: 96rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12rpx;
+    background: linear-gradient(135deg, @primary-color 0%, #16a085 100%);
+    border-radius: 48rpx;
+    font-size: 32rpx;
+    font-weight: bold;
+    color: #fff;
+    border: none;
+    margin-bottom: 20rpx;
+
+    &::after {
+      border: none;
+    }
+
+    &.disabled {
+      background: #ccc;
+      color: #999;
+    }
+
+    .pay-icon {
+      font-size: 36rpx;
+    }
+  }
+
+  // 用户协议
+  .agreement {
+    text-align: center;
+    font-size: 24rpx;
+    color: @text-light;
+
+    .agreement-link {
+      color: @primary-color;
+    }
+  }
+}

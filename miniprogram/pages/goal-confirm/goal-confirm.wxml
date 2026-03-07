@@ -1,0 +1,128 @@
+<view class="page">
+  <view class="header">
+    <text class="title">确认目标</text>
+  </view>
+  <scroll-view class="content" scroll-y>
+    <view class="container">
+      <!-- 加载中 -->
+      <view class="loading" wx:if="{{loading}}">
+        <text>加载中...</text>
+      </view>
+
+      <!-- 输入确认码模式 -->
+      <view class="input-code-mode" wx:elif="{{inputCodeMode}}">
+        <view class="mode-card">
+          <text class="mode-title">输入确认码</text>
+          <text class="mode-desc">请输入对方提供的6位确认码</text>
+
+          <input
+            class="code-input"
+            type="number"
+            maxlength="6"
+            placeholder="请输入6位确认码"
+            value="{{inputCode}}"
+            bindinput="onInputCode"
+          />
+
+          <button class="btn-primary" bindtap="onSubmitCode">确认</button>
+        </view>
+      </view>
+
+      <!-- 错误提示 -->
+      <view class="error" wx:elif="{{error}}">
+        <text class="error-text">{{error}}</text>
+        <button class="btn-secondary" bindtap="copyCode">返回</button>
+      </view>
+
+      <!-- 已确认状态 -->
+      <view class="result-card" wx:elif="{{confirmStatus === 'confirmed'}}">
+        <view class="result-icon success">✓</view>
+        <text class="result-title">已确认</text>
+        <text class="result-desc">您已确认此目标</text>
+      </view>
+
+      <!-- 已拒绝状态 -->
+      <view class="result-card" wx:elif="{{confirmStatus === 'rejected'}}">
+        <view class="result-icon failed">✕</view>
+        <text class="result-title">已拒绝</text>
+        <text class="result-desc">您已拒绝确认此目标</text>
+      </view>
+
+      <!-- 目标详情 -->
+      <view class="goal-detail" wx:elif="{{goal}}">
+        <view class="detail-card">
+          <text class="detail-title">{{goal.title}}</text>
+          <text class="detail-desc">{{goal.description}}</text>
+
+          <view class="detail-item">
+            <text class="detail-label">发起人</text>
+            <text class="detail-value">{{goal.confirmor.nickname}}</text>
+          </view>
+
+          <view class="detail-item">
+            <text class="detail-label">目标周期</text>
+            <text class="detail-value">
+              {{goal.period === 'daily' ? '每日' : goal.period === 'weekly' ? '每周' : '每月'}}
+            </text>
+          </view>
+
+          <view class="detail-item">
+            <text class="detail-label">目标值</text>
+            <text class="detail-value">{{goal.target}}次</text>
+          </view>
+
+          <view class="detail-item">
+            <text class="detail-label">时间范围</text>
+            <text class="detail-value">{{goal.startDate}} ~ {{goal.endDate}}</text>
+          </view>
+
+          <!-- 奖励信息 -->
+          <view class="detail-item" wx:if="{{goal.commonRewardTags && goal.commonRewardTags.length > 0}}">
+            <text class="detail-label">达成奖励</text>
+            <view class="detail-tags">
+              <view class="tag reward" wx:for="{{goal.commonRewardTags}}" wx:key="id">{{item.name}}</view>
+            </view>
+          </view>
+
+          <!-- 惩罚信息 -->
+          <view class="detail-item" wx:if="{{goal.commonPenaltyTags && goal.commonPenaltyTags.length > 0}}">
+            <text class="detail-label">未达成惩罚</text>
+            <view class="detail-tags">
+              <view class="tag penalty" wx:for="{{goal.commonPenaltyTags}}" wx:key="id">{{item.name}}</view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 确认表单 -->
+        <view class="confirm-form">
+          <text class="form-title">确认验收</text>
+
+          <view class="form-group">
+            <text class="form-label">您的昵称</text>
+            <input
+              class="input-field"
+              placeholder="请输入您的昵称"
+              value="{{userName}}"
+              bindinput="onUserNameInput"
+            />
+          </view>
+
+          <view class="form-group">
+            <text class="form-label">备注（可选）</text>
+            <input
+              class="input-field"
+              placeholder="请输入备注"
+              value="{{remark}}"
+              bindinput="onRemarkInput"
+            />
+          </view>
+
+          <view class="form-btns">
+            <button class="btn-reject" bindtap="onConfirm" data-confirmed="{{false}}">拒绝</button>
+            <button class="btn-confirm" bindtap="onConfirm" data-confirmed="{{true}}">确认完成</button>
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

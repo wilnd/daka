@@ -1,12 +1,12 @@
-<navigation-bar title="好友运动成长助手" back="{{false}}" color="white" background="linear-gradient(135deg, #40E0D0 0%, #48D1CC 100%)"></navigation-bar>
+<navigation-bar title="我的成长小助手" back="{{false}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view wx:if="{{!hasUserInfo}}" class="auth-section">
       <!-- 欢迎区域 -->
       <view class="welcome-area">
         <view class="welcome-icon">🏃‍♂️</view>
-        <text class="welcome-title">欢迎使用成长助手</text>
-        <text class="welcome-desc">立即授权，开始你的运动成长之旅</text>
+        <text class="welcome-title">欢迎来到成长星球</text>
+        <text class="welcome-desc">授权一下，让我们一起变强！</text>
       </view>
 
       <!-- 头像选择 -->
@@ -17,16 +17,18 @@
             <text class="edit-icon">✎</text>
           </view>
         </button>
-        <text class="avatar-tip">点击更换头像</text>
+        <text class="avatar-tip">戳我换头像</text>
       </view>
 
       <!-- 昵称输入 -->
       <view class="nickname-area">
         <input
-          type="nickname"
+          id="nicknameInput"
+          type="text"
           class="nickname-input"
-          placeholder="请输入你的昵称"
+          placeholder="江湖称号（昵称）"
           placeholder-class="nickname-placeholder"
+          bindinput="onNicknameInput"
           bindblur="onNicknameBlur"
           value="{{userInfo.nickName}}"
         />
@@ -34,11 +36,11 @@
 
       <!-- 确认按钮 -->
       <button class="btn-primary confirm-auth" bindtap="onConfirmAuth">
-        <text class="btn-text">开启成长之旅</text>
+        <text class="btn-text">开始我的表演</text>
       </button>
 
       <!-- 隐私说明 -->
-      <text class="privacy-tip">仅用于展示你的运动排名，不会收集其他信息</text>
+      <text class="privacy-tip">放心，我们只关心你的运动，不关心你的隐私~</text>
     </view>
     <view wx:elif="{{loading}}" class="skeleton-wrap">
       <view class="skeleton-card">
@@ -56,24 +58,24 @@
       </view>
     </view>
     <view wx:else class="main">
-      <!-- 空状态：没有小组 -->
+      <!-- 空状态：没有组织 -->
       <view wx:if="{{!currentGroup}}" class="empty-state">
         <view class="empty-icon">🏃</view>
-        <text class="empty-title">欢迎使用成长助手</text>
-        <text class="empty-desc">创建或加入一个小组，开始你的运动成长之旅</text>
+        <text class="empty-title">欢迎来到成长星球</text>
+        <text class="empty-desc">创建一个群或者抱紧大腿，加入组织一起嗨！</text>
         <view class="empty-actions">
-          <button class="btn-primary" bindtap="goCreateGroup">创建小组</button>
-          <button class="btn-secondary" bindtap="goJoinGroup">加入小组</button>
+          <button class="btn-primary" bindtap="goCreateGroup">创建组织</button>
+          <button class="btn-secondary" bindtap="goJoinGroup">抱紧大腿</button>
         </view>
       </view>
-      <!-- 有小组时显示正常内容 -->
+      <!-- 有组织时显示正常内容 -->
       <view wx:else>
         <view
           class="checkin-card"
           style="--btn-color: {{themeColor}}; --btn-color-rgb: {{themeColorRgb}}"
         >
           <view class="checkin-status {{checkedToday ? 'checked' : ''}}">
-            <text class="status-text">{{checkedToday ? '今日已记录' : '发布动态'}}</text>
+            <text class="status-text">{{checkedToday ? '今日已打卡' : '骚年，该运动了！'}}</text>
           </view>
           <view class="checkin-btn-wrapper">
             <button
@@ -84,8 +86,8 @@
               disabled="{{!currentGroup || checkinAnimating}}"
             >
               <text wx:if="{{checkinAnimating}}">提交中...</text>
-              <text wx:elif="{{checkedToday}}">继续记录</text>
-              <text wx:else>发布记录</text>
+              <text wx:elif="{{checkedToday}}">再接再厉</text>
+              <text wx:else>记录今日成就</text>
             </button>
             <view wx:if="{{checkedToday}}" class="success-badge">
               <text class="badge-icon">✓</text>
@@ -95,19 +97,19 @@
         <view wx:if="{{stats}}" class="stats-card">
           <view class="stat-item highlight">
             <text class="stat-value primary">{{stats.streak}}</text>
-            <text class="stat-label">连胜天数</text>
+            <text class="stat-label">连续打卡</text>
           </view>
           <view class="stat-item">
             <text class="stat-value">{{stats.totalCount}}</text>
-            <text class="stat-label">记录次数</text>
+            <text class="stat-label">累计打卡</text>
           </view>
           <view class="stat-item">
             <text class="stat-value">{{stats.totalDays}}</text>
-            <text class="stat-label">记录天数</text>
+            <text class="stat-label">打卡天数</text>
           </view>
           <view class="stat-item">
             <text class="stat-value {{stats.missStreak > 0 ? 'warn' : ''}}">{{stats.missStreak}}</text>
-            <text class="stat-label">连续未记录</text>
+            <text class="stat-label">偷懒天数</text>
           </view>
         </view>
 
@@ -133,7 +135,7 @@
           <!-- 统计对比 -->
           <view wx:if="{{myRank && myRank.minutes && myRank.days && myRank.score && groupAvg && !statsLoading}}" class="stats-compare">
             <view class="compare-header">
-              <text class="compare-title">我的排名</text>
+              <text class="compare-title">我的位置</text>
               <text class="compare-rank">第{{rankDimension === 'minutes' ? myRank.minutes.rank : rankDimension === 'days' ? myRank.days.rank : myRank.score.rank}}名 / {{totalMembers}}人</text>
             </view>
             <view class="compare-stats">
@@ -143,14 +145,14 @@
               </view>
               <view class="compare-item group">
                 <text class="compare-value">{{rankDimension === 'minutes' ? groupAvg.totalMinutes : rankDimension === 'days' ? groupAvg.checkinDays : groupAvg.avgScore}}</text>
-                <text class="compare-label">群平均</text>
+                <text class="compare-label">组织平均</text>
               </view>
             </view>
             <view class="compare-percent">
-              <text wx:if="{{groupPercentiles}}">超越群内 {{rankDimension === 'minutes' ? groupPercentiles.minutes : rankDimension === 'days' ? groupPercentiles.days : groupPercentiles.score}}% 的用户</text>
+              <text wx:if="{{groupPercentiles}}">超越组织 {{rankDimension === 'minutes' ? groupPercentiles.minutes : rankDimension === 'days' ? groupPercentiles.days : groupPercentiles.score}}% 的成员</text>
             </view>
           </view>
-          <view wx:if="{{statsLoading}}" class="rank-loading">加载统计中...</view>
+          <view wx:if="{{statsLoading}}" class="rank-loading">正在计算排名...</view>
           <view wx:elif="{{!currentRankList || currentRankList.length === 0}}" class="rank-empty">暂无数据</view>
           <view wx:else class="rank-list">
             <view wx:for="{{currentRankList || []}}" wx:key="userId" class="rank-item" bindtap="onViewUserMoments" data-user-id="{{item.userId}}" data-nick-name="{{item.nickName}}" data-avatar-url="{{item.avatarUrl}}">
@@ -166,10 +168,10 @@
   </view>
 </scroll-view>
 
-<!-- 切换小组弹窗 -->
+<!-- 切换组织弹窗 -->
 <view class="modal {{showSwitchModal ? 'show' : ''}}" bindtap="hideSwitchGroup" wx:if="{{showSwitchModal}}">
   <view class="modal-content" catchtap="stopPropagation">
-    <text class="modal-title">切换小组</text>
+    <text class="modal-title">切换组织</text>
     <view wx:for="{{groups || []}}" wx:key="_id" class="group-option {{item._id === currentGroup._id ? 'active' : ''}}" bindtap="selectGroup" data-id="{{item._id}}">
       <view class="group-option-info">
         <text>{{item.name}}</text>
@@ -181,7 +183,7 @@
       </view>
     </view>
     <view class="modal-actions">
-      <button class="btn-text" bindtap="goCreateGroup">创建新小组</button>
+      <button class="btn-text" bindtap="goCreateGroup">创建新组织</button>
       <button class="btn-secondary" bindtap="hideSwitchGroup">取消</button>
     </view>
   </view>

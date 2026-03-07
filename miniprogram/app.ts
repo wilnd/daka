@@ -1,7 +1,7 @@
 // app.ts
 import './cloud-init' // 必须最先执行，初始化云开发
 import { getOpenid } from './services/auth'
-import { getSimpleThemeColor, THEMES, ThemeType } from './services/theme'
+import { getSimpleThemeColor, THEMES, ThemeType, ThemeConfig } from './services/theme'
 
 App({
   globalData: {
@@ -13,20 +13,33 @@ App({
     /** 当前主题类型 */
     themeType: 'normal' as ThemeType,
     /** 主题配置 */
-    themeConfig: null as any,
+    themeConfig: null as ThemeConfig | null,
     /** 用户已记录状态（用于定时刷新） */
     userCheckedToday: false,
     userCheckedYesterday: false,
+    /** 主题定时器ID */
+    themeTimer: null as number | null,
   },
   onLaunch() {
     this.checkAuth()
     this.initTheme()
     this.startThemeTimer()
   },
+  onUnload() {
+    this.stopThemeTimer()
+  },
+  /** 停止主题定时检查 */
+  stopThemeTimer() {
+    if (this.globalData.themeTimer) {
+      clearInterval(this.globalData.themeTimer)
+      this.globalData.themeTimer = null
+    }
+  },
   /** 启动主题定时检查 */
   startThemeTimer() {
+    this.stopThemeTimer()
     // 每分钟检查一次主题
-    setInterval(() => {
+    this.globalData.themeTimer = setInterval(() => {
       this.refreshThemeByTime()
     }, 60000) // 1分钟
   },

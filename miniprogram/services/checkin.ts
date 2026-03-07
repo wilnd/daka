@@ -270,7 +270,7 @@ export async function updateTodayCheckinWithContent(
   return { ok: true, score }
 }
 
-/** 补卡：仅可补今天往前 3 天（不含今天），每月 2 次（与群组无关） */
+/** 补卡：仅可补今天往前 3 天（不含今天），每月有次数限制（含VIP加成） */
 export async function doMakeup(
   userId: string,
   date: string
@@ -293,7 +293,23 @@ export async function doMakeup(
     .where({ userId, month })
     .get()
   const used = quotaList.length > 0 ? (quotaList[0] as any).usedCount : 0
-  if (used >= 2) return { ok: false, msg: '本月补卡次数已用尽，下月可继续使用' }
+
+  // 获取VIP加成后的补卡次数上限
+  let maxQuota = 2
+  try {
+    const { getMakeupQuotaWithVip } = await import('./vip')
+    maxQuota = await getMakeupQuotaWithVip(userId)
+  } catch (e) {
+    // 使用默认值
+  }
+
+  if (used >= maxQuota) {
+    const vipBonus = maxQuota - 2
+    if (vipBonus > 0) {
+      return { ok: false, msg: `本月补卡次数已用尽（含VIP加成${vipBonus}次），下月可继续使用` }
+    }
+    return { ok: false, msg: '本月补卡次数已用尽，下月可继续使用' }
+  }
 
   const now = new Date()
   if (quotaList.length > 0) {
@@ -345,12 +361,21 @@ export async function isCheckedToday(userId: string, groupId: string): Promise<b
   return total > 0
 }
 
-/** 获取今日剩余补卡次数 */
+/** 获取今日剩余补卡次数（含VIP加成） */
 export async function getMakeupRemain(userId: string): Promise<number> {
   const month = await getServerMonth()
   const { data } = await makeupQuotaCol().where({ userId, month }).get()
   const used = data.length > 0 ? (data[0] as any).usedCount : 0
-  return Math.max(0, 2 - used)
+  // 基础2次 + VIP加成
+  const baseQuota = 2
+  // 动态导入避免循环依赖
+  try {
+    const { getMakeupQuotaWithVip } = await import('./vip')
+    const vipQuota = await getMakeupQuotaWithVip(userId)
+    return Math.max(0, vipQuota - used)
+  } catch (e) {
+    return Math.max(0, baseQuota - used)
+  }
 }
 
 /** 获取打卡记录列表 */
@@ -367,7 +392,7 @@ export async function getCheckinRecords(
   return (data || []) as Checkin[]
 }
 
-/** 获取打卡记录详情（含小组名称） */
+/** 获取打卡记录详情（含组织名称） */
 export async function getCheckinRecordsWithGroup(
   userId: string,
   limit = 50

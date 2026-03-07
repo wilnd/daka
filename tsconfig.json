@@ -3,7 +3,7 @@
     "strictNullChecks": false,
     "noImplicitAny": false,
     "module": "CommonJS",
-    "target": "ES6",
+    "target": "ES5",
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
@@ -16,7 +16,7 @@
     "noUnusedParameters": false,
     "strict": false,
     "strictPropertyInitialization": false,
-    "lib": ["ES6", "DOM"],
+    "lib": ["ES6", "DOM", "ES2017"],
     "typeRoots": [
       "./typings"
     ]

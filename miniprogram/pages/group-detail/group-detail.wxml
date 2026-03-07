@@ -1,4 +1,4 @@
-<navigation-bar title="{{group.name || '小组详情'}}" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+<navigation-bar title="{{group.name || '组织详情'}}" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view wx:if="{{loading}}" class="loading-wrap">
@@ -25,7 +25,7 @@
         <view class="invite-actions" wx:if="{{isAdmin && inviteEnabled}}">
           <button class="btn-action" bindtap="showEditInvite">修改邀请码</button>
         </view>
-        <text class="invite-hint" wx:if="{{inviteEnabled}}">分享邀请码，好友即可加入小组</text>
+        <text class="invite-hint" wx:if="{{inviteEnabled}}">分享邀请码，好友即可加入组织</text>
       </view>
 
       <!-- Tab 切换 -->
@@ -77,10 +77,10 @@
         </view>
       </view>
 
-      <!-- 退小组按钮 -->
+      <!-- 退组织按钮 -->
       <view class="quit-section">
-        <button wx:if="{{!isAdmin}}" class="btn-danger" bindtap="onQuitGroup">退出小组</button>
-        <button wx:if="{{isAdmin}}" class="btn-danger" bindtap="onDissolveGroup">解散小组</button>
+        <button wx:if="{{!isAdmin}}" class="btn-danger" bindtap="onQuitGroup">退出组织</button>
+        <button wx:if="{{isAdmin}}" class="btn-danger" bindtap="onDissolveGroup">解散组织</button>
       </view>
     </view>
   </view>
@@ -104,7 +104,7 @@
         <text>移除成员</text>
       </view>
       <view wx:if="{{isSelfMember}}" class="action-item danger" bindtap="onQuitGroup">
-        <text>退出小组</text>
+        <text>退出组织</text>
       </view>
     </view>
     <button class="btn-secondary" bindtap="hideMemberModal">取消</button>

@@ -1,0 +1,633 @@
+@import '../../styles/theme.less';
+
+.page {
+  flex: 1;
+  height: 100%;
+}
+.container {
+  padding: @spacing-lg;
+  background: @color-bg-page;
+  min-height: 100vh;
+}
+
+// 目标详情卡片
+.goal-detail-card {
+  background: @color-white;
+  border-radius: @radius-xl;
+  padding: 32rpx;
+  box-shadow: @shadow-sm;
+  margin-bottom: 32rpx;
+
+  .goal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16rpx;
+    .goal-title {
+      font-size: 36rpx;
+      font-weight: bold;
+      color: @color-text-title;
+    }
+    .goal-period {
+      font-size: 24rpx;
+      padding: 8rpx 20rpx;
+      border-radius: @radius-full;
+      &.daily {
+        background: #e8f8f5;
+        color: @color-primary;
+      }
+      &.weekly {
+        background: #eaf2f8;
+        color: #3498db;
+      }
+      &.monthly {
+        background: #fef9e7;
+        color: #f39c12;
+      }
+    }
+  }
+
+  .goal-dates {
+    font-size: 26rpx;
+    color: @color-text-hint;
+    margin-bottom: 32rpx;
+  }
+
+  .goal-category {
+    font-size: 26rpx;
+    color: @color-text-body;
+    margin-bottom: 24rpx;
+    padding: 16rpx;
+    background: #e8f8f5;
+    border-radius: @radius-lg;
+    display: inline-flex;
+    align-items: center;
+    gap: 8rpx;
+    .category-label {
+      color: @color-text-hint;
+    }
+    .category-value {
+      color: @color-primary;
+      font-weight: 500;
+    }
+  }
+}
+
+// 确认人区域
+.confirmor-section {
+  background: #fef9e7;
+  border-radius: @radius-lg;
+  padding: 24rpx;
+  margin-bottom: 32rpx;
+
+  .confirmor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16rpx;
+    .confirmor-label {
+      font-size: 28rpx;
+      font-weight: bold;
+      color: @color-text-title;
+    }
+    .confirmor-status {
+      font-size: 24rpx;
+      padding: 4rpx 16rpx;
+      border-radius: @radius-full;
+      &.pending {
+        background: #fdeaa6;
+        color: #f39c12;
+      }
+      &.confirmed {
+        background: #d5f5e3;
+        color: #2ecc71;
+      }
+      &.rejected {
+        background: #fdedec;
+        color: #e74c3c;
+      }
+    }
+  }
+
+  .confirmor-info {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+    margin-bottom: 12rpx;
+    .confirmor-avatar {
+      width: 64rpx;
+      height: 64rpx;
+      border-radius: 50%;
+      background: #e8f8f5;
+    }
+    .confirmor-name {
+      font-size: 28rpx;
+      color: @color-text-title;
+      font-weight: bold;
+    }
+  }
+
+  .confirmor-remark {
+    font-size: 26rpx;
+    color: @color-text-body;
+    .remark-label {
+      font-weight: bold;
+    }
+  }
+}
+
+// 进度区域
+.progress-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 32rpx 0;
+  margin-bottom: 32rpx;
+
+  .progress-circle {
+    position: relative;
+    width: 200rpx;
+    height: 200rpx;
+    .circle-bg {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: @color-bg-page;
+    }
+    .circle-progress {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 16rpx solid @color-primary;
+      border-left-color: transparent;
+      border-bottom-color: transparent;
+      transform: rotate(-45deg);
+      transition: transform 0.5s ease;
+    }
+    .circle-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      .percent {
+        display: block;
+        font-size: 48rpx;
+        font-weight: bold;
+        color: @color-primary;
+      }
+      .label {
+        display: block;
+        font-size: 24rpx;
+        color: @color-text-hint;
+      }
+    }
+  }
+
+  .progress-numbers {
+    display: flex;
+    flex-direction: column;
+    gap: 24rpx;
+    .number-item {
+      text-align: center;
+      .number {
+        display: block;
+        font-size: 40rpx;
+        font-weight: bold;
+        color: @color-text-title;
+      }
+      .label {
+        display: block;
+        font-size: 24rpx;
+        color: @color-text-hint;
+      }
+    }
+  }
+}
+
+// 状态区域
+.status-section {
+  text-align: center;
+  padding: 24rpx;
+  border-radius: @radius-lg;
+  margin-bottom: 32rpx;
+
+  &.in_progress {
+    background: #e8f8f5;
+    .status-text { color: @color-primary; }
+  }
+  &.completed {
+    background: #d5f5e3;
+    .status-text { color: #2ecc71; font-size: 32rpx; font-weight: bold; }
+  }
+  &.failed {
+    background: #fdedec;
+    .status-text { color: #e74c3c; font-size: 32rpx; font-weight: bold; }
+  }
+  .status-hint {
+    display: block;
+    font-size: 24rpx;
+    color: #f39c12;
+    margin-top: 8rpx;
+  }
+}
+
+// 标签区域
+.tags-section {
+  margin-bottom: 24rpx;
+  .tags-label {
+    display: block;
+    font-size: 26rpx;
+    color: @color-text-hint;
+    margin-bottom: 12rpx;
+  }
+  .tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
+    .tag-item {
+      padding: 8rpx 20rpx;
+      background: #e8f8f5;
+      color: @color-primary;
+      border-radius: @radius-full;
+      font-size: 24rpx;
+    }
+  }
+}
+
+// 奖励惩罚区域
+.reward-penalty-section {
+  .rp-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 16rpx 0;
+    border-bottom: 1rpx solid @color-border-light;
+    .rp-label {
+      font-size: 28rpx;
+      color: @color-text-hint;
+    }
+    .rp-value {
+      font-size: 28rpx;
+      font-weight: bold;
+      &.reward { color: #e74c3c; }
+      &.penalty { color: #e74c3c; }
+    }
+  }
+}
+
+// 结算按钮
+.settle-btn {
+  margin-top: 32rpx;
+  background: linear-gradient(135deg, @color-primary 0%, #2ecc71 100%);
+  color: white;
+  border-radius: @radius-lg;
+}
+
+// 提示
+.tips {
+  background: @color-white;
+  border-radius: @radius-lg;
+  padding: 24rpx;
+  box-shadow: @shadow-sm;
+  .tips-title {
+    display: block;
+    font-size: 28rpx;
+    font-weight: bold;
+    color: @color-text-title;
+    margin-bottom: 16rpx;
+  }
+  .tips-text {
+    display: block;
+    font-size: 26rpx;
+    color: @color-text-body;
+    line-height: 1.6;
+  }
+}
+
+// 历史列表
+.section {
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24rpx;
+    .section-title {
+      font-size: 32rpx;
+      font-weight: bold;
+      color: @color-text-title;
+    }
+    .header-actions {
+      display: flex;
+      gap: 24rpx;
+      .go-confirmor, .go-create {
+        font-size: 26rpx;
+        color: @color-primary;
+      }
+    }
+  }
+}
+
+// 筛选器
+.filter-section {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+  .filter-btn {
+    padding: 12rpx 24rpx;
+    background: @color-white;
+    border-radius: @radius-lg;
+    font-size: 26rpx;
+    color: @color-text-body;
+    box-shadow: @shadow-sm;
+  }
+}
+
+// 待确认列表
+.pending-list {
+  .pending-item {
+    background: @color-white;
+    border-radius: @radius-lg;
+    padding: 24rpx;
+    margin-bottom: 16rpx;
+    box-shadow: @shadow-sm;
+    border-left: 6rpx solid #f39c12;
+
+    .pending-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12rpx;
+      .pending-title {
+        font-size: 28rpx;
+        font-weight: bold;
+        color: @color-text-title;
+      }
+      .pending-period {
+        font-size: 22rpx;
+        padding: 4rpx 12rpx;
+        background: #fef9e7;
+        color: #f39c12;
+        border-radius: @radius-full;
+      }
+    }
+
+    .pending-progress {
+      display: flex;
+      align-items: center;
+      gap: 16rpx;
+      margin-bottom: 12rpx;
+      .progress-bar {
+        flex: 1;
+        height: 8rpx;
+        background: @color-bg-page;
+        border-radius: 4rpx;
+        overflow: hidden;
+        .progress-fill {
+          height: 100%;
+          background: @color-primary;
+          border-radius: 4rpx;
+        }
+      }
+      .progress-text {
+        font-size: 24rpx;
+        color: @color-text-hint;
+      }
+    }
+
+    .pending-footer {
+      margin-bottom: 16rpx;
+      .pending-date {
+        font-size: 22rpx;
+        color: @color-text-hint;
+      }
+    }
+
+    .pending-actions {
+      display: flex;
+      gap: 16rpx;
+      .btn-confirm {
+        flex: 1;
+        background: @color-primary;
+        color: white;
+      }
+      .btn-reject {
+        flex: 1;
+        background: #fdedec;
+        color: #e74c3c;
+      }
+    }
+  }
+}
+
+.history-list {
+  .history-item {
+    background: @color-white;
+    border-radius: @radius-lg;
+    padding: 24rpx;
+    margin-bottom: 16rpx;
+    box-shadow: @shadow-sm;
+    display: flex;
+    align-items: center;
+    position: relative;
+
+    &.completed {
+      border-left: 6rpx solid #2ecc71;
+    }
+    &.failed {
+      border-left: 6rpx solid #e74c3c;
+    }
+    &.in_progress {
+      border-left: 6rpx solid @color-primary;
+    }
+
+    .history-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .history-delete {
+      font-size: 24rpx;
+      color: #999;
+      padding: 8rpx 16rpx;
+      border: 1rpx solid #ddd;
+      border-radius: @radius-sm;
+      margin-left: 12rpx;
+      flex-shrink: 0;
+      &:active {
+        background: #f5f5f5;
+      }
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12rpx;
+      .history-title {
+        font-size: 28rpx;
+        font-weight: bold;
+        color: @color-text-title;
+      }
+      .history-period {
+        font-size: 22rpx;
+        padding: 4rpx 12rpx;
+        border-radius: @radius-full;
+        background: @color-bg-page;
+        color: @color-text-hint;
+      }
+    }
+
+    .history-progress {
+      display: flex;
+      align-items: center;
+      gap: 16rpx;
+      margin-bottom: 12rpx;
+      .progress-bar {
+        flex: 1;
+        height: 8rpx;
+        background: @color-bg-page;
+        border-radius: 4rpx;
+        overflow: hidden;
+        .progress-fill {
+          height: 100%;
+          background: @color-primary;
+          border-radius: 4rpx;
+        }
+      }
+      .progress-text {
+        font-size: 24rpx;
+        color: @color-text-hint;
+      }
+    }
+
+    .history-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      .history-date {
+        font-size: 22rpx;
+        color: @color-text-hint;
+      }
+      .history-badges {
+        display: flex;
+        gap: 8rpx;
+        .confirmor-badge {
+          font-size: 20rpx;
+          padding: 4rpx 8rpx;
+          background: #fdeaa6;
+          color: #f39c12;
+          border-radius: @radius-full;
+        }
+      }
+      .history-status {
+        font-size: 24rpx;
+        font-weight: bold;
+        &.completed { color: #2ecc71; }
+        &.failed { color: #e74c3c; }
+        &.in_progress { color: @color-primary; }
+      }
+    }
+  }
+}
+
+// 空状态
+.empty {
+  text-align: center;
+  padding: 80rpx 0;
+  text {
+    display: block;
+    font-size: 28rpx;
+    color: @color-text-hint;
+    margin-bottom: 32rpx;
+  }
+  .create-btn {
+    display: inline-block;
+    padding: 16rpx 48rpx;
+    background: @color-primary;
+    color: white;
+    border-radius: @radius-full;
+  }
+}
+
+// 弹窗
+.modal {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: @color-bg-mask;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  &.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+.modal-content {
+  width: 80%;
+  background: @color-white;
+  border-radius: @radius-xl;
+  padding: 48rpx;
+  text-align: center;
+}
+.modal-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: @color-text-title;
+  display: block;
+  margin-bottom: 32rpx;
+}
+.result-info {
+  margin-bottom: 32rpx;
+  .result-name {
+    font-size: 32rpx;
+    font-weight: bold;
+    color: @color-primary;
+  }
+}
+.confirm-info {
+  margin-bottom: 24rpx;
+  .confirm-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 12rpx 0;
+    .confirm-label {
+      font-size: 28rpx;
+      color: @color-text-hint;
+    }
+    .confirm-value {
+      font-size: 28rpx;
+      color: @color-text-title;
+      font-weight: bold;
+    }
+  }
+}
+.remark-section {
+  margin-bottom: 24rpx;
+  text-align: left;
+  .remark-label {
+    display: block;
+    font-size: 28rpx;
+    color: @color-text-title;
+    margin-bottom: 12rpx;
+  }
+  .remark-input {
+    width: 100%;
+    padding: 16rpx;
+    background: @color-bg-page;
+    border-radius: @radius-lg;
+    font-size: 28rpx;
+  }
+}
+.modal-btns {
+  display: flex;
+  gap: 24rpx;
+  button {
+    flex: 1;
+  }
+}

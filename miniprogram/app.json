@@ -7,8 +7,14 @@
     "pages/group-detail/group-detail",
     "pages/profile/profile",
     "pages/contact-admin/contact-admin",
+    "pages/suggestion-admin/suggestion-admin",
     "pages/calendar/calendar",
-    "pages/user-moments/user-moments"
+    "pages/user-moments/user-moments",
+    "pages/vip/vip",
+    "pages/tasks/tasks",
+    "pages/goal/goal",
+    "pages/goal-progress/goal-progress",
+    "pages/goal-confirm/goal-confirm"
   ],
   "window": {
     "navigationBarTextStyle": "white",
@@ -31,7 +37,7 @@
       },
       {
         "pagePath": "pages/group/group",
-        "text": "小组",
+        "text": "组织",
         "iconPath": "assets/icons/normal/group.png",
         "selectedIconPath": "assets/icons/selected/group.png"
       },

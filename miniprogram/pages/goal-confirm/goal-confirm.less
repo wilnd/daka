@@ -1,0 +1,280 @@
+// goal-confirm.less
+@import '../../styles/theme.less';
+
+.page {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background: @color-primary;
+  padding: 40rpx 32rpx;
+  .title {
+    font-size: 36rpx;
+    font-weight: bold;
+    color: white;
+  }
+}
+
+.content {
+  flex: 1;
+  background: @color-bg-page;
+  min-height: 100vh;
+}
+
+.container {
+  padding: @spacing-lg;
+}
+
+// 加载中
+.loading {
+  text-align: center;
+  padding: 100rpx;
+  color: @color-text-body;
+  font-size: 28rpx;
+}
+
+// 输入确认码模式
+.input-code-mode {
+  .mode-card {
+    background: @color-white;
+    border-radius: @radius-xl;
+    padding: 48rpx;
+    text-align: center;
+    box-shadow: @shadow-md;
+
+    .mode-title {
+      display: block;
+      font-size: 36rpx;
+      font-weight: bold;
+      color: @color-text-title;
+      margin-bottom: 16rpx;
+    }
+
+    .mode-desc {
+      display: block;
+      font-size: 26rpx;
+      color: @color-text-hint;
+      margin-bottom: 48rpx;
+    }
+
+    .code-input {
+      background: @color-bg-page;
+      border-radius: @radius-lg;
+      padding: 24rpx 32rpx;
+      font-size: 36rpx;
+      text-align: center;
+      letter-spacing: 8rpx;
+      margin-bottom: 48rpx;
+      border: 2rpx solid @color-border;
+    }
+  }
+}
+
+// 错误提示
+.error {
+  text-align: center;
+  padding: 100rpx;
+
+  .error-text {
+    display: block;
+    font-size: 28rpx;
+    color: #e74c3c;
+    margin-bottom: 32rpx;
+  }
+}
+
+// 结果卡片
+.result-card {
+  background: @color-white;
+  border-radius: @radius-xl;
+  padding: 64rpx;
+  text-align: center;
+  box-shadow: @shadow-md;
+
+  .result-icon {
+    width: 120rpx;
+    height: 120rpx;
+    border-radius: 50%;
+    font-size: 64rpx;
+    line-height: 120rpx;
+    margin: 0 auto 32rpx;
+
+    &.success {
+      background: #d5f5e3;
+      color: #2ecc71;
+    }
+
+    &.failed {
+      background: #fadbd8;
+      color: #e74c3c;
+    }
+  }
+
+  .result-title {
+    display: block;
+    font-size: 36rpx;
+    font-weight: bold;
+    color: @color-text-title;
+    margin-bottom: 16rpx;
+  }
+
+  .result-desc {
+    display: block;
+    font-size: 26rpx;
+    color: @color-text-hint;
+  }
+}
+
+// 目标详情
+.goal-detail {
+  .detail-card {
+    background: @color-white;
+    border-radius: @radius-xl;
+    padding: 32rpx;
+    box-shadow: @shadow-md;
+    margin-bottom: 32rpx;
+
+    .detail-title {
+      display: block;
+      font-size: 32rpx;
+      font-weight: bold;
+      color: @color-text-title;
+      margin-bottom: 8rpx;
+    }
+
+    .detail-desc {
+      display: block;
+      font-size: 26rpx;
+      color: @color-text-hint;
+      margin-bottom: 24rpx;
+    }
+
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16rpx 0;
+      border-bottom: 1rpx solid @color-border-light;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .detail-label {
+        font-size: 26rpx;
+        color: @color-text-hint;
+      }
+
+      .detail-value {
+        font-size: 26rpx;
+        color: @color-text-title;
+        font-weight: bold;
+      }
+    }
+
+    .detail-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12rpx;
+
+      .tag {
+        padding: 8rpx 16rpx;
+        border-radius: @radius-full;
+        font-size: 24rpx;
+
+        &.reward {
+          background: #e8f8f5;
+          color: @color-primary;
+        }
+
+        &.penalty {
+          background: #fdedec;
+          color: #e74c3c;
+        }
+      }
+    }
+  }
+}
+
+// 确认表单
+.confirm-form {
+  background: @color-white;
+  border-radius: @radius-xl;
+  padding: 32rpx;
+  box-shadow: @shadow-md;
+
+  .form-title {
+    display: block;
+    font-size: 32rpx;
+    font-weight: bold;
+    color: @color-text-title;
+    margin-bottom: 24rpx;
+  }
+
+  .form-group {
+    margin-bottom: 24rpx;
+
+    .form-label {
+      display: block;
+      font-size: 26rpx;
+      color: @color-text-body;
+      margin-bottom: 12rpx;
+    }
+
+    .input-field {
+      background: @color-bg-page;
+      border-radius: @radius-lg;
+      padding: 20rpx 24rpx;
+      font-size: 28rpx;
+      border: 2rpx solid @color-border;
+    }
+  }
+
+  .form-btns {
+    display: flex;
+    gap: 24rpx;
+    margin-top: 32rpx;
+
+    .btn-confirm {
+      flex: 1;
+      background: @color-primary;
+      color: white;
+      border-radius: @radius-lg;
+      padding: 24rpx;
+      font-size: 28rpx;
+      border: none;
+    }
+
+    .btn-reject {
+      flex: 1;
+      background: @color-white;
+      color: #e74c3c;
+      border-radius: @radius-lg;
+      padding: 24rpx;
+      font-size: 28rpx;
+      border: 2rpx solid #e74c3c;
+    }
+  }
+}
+
+// 按钮样式
+.btn-primary {
+  background: @color-primary;
+  color: white;
+  border-radius: @radius-lg;
+  padding: 24rpx;
+  font-size: 28rpx;
+  border: none;
+}
+
+.btn-secondary {
+  background: @color-white;
+  color: @color-text-body;
+  border-radius: @radius-lg;
+  padding: 24rpx;
+  font-size: 28rpx;
+  border: 2rpx solid @color-border;
+}

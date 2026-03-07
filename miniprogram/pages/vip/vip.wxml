@@ -1,0 +1,278 @@
+<!--miniprogram/pages/vip/vip.wxml-->
+<view class="vip-page">
+  <!-- 顶部装饰背景 -->
+  <view class="header-decorations">
+    <view class="decoration-circle circle-1"></view>
+    <view class="decoration-circle circle-2"></view>
+    <view class="decoration-circle circle-3"></view>
+  </view>
+
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="back-btn" bindtap="goBack">
+      <text class="back-icon">‹</text>
+    </view>
+    <view class="page-title">VIP中心</view>
+    <view class="placeholder"></view>
+  </view>
+
+  <!-- 会员卡片区域 -->
+  <view class="vip-card-section">
+    <view class="vip-card {{vipInfo.level > 0 && !vipInfo.isExpired ? 'active' : ''}}">
+      <!-- 卡片光效 -->
+      <view class="card-shine"></view>
+      
+      <!-- 卡片内容 -->
+      <view class="card-main">
+        <view class="card-left">
+          <view class="vip-icon-wrapper">
+            <text class="vip-icon">👑</text>
+          </view>
+          <view class="vip-badge-large" style="background: {{vipInfo.level > 0 ? vipLevelColors[vipInfo.level] : '#999'}}">
+            {{vipInfo.level > 0 ? vipLevelNames[vipInfo.level] : '普通用户'}}
+          </view>
+        </view>
+        <view class="card-right">
+          <view class="vip-status-box" wx:if="{{vipInfo.level > 0}}">
+            <text class="status-label" wx:if="{{!vipInfo.isExpired}}">剩余天数</text>
+            <text class="status-label" wx:else>已过期</text>
+            <text class="status-value" wx:if="{{!vipInfo.isExpired}}">{{remainingDays}}</text>
+            <text class="status-value expired" wx:else>{{vipInfo.totalVipDays}}天</text>
+          </view>
+          <view class="vip-status-box" wx:else>
+            <text class="status-label">开通会员</text>
+            <text class="status-hint">享更多特权</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 会员详情 -->
+      <view class="card-details" wx:if="{{vipInfo.level > 0}}">
+        <view class="detail-item">
+          <text class="detail-label">开通时间</text>
+          <text class="detail-value">{{vipInfo.formattedStartTime}}</text>
+        </view>
+        <view class="detail-divider"></view>
+        <view class="detail-item">
+          <text class="detail-label">到期时间</text>
+          <text class="detail-value">{{vipInfo.formattedExpireTime}}</text>
+        </view>
+        <view class="detail-divider"></view>
+        <view class="detail-item">
+          <text class="detail-label">累计VIP</text>
+          <text class="detail-value highlight">{{vipInfo.totalVipDays}}天</text>
+        </view>
+      </view>
+
+      <!-- 未开通提示 -->
+      <view class="card-details" wx:else>
+        <view class="tip-box">
+          <text class="tip-icon">🎁</text>
+          <text class="tip-text">开通VIP，解锁专属特权</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 开通/续费按钮 -->
+  <view class="action-section" wx:if="{{vipInfo.level === 0 || vipInfo.isExpired}}">
+    <button class="upgrade-btn" bindtap="showUpgradeOptions">
+      <text class="btn-icon">✨</text>
+      <text class="btn-text">立即开通VIP</text>
+    </button>
+    <view class="upgrade-tips">
+      <text>新用户首月5折起</text>
+      <text class="divider">|</text>
+      <text>连续包年更优惠</text>
+    </view>
+  </view>
+
+  <!-- 续费按钮（已开通未过期） -->
+  <view class="action-section" wx:elif="{{vipInfo.level > 0 && !vipInfo.isExpired}}">
+    <button class="renew-btn" bindtap="showUpgradeOptions">
+      <text class="btn-icon">🔄</text>
+      <text class="btn-text">续费VIP</text>
+    </button>
+    <view class="upgrade-tips">
+      <text>距离到期还有{{remainingDays}}天</text>
+    </view>
+  </view>
+
+  <!-- 权益亮点 -->
+  <view class="benefits-highlight">
+    <view class="highlight-item" wx:for="{{highlightBenefits}}" wx:key="index">
+      <text class="highlight-icon">{{item.icon}}</text>
+      <text class="highlight-text">{{item.text}}</text>
+    </view>
+  </view>
+
+  <!-- 权益列表 -->
+  <view class="benefits-section">
+    <view class="section-header">
+      <text class="section-title">会员权益</text>
+      <text class="section-subtitle">各种特权等你来~</text>
+    </view>
+    <view class="benefits-grid">
+      <view class="benefit-card" wx:for="{{benefitsList}}" wx:key="index">
+        <view class="benefit-icon-box">{{item.icon}}</view>
+        <view class="benefit-info">
+          <text class="benefit-title">{{item.title}}</text>
+          <text class="benefit-desc">{{item.desc}}</text>
+        </view>
+        <view class="benefit-arrow">›</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 等级对比 -->
+  <view class="level-section">
+    <view class="section-header">
+      <text class="section-title">等级权益</text>
+      <text class="section-subtitle">选择适合您的VIP</text>
+    </view>
+    <view class="level-cards">
+      <!-- 普通用户 -->
+      <view class="level-card normal">
+        <view class="level-header">
+          <text class="level-name">普通</text>
+          <text class="level-price">免费</text>
+        </view>
+        <view class="level-features">
+          <view class="feature-item disabled">基础打卡</view>
+          <view class="feature-item disabled">查看统计</view>
+        </view>
+      </view>
+      
+      <!-- 青铜VIP -->
+      <view class="level-card bronze">
+        <view class="level-badge">推荐</view>
+        <view class="level-header">
+          <text class="level-name">青铜VIP</text>
+          <text class="level-price">¥9/月</text>
+        </view>
+        <view class="level-features">
+          <view class="feature-item">专属徽章</view>
+          <view class="feature-item">4次补卡/月</view>
+          <view class="feature-item">优先客服</view>
+        </view>
+      </view>
+      
+      <!-- 白银VIP -->
+      <view class="level-card silver">
+        <view class="level-header">
+          <text class="level-name">白银VIP</text>
+          <text class="level-price">¥19/月</text>
+        </view>
+        <view class="level-features">
+          <view class="feature-item">专属徽章</view>
+          <view class="feature-item">8次补卡/月</view>
+          <view class="feature-item">优先客服</view>
+          <view class="feature-item">高级统计</view>
+        </view>
+      </view>
+      
+      <!-- 黄金VIP -->
+      <view class="level-card gold">
+        <view class="level-header">
+          <text class="level-name">黄金VIP</text>
+          <text class="level-price">¥39/月</text>
+        </view>
+        <view class="level-features">
+          <view class="feature-item">全部特权</view>
+          <view class="feature-item">无限补卡</view>
+          <view class="feature-item">专属客服</view>
+          <view class="feature-item">限量礼品</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 常见问题 -->
+  <view class="faq-section">
+    <view class="section-header">
+      <text class="section-title">常见问题</text>
+    </view>
+    <view class="faq-list">
+      <view class="faq-item">
+        <text class="faq-question">Q: VIP什么时候开始生效？</text>
+        <text class="faq-answer">A: 开通后立即生效，到期时间从开通当天开始计算。</text>
+      </view>
+      <view class="faq-item">
+        <text class="faq-question">Q: 可以中途取消吗？</text>
+        <text class="faq-answer">A: 可以随时取消，剩余天数按比例退还。</text>
+      </view>
+      <view class="faq-item">
+        <text class="faq-question">Q: 补卡次数如何计算？</text>
+        <text class="faq-answer">A: 每月1日重置补卡次数，不可累积到下月。</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部留白 -->
+  <view class="bottom-space"></view>
+
+  <!-- 开通弹窗 -->
+  <view class="modal-mask" wx:if="{{showUpgradeModal}}" bindtap="closeUpgradeModal"></view>
+  <view class="upgrade-modal {{showUpgradeModal ? 'show' : ''}}">
+    <view class="modal-handle"></view>
+    <view class="modal-header">
+      <text class="modal-title">开通VIP</text>
+      <view class="modal-close" bindtap="closeUpgradeModal">
+        <text>×</text>
+      </view>
+    </view>
+    
+    <view class="modal-body">
+      <!-- 等级选择 -->
+      <view class="level-selector">
+        <view 
+          class="level-option {{selectedLevel === item.level ? 'selected ' + ['normal', 'bronze', 'silver', 'gold'][item.level] : ''}}"
+          wx:for="{{levelOptions}}"
+          wx:key="level"
+          data-level="{{item.level}}"
+          bindtap="selectLevel"
+        >
+          <text class="option-name">{{item.name}}</text>
+          <text class="option-tag" wx:if="{{item.recommended}}">推荐</text>
+        </view>
+      </view>
+
+      <!-- 时长选择 -->
+      <view class="duration-selector">
+        <view 
+          class="duration-option {{selectedDuration === item.days ? 'selected' : ''}}"
+          wx:for="{{durationOptions}}"
+          wx:key="days"
+          data-days="{{item.days}}"
+          bindtap="selectDuration"
+        >
+          <view class="duration-days">{{item.days}}天</view>
+          <view class="duration-price" wx:if="{{item.originalPrice}}">
+            <text class="original">¥{{item.originalPrice}}</text>
+            <text class="current">¥{{item.price}}</text>
+          </view>
+          <view class="duration-price" wx:else>
+            <text class="current">¥{{item.price}}</text>
+          </view>
+          <view class="duration-tag" wx:if="{{item.tag}}">{{item.tag}}</view>
+        </view>
+      </view>
+
+      <!-- 支付按钮 -->
+      <button 
+        class="pay-btn {{canUpgrade ? '' : 'disabled'}}"
+        bindtap="confirmUpgrade"
+        disabled="{{!canUpgrade || isUpgrading}}"
+      >
+        <text class="pay-icon">💳</text>
+        <text class="pay-text">{{isUpgrading ? '开通中...' : (canUpgrade ? '立即支付 ¥' + currentPrice : '请选择套餐')}}</text>
+      </button>
+
+      <!-- 用户协议 -->
+      <view class="agreement">
+        <text class="agreement-text">开通即表示同意</text>
+        <text class="agreement-link">《VIP服务协议》</text>
+      </view>
+    </view>
+  </view>
+</view>

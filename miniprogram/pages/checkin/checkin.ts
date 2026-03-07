@@ -4,27 +4,38 @@ import { getOpenid, getOrCreateUser } from '../../services/auth'
 import { getStreak } from '../../services/stats'
 import { getMyGroups } from '../../services/group'
 import { getCategories, getSubCategories, Category, SubCategory } from '../../services/category'
+import { getCachedGroups, setCachedGroups, defaultAvatar } from '../../services/utils'
 
 const app = getApp() as IAppOption
 
-const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
+/** 上次选择的打卡默认值 key */
+const DEFAULT_CHECKIN_KEY = 'defaultCheckin'
 
-/** 本地缓存的群组列表 key */
-const GROUPS_CACHE_KEY = 'cachedGroups'
+/** 默认值的数据结构 */
+interface DefaultCheckinData {
+  selectedTag: string
+  categoryIndex: number
+  subCategoryIndex: number
+  duration: string
+  durationUnitIndex: number
+  isPublishToMoments: boolean
+  momentsGroupId: string
+  momentsGroupIndex: number
+}
 
-/** 从本地缓存获取群组列表 */
-function getCachedGroups(): any[] {
+/** 从本地缓存获取打卡默认值 */
+function getDefaultCheckin(): DefaultCheckinData | null {
   try {
-    const cached = wx.getStorageSync(GROUPS_CACHE_KEY)
-    return cached || []
+    const data = wx.getStorageSync(DEFAULT_CHECKIN_KEY)
+    return data || null
   } catch {
-    return []
+    return null
   }
 }
 
-/** 保存群组列表到本地缓存 */
-function setCachedGroups(groups: any[]): void {
-  wx.setStorageSync(GROUPS_CACHE_KEY, groups)
+/** 保存打卡默认值到本地缓存 */
+function setDefaultCheckin(data: DefaultCheckinData): void {
+  wx.setStorageSync(DEFAULT_CHECKIN_KEY, data)
 }
 
 Page({
@@ -80,10 +91,8 @@ Page({
   },
 
   onShow() {
-    // 同步主题色（从记录返回时可能已更新）
-    this.setData({
-      themeColor: '#1ABC9C'
-    })
+    // onLoad 中已设置主题色，不需要重复设置
+    // 如果需要刷新数据，可以在这里调用 init()
   },
 
   async init() {
@@ -165,7 +174,8 @@ Page({
       // 无论是否已记录，都使用 create 模式（支持多次记录）
       // 如果有历史记录，记录最后一次的类别选择供用户参考
       if (!ck) {
-        this.setData({ mode: 'create' })
+        // 没有今日记录时，加载上次保存的默认值
+        this.loadDefaultCheckin()
         return
       }
 
@@ -215,6 +225,46 @@ Page({
       console.error('加载今日记录失败', e)
       wx.showToast({ title: '加载失败', icon: 'none' })
     }
+  },
+
+  // 加载上次保存的默认值
+  loadDefaultCheckin() {
+    const defaultData = getDefaultCheckin()
+    if (!defaultData) {
+      this.setData({ mode: 'create' })
+      return
+    }
+
+    const categories = this.data.categories
+    const categoryIndex = defaultData.categoryIndex >= 0 ? defaultData.categoryIndex : -1
+    const categoryId = categoryIndex >= 0 && categories[categoryIndex] ? categories[categoryIndex].id : ''
+    const subCategories = categoryId ? getSubCategories(categoryId) : []
+    const subCategoryIndex = defaultData.subCategoryIndex >= 0 ? defaultData.subCategoryIndex : -1
+
+    // 根据 momentsGroupId 查找群组名称和索引
+    let momentsGroupName = ''
+    let momentsGroupIndex = defaultData.momentsGroupIndex || 0
+    if (defaultData.momentsGroupId && this.data.momentsGroupRange) {
+      const rangeIndex = this.data.momentsGroupRange.findIndex((g: any) => g._id === defaultData.momentsGroupId)
+      if (rangeIndex > 0) {
+        momentsGroupIndex = rangeIndex
+        momentsGroupName = this.data.momentsGroupRange[rangeIndex] && this.data.momentsGroupRange[rangeIndex].name ? this.data.momentsGroupRange[rangeIndex].name : ''
+      }
+    }
+
+    this.setData({
+      mode: 'create',
+      selectedTag: defaultData.selectedTag || '',
+      categoryIndex,
+      subCategoryIndex,
+      subCategories,
+      duration: defaultData.duration || '',
+      durationUnitIndex: defaultData.durationUnitIndex || 0,
+      isPublishToMoments: defaultData.isPublishToMoments !== false,
+      momentsGroupId: defaultData.momentsGroupId || '',
+      momentsGroupName,
+      momentsGroupIndex
+    })
   },
 
   onTextInput(e: any) {
@@ -411,7 +461,22 @@ Page({
         })
 
         // 记录成功后更新主题为绿色
-        app.updateTheme!(true, true)
+        if (app.updateTheme) {
+          app.updateTheme(true, true)
+        }
+
+        // 保存用户选择的默认值到本地存储
+        const defaultData: DefaultCheckinData = {
+          selectedTag: this.data.selectedTag,
+          categoryIndex: this.data.categoryIndex,
+          subCategoryIndex: this.data.subCategoryIndex,
+          duration: this.data.duration,
+          durationUnitIndex: this.data.durationUnitIndex,
+          isPublishToMoments: this.data.isPublishToMoments,
+          momentsGroupId: this.data.momentsGroupId,
+          momentsGroupIndex: this.data.momentsGroupIndex
+        }
+        setDefaultCheckin(defaultData)
 
         // 显示连胜动画和分享海报
         // 获取当前连胜（记录后的连胜）

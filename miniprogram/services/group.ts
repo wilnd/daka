@@ -1,7 +1,7 @@
 /**
- * 小组管理服务
+ * 组织管理服务
  */
-import { db, groupsCol, membersCol, genInviteCode } from './db'
+import { db, groupsCol, membersCol, usersCol, genInviteCode } from './db'
 
 export interface Group {
   _id: string
@@ -21,7 +21,7 @@ export interface Member {
   joinTime: Date
 }
 
-/** 创建小组 */
+/** 创建组织 */
 export async function createGroup(name: string, creatorId: string): Promise<Group> {
   const inviteCode = await genInviteCode()
   const now = new Date()
@@ -41,10 +41,10 @@ export async function createGroup(name: string, creatorId: string): Promise<Grou
   return { _id, name, inviteCode, creatorId, createTime: now, updateTime: now } as Group
 }
 
-/** 每个用户最多加入的小组数量 */
+/** 每个用户最多加入的组织数量 */
 const MAX_GROUP_PER_USER = 20
 
-/** 通过邀请码加入小组 */
+/** 通过邀请码加入组织 */
 export async function joinByInviteCode(inviteCode: string, userId: string): Promise<{ ok: boolean; msg?: string; group?: Group | null }> {
   const { data: list } = await groupsCol().where({ inviteCode }).get()
   if (list.length === 0) return { ok: false, msg: '邀请码无效', group: null }
@@ -53,14 +53,14 @@ export async function joinByInviteCode(inviteCode: string, userId: string): Prom
   const { data: members } = await membersCol()
     .where({ groupId: group._id, userId, status: 'normal' })
     .get()
-  if (members.length > 0) return { ok: false, msg: '你已在该小组中', group } // 已在组内
+  if (members.length > 0) return { ok: false, msg: '你已在该组织中', group } // 已在组内
 
-  // 检查用户已加入的小组数量
+  // 检查用户已加入的组织数量
   const { data: myGroups } = await membersCol()
     .where({ userId, status: 'normal' })
     .get()
   if (myGroups.length >= MAX_GROUP_PER_USER) {
-    return { ok: false, msg: `你最多只能加入${MAX_GROUP_PER_USER}个小组`, group: null }
+    return { ok: false, msg: `你最多只能加入${MAX_GROUP_PER_USER}个组织`, group: null }
   }
 
   const now = new Date()
@@ -77,7 +77,7 @@ export async function joinByInviteCode(inviteCode: string, userId: string): Prom
   return { ok: true, group }
 }
 
-/** 获取用户加入的小组列表 */
+/** 获取用户加入的组织列表 */
 export async function getMyGroups(userId: string): Promise<(Group & { memberCount?: number })[]> {
   const { data: myMembers } = await membersCol()
     .where({ userId, status: 'normal' })
@@ -88,27 +88,70 @@ export async function getMyGroups(userId: string): Promise<(Group & { memberCoun
   const { data: groups } = await groupsCol()
     .where({ _id: _.in(groupIds) })
     .get()
+
+  // 批量获取所有群组的成员数量
+  const groupMemberCounts: Record<string, number> = {}
+  const { data: allMemberCounts } = await membersCol()
+    .where({
+      groupId: _.in(groupIds),
+      status: 'normal'
+    })
+    .get()
+
+  // 按 groupId 统计成员数量
+  for (const member of (allMemberCounts || []) as any[]) {
+    if (member.groupId) {
+      groupMemberCounts[member.groupId] = (groupMemberCounts[member.groupId] || 0) + 1
+    }
+  }
+
   const result: (Group & { memberCount?: number })[] = []
   for (const g of groups as any[]) {
-    const { total } = await membersCol().where({ groupId: g._id, status: 'normal' }).count()
-    result.push({ ...g, memberCount: total })
+    result.push({ ...g, memberCount: groupMemberCounts[g._id] || 0 })
   }
   return result
 }
 
-/** 获取小组详情 */
+/** 获取组织详情 */
 export async function getGroupById(groupId: string): Promise<Group | null> {
   const { data } = await groupsCol().doc(groupId).get()
   return data as Group | null
 }
 
-/** 获取小组成员（含用户信息需额外查 users） */
+/** 获取组织成员（含用户信息需额外查 users） */
 export async function getGroupMembers(groupId: string): Promise<Member[]> {
   const { data } = await membersCol()
     .where({ groupId, status: 'normal' })
     .orderBy('joinTime', 'asc')
     .get()
   return data as Member[]
+}
+
+/** 获取组织成员（含用户昵称和头像） */
+export async function getGroupMembersWithUserInfo(groupId: string): Promise<(Member & { nickName?: string; avatarUrl?: string })[]> {
+  const members = await getGroupMembers(groupId)
+  if (members.length === 0) return []
+
+  // 批量获取用户信息
+  const userIds = members.map(m => m.userId).filter(Boolean)
+  if (userIds.length === 0) return members
+
+  const _ = db.command
+  const { data: users } = await usersCol()
+    .where({ openid: _.in(userIds) })
+    .get()
+
+  const userMap = new Map((users || []).map((u: any) => [u.openid, u]))
+
+  // 合并用户信息
+  return members.map(m => {
+    const userInfo = userMap.get(m.userId)
+    return {
+      ...m,
+      nickName: userInfo && userInfo.nickName ? userInfo.nickName : '未知用户',
+      avatarUrl: userInfo && userInfo.avatarUrl ? userInfo.avatarUrl : ''
+    }
+  })
 }
 
 /** 移除成员（仅组长可操作） */
@@ -128,11 +171,11 @@ export async function removeMember(memberId: string, adminId: string): Promise<{
   return { ok: true }
 }
 
-/** 退出小组 */
+/** 退出组织 */
 export async function quitGroup(memberId: string, userId: string): Promise<{ ok: boolean; msg?: string }> {
   const { data: member } = await membersCol().doc(memberId).get()
   if (!member) return { ok: false, msg: '成员不存在' }
-  if (member.userId !== userId) return { ok: false, msg: '只能退出自己的小组' }
+  if (member.userId !== userId) return { ok: false, msg: '只能退出自己的组织' }
 
   const { data: members } = await membersCol()
     .where({ groupId: member.groupId, status: 'normal' })
@@ -142,7 +185,7 @@ export async function quitGroup(memberId: string, userId: string): Promise<{ ok:
   if (member.role === 'admin' && adminCount === 1) {
     const normalMembers = members.filter((m: any) => m.role !== 'admin')
     if (normalMembers.length > 0) {
-      return { ok: false, msg: '请先转让组长身份再退出小组' }
+      return { ok: false, msg: '请先转让组长身份再退出组织' }
     }
   }
 
@@ -168,7 +211,7 @@ export async function transferAdmin(memberId: string, adminId: string): Promise<
   return { ok: true }
 }
 
-/** 更新小组邀请码（自定义） */
+/** 更新组织邀请码（自定义） */
 export async function updateInviteCode(groupId: string, adminId: string, newCode: string): Promise<{ ok: boolean; msg?: string }> {
   // 验证权限
   const { data: adminMember } = await membersCol()
@@ -185,7 +228,7 @@ export async function updateInviteCode(groupId: string, adminId: string, newCode
     return { ok: false, msg: '邀请码只能包含字母和数字' }
   }
 
-  // 检查邀请码是否已被其他小组使用
+  // 检查邀请码是否已被其他组织使用
   const { data: existing } = await groupsCol()
     .where({ inviteCode: code })
     .get()
@@ -199,13 +242,13 @@ export async function updateInviteCode(groupId: string, adminId: string, newCode
   return { ok: true }
 }
 
-/** 更新小组信息 */
+/** 更新组织信息 */
 export async function updateGroup(groupId: string, adminId: string, data: { inviteEnabled?: boolean }): Promise<{ ok: boolean; msg?: string }> {
   // 验证权限
   const { data: adminMember } = await membersCol()
     .where({ groupId, userId: adminId, role: 'admin', status: 'normal' })
     .get()
-  if (adminMember.length === 0) return { ok: false, msg: '只有组长才能修改小组设置' }
+  if (adminMember.length === 0) return { ok: false, msg: '只有组长才能修改组织设置' }
 
   const updateData: any = { updateTime: new Date() }
   if (data.inviteEnabled !== undefined) {
@@ -216,7 +259,7 @@ export async function updateGroup(groupId: string, adminId: string, data: { invi
   return { ok: true }
 }
 
-/** 重新生成小组邀请码 */
+/** 重新生成组织邀请码 */
 export async function regenerateInviteCode(groupId: string, adminId: string): Promise<{ ok: boolean; msg?: string; newCode?: string }> {
   // 验证权限
   const { data: adminMember } = await membersCol()
@@ -233,29 +276,22 @@ export async function regenerateInviteCode(groupId: string, adminId: string): Pr
   return { ok: true, newCode }
 }
 
-/** 解散小组（仅组长可操作，解散后所有成员自动退组） */
+/** 解散组织（仅组长可操作，解散后所有成员自动退组） */
 export async function dissolveGroup(groupId: string, adminId: string): Promise<{ ok: boolean; msg?: string }> {
   // 验证权限：必须是组长
   const { data: adminMember } = await membersCol()
     .where({ groupId, userId: adminId, role: 'admin', status: 'normal' })
     .get()
-  if (adminMember.length === 0) return { ok: false, msg: '只有组长才能解散小组' }
+  if (adminMember.length === 0) return { ok: false, msg: '只有组长才能解散组织' }
 
-  // 获取所有成员
-  const { data: members } = await membersCol()
+  // 批量更新所有成员状态为 quit（使用 where + update 批量操作）
+  await membersCol()
     .where({ groupId, status: 'normal' })
-    .get()
-
-  // 将所有成员状态更新为 quit
-  const db = wx.cloud.database()
-  const _ = db.command
-  for (const member of members) {
-    await membersCol().doc(member._id).update({
+    .update({
       data: { status: 'quit', updateTime: new Date() }
     })
-  }
 
-  // 更新小组状态为已解散
+  // 更新组织状态为已解散
   await groupsCol().doc(groupId).update({
     data: { status: 'dissolved', updateTime: new Date() }
   })

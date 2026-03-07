@@ -1,110 +1,295 @@
 <navigation-bar title="我的" back="{{false}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
+    <!-- 未授权状态 -->
     <view wx:if="{{!hasUserInfo}}" class="need-auth">
-      <text>请先完成授权</text>
-      <navigator url="/pages/index/index" class="link">去首页</navigator>
+      <view class="empty-illustration">
+        <text class="empty-icon">👤</text>
+      </view>
+      <text class="empty-title">请先完成授权</text>
+      <text class="empty-desc">登录后就可以查看你的运动数据啦</text>
+      <navigator url="/pages/index/index" class="btn-primary auth-btn">
+        <text>去首页报道</text>
+      </navigator>
     </view>
+
+    <!-- 已授权内容 -->
     <view wx:else class="content">
-      <view class="user-card" bindtap="onEditUserInfo">
-        <image 
-          class="avatar" 
-          src="{{userInfo.avatarUrl}}" 
-          mode="aspectFill"
-          catchtap="onViewMyMoments"
-        ></image>
-        <view class="user-info">
-          <text class="nick">{{userInfo.nickName}}</text>
-          <text class="remark" wx:if="{{userInfo.remarkName}}">备注：{{userInfo.remarkName}}</text>
-          <text class="edit-hint">点击修改信息</text>
+      <!-- VIP会员卡片 -->
+      <view class="vip-card" bindtap="goToVip">
+        <view class="vip-bg">
+          <view class="vip-shine"></view>
         </view>
-        <text class="arrow">></text>
+        <view class="vip-content">
+          <view class="vip-header">
+            <view class="vip-title-wrap">
+              <text class="vip-icon">👑</text>
+              <text class="vip-title">VIP会员</text>
+            </view>
+            <view class="vip-badge {{vipInfo.level > 0 ? 'active' : ''}}" style="background: {{vipInfo.level > 0 ? vipLevelColors[vipInfo.level] : '#666'}}">
+              <text>{{vipInfo.level > 0 ? vipLevelNames[vipInfo.level] : '立即开通'}}</text>
+            </view>
+          </view>
+          <view class="vip-benefits">
+            <text wx:if="{{vipInfo.level === 0}}" class="vip-hint">完成挑战任务，VIP免费领</text>
+            <text wx:else class="vip-expire">有效期至 {{vipInfo.expireTime || '永久有效'}}</text>
+          </view>
+          <view class="vip-privileges">
+            <view class="privilege-item">
+              <text class="privilege-icon">📅</text>
+              <text class="privilege-text">每月补卡+{{vipInfo.level > 0 ? 2 + vipInfo.level * 2 : 0}}次</text>
+            </view>
+            <view class="privilege-item">
+              <text class="privilege-icon">⭐</text>
+              <text class="privilege-text">成长值+{{vipInfo.level > 0 ? vipInfo.level * 20 : 0}}%</text>
+            </view>
+          </view>
+          <view wx:if="{{claimableVipTasks.length > 0}}" class="vip-task-tip">
+            <text class="tip-icon">🎁</text>
+            <text>有{{claimableVipTasks.length}}个VIP奖励可领取</text>
+          </view>
+        </view>
       </view>
+
+      <!-- 用户信息卡片 -->
+      <view class="user-card">
+        <view class="user-main" bindtap="onEditUserInfo">
+          <view class="avatar-wrapper">
+            <image
+              class="avatar"
+              src="{{userInfo.avatarUrl}}"
+              mode="aspectFill"
+              catchtap="onViewMyMoments"
+            ></image>
+            <view class="avatar-edit-badge">
+              <text>编辑</text>
+            </view>
+          </view>
+          <view class="user-info">
+            <text class="nick">{{userInfo.nickName}}</text>
+            <text class="remark" wx:if="{{userInfo.remarkName}}">备注：{{userInfo.remarkName}}</text>
+            <view class="user-meta">
+              <text class="meta-item">打卡 {{stats.totalDays || 0}} 天</text>
+              <text class="meta-divider">|</text>
+              <text class="meta-item">连续 {{stats.streak || 0}} 天</text>
+            </view>
+          </view>
+          <text class="arrow-right">›</text>
+        </view>
+      </view>
+
+      <!-- 数据统计卡片 -->
       <view class="stats-card">
-        <view class="stat-item">
-          <text class="stat-value primary">{{stats.totalDays || 0}}</text>
-          <text class="stat-label">记录天数</text>
+        <view class="stats-header">
+          <text class="stats-title">运动数据</text>
         </view>
-        <view class="stat-item">
-          <text class="stat-value primary">{{stats.streak || 0}}</text>
-          <text class="stat-label">当前连胜</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-value {{(stats.missStreak || 0) > 0 ? 'warn' : ''}}">{{stats.missStreak || 0}}</text>
-          <text class="stat-label">连续未记录</text>
+        <view class="stats-grid">
+          <view class="stat-item">
+            <view class="stat-value-wrap primary">
+              <text class="stat-value">{{stats.totalDays || 0}}</text>
+              <text class="stat-unit">天</text>
+            </view>
+            <text class="stat-label">打卡天数</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-item">
+            <view class="stat-value-wrap primary">
+              <text class="stat-value">{{stats.streak || 0}}</text>
+              <text class="stat-unit">天</text>
+            </view>
+            <text class="stat-label">当前连续</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-item">
+            <view class="stat-value-wrap {{(stats.missStreak || 0) > 0 ? 'warn' : ''}}">
+              <text class="stat-value">{{stats.missStreak || 0}}</text>
+              <text class="stat-unit">天</text>
+            </view>
+            <text class="stat-label">偷懒天数</text>
+          </view>
         </view>
       </view>
-      <view class="menu-list">
-        <navigator url="/pages/calendar/calendar" class="menu-item">
-          <text>记录日历</text>
-          <text class="arrow">></text>
-        </navigator>
-        <view class="menu-item" bindtap="genRemindCopy">
-          <text>生成未记录@文案</text>
-          <text class="arrow">></text>
+
+      <!-- 功能菜单 -->
+      <view class="menu-section">
+        <text class="section-title">功能中心</text>
+        <view class="menu-grid">
+          <!-- 任务中心 -->
+          <view class="menu-card" bindtap="goToTasks">
+            <view class="menu-icon-wrap">
+              <text class="menu-icon">🎯</text>
+            </view>
+            <view class="menu-info">
+              <text class="menu-title">任务中心</text>
+              <text class="menu-desc" wx:if="{{achievements.completed > 0}}">{{achievements.completed}}/{{achievements.total}} 已达成</text>
+              <text class="menu-desc" wx:else>领取任务奖励</text>
+            </view>
+            <view class="menu-badge" wx:if="{{achievements.completed > 0}}">
+              <text>{{achievements.completed}}</text>
+            </view>
+          </view>
+
+          <!-- 自律计划 -->
+          <view class="menu-card" bindtap="goToGoal">
+            <view class="menu-icon-wrap">
+              <text class="menu-icon">🎯</text>
+            </view>
+            <view class="menu-info">
+              <text class="menu-title">自律计划</text>
+              <text class="menu-desc" wx:if="{{goalSummary.total > 0}}">{{goalSummary.completed}}/{{goalSummary.total}} 已达成</text>
+              <text class="menu-desc" wx:else>设定一个小目标</text>
+            </view>
+            <view class="menu-badge" wx:if="{{goalSummary.total > 0}}">
+              <text>{{goalSummary.completed}}</text>
+            </view>
+          </view>
+
+          <!-- 记录日历 -->
+          <navigator url="/pages/calendar/calendar" class="menu-card">
+            <view class="menu-icon-wrap">
+              <text class="menu-icon">📅</text>
+            </view>
+            <view class="menu-info">
+              <text class="menu-title">记录日历</text>
+              <text class="menu-desc">看看你的打卡日历</text>
+            </view>
+          </navigator>
+
+          <!-- 生成提醒文案 -->
+          <view class="menu-card" bindtap="genRemindCopy">
+            <view class="menu-icon-wrap">
+              <text class="menu-icon">📝</text>
+            </view>
+            <view class="menu-info">
+              <text class="menu-title">生成@提醒</text>
+              <text class="menu-desc">一键复制，催人打卡</text>
+            </view>
+          </view>
+
+          <!-- 订阅提醒 -->
+          <view class="menu-card" bindtap="subscribeRemind">
+            <view class="menu-icon-wrap">
+              <text class="menu-icon">🔔</text>
+            </view>
+            <view class="menu-info">
+              <text class="menu-title">定时提醒</text>
+              <text class="menu-desc {{isSubscribed ? 'subscribed' : ''}}">{{isSubscribed ? '已开启 - ' + remindTime : '每天提醒你打卡'}}</text>
+            </view>
+            <view class="status-tag {{isSubscribed ? 'on' : 'off'}}">
+              <text>{{isSubscribed ? '已开启' : '未订阅'}}</text>
+            </view>
+          </view>
+
+          <!-- 管理员入口 -->
+          <block wx:if="{{isAdmin}}">
+            <navigator url="/pages/suggestion-admin/suggestion-admin" class="menu-card admin">
+              <view class="menu-icon-wrap">
+                <text class="menu-icon">⚙️</text>
+              </view>
+              <view class="menu-info">
+                <text class="menu-title">意见管理</text>
+                <text class="menu-desc">审批用户提交的意见</text>
+              </view>
+            </navigator>
+          </block>
+
+          <!-- 联系管理员 -->
+          <navigator url="/pages/contact-admin/contact-admin" class="menu-card">
+            <view class="menu-icon-wrap">
+              <text class="menu-icon">💬</text>
+            </view>
+            <view class="menu-info">
+              <text class="menu-title">联系管理员</text>
+              <text class="menu-desc">反馈与建议</text>
+            </view>
+          </navigator>
         </view>
-        <view class="menu-item" bindtap="subscribeRemind">
-          <text>订阅记录提醒</text>
-          <text class="subscribe-status {{isSubscribed ? 'subscribed' : ''}}">{{isSubscribed ? '已开启' : '未订阅'}}</text>
-          <text class="arrow">></text>
-        </view>
-        <navigator url="/pages/contact-admin/contact-admin" class="menu-item">
-          <text>联系管理员</text>
-          <text class="arrow">></text>
-        </navigator>
       </view>
     </view>
   </view>
 </scroll-view>
 
 <!-- 编辑用户信息弹窗 -->
-<view class="modal {{showEditModal ? 'show' : ''}}" catchtap="hideEditModal" wx:if="{{showEditModal}}">
-  <view class="modal-content" catchtap="">
+<view class="modal-mask {{showEditModal ? 'show' : ''}}" catchtap="hideEditModal" wx:if="{{showEditModal}}"></view>
+<view class="edit-modal {{showEditModal ? 'show' : ''}}" wx:if="{{showEditModal}}">
+  <view class="modal-header">
     <text class="modal-title">修改个人信息</text>
-    <view class="edit-form">
-      <button class="btn-primary auth-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
-        <image class="avatar-preview" src="{{editingInfo.avatarUrl}}" mode="aspectFill"></image>
-        <text class="avatar-tip">点击更换头像</text>
-      </button>
-      <input type="nickname" class="nickname-input" placeholder="请输入昵称" value="{{editingInfo.nickName}}" bindblur="onNicknameInput" />
-      <input class="nickname-input remark-input" placeholder="备注名（仅自己可见）" value="{{editingInfo.remarkName}}" bindblur="onRemarkNameInput" />
-      <view class="modal-btns">
-        <button class="btn-secondary" bindtap="hideEditModal">取消</button>
-        <button class="btn-primary" bindtap="saveUserInfo">保存</button>
-      </view>
+    <view class="modal-close" bindtap="hideEditModal">
+      <text>✕</text>
     </view>
+  </view>
+  <view class="modal-body">
+    <!-- 头像选择 -->
+    <view class="avatar-section">
+      <button class="btn-avatar" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image class="avatar-preview" src="{{editingInfo.avatarUrl}}" mode="aspectFill"></image>
+        <view class="avatar-mask">
+          <text class="avatar-tip">戳我换头像</text>
+        </view>
+      </button>
+    </view>
+    <!-- 昵称输入 -->
+    <view class="input-group">
+      <text class="input-label">昵称</text>
+      <input
+        type="nickname"
+        class="nickname-input"
+        placeholder="请输入昵称"
+        value="{{editingInfo.nickName}}"
+        bindinput="onNicknameInput"
+      />
+    </view>
+  </view>
+  <view class="modal-footer">
+    <button class="btn-secondary" bindtap="hideEditModal">取消</button>
+    <button class="btn-primary" bindtap="saveUserInfo">保存</button>
   </view>
 </view>
 
 <!-- 提醒时间选择弹窗 -->
-<view class="modal {{showTimePickerModal ? 'show' : ''}}" catchtap="hideTimePickerModal" wx:if="{{showTimePickerModal}}">
-  <view class="modal-content" catchtap="">
+<view class="modal-mask {{showTimePickerModal ? 'show' : ''}}" catchtap="hideTimePickerModal" wx:if="{{showTimePickerModal}}"></view>
+<view class="time-modal {{showTimePickerModal ? 'show' : ''}}" wx:if="{{showTimePickerModal}}">
+  <view class="modal-header">
     <text class="modal-title">设置提醒时间</text>
-    <view class="time-picker-wrapper">
-      <picker mode="time" value="{{remindTime}}" start="00:00" end="23:59" bindchange="onTimeChange">
-        <view class="time-display">
-          <text class="time-value">{{remindTime}}</text>
-          <text class="time-hint">点击选择时间</text>
-        </view>
-      </picker>
+    <view class="modal-close" bindtap="hideTimePickerModal">
+      <text>✕</text>
     </view>
-    <view class="modal-btns">
-      <button class="btn-secondary" bindtap="hideTimePickerModal">取消</button>
-      <button class="btn-primary" bindtap="saveRemindTime">保存</button>
-    </view>
+  </view>
+  <view class="modal-body">
+    <picker mode="time" value="{{remindTime}}" start="00:00" end="23:59" bindchange="onTimeChange">
+      <view class="time-display">
+        <text class="time-value">{{remindTime}}</text>
+        <text class="time-hint">点击选择时间</text>
+      </view>
+    </picker>
+  </view>
+  <view class="modal-footer">
+    <button class="btn-secondary" bindtap="hideTimePickerModal">取消</button>
+    <button class="btn-primary" bindtap="saveRemindTime">保存</button>
   </view>
 </view>
 
 <!-- 群组选择弹窗 -->
-<view class="modal {{showGroupPickerModal ? 'show' : ''}}" catchtap="hideGroupPickerModal" wx:if="{{showGroupPickerModal}}">
-  <view class="modal-content" catchtap="">
-    <text class="modal-title">选择群组</text>
-    <view class="group-list">
-      <view class="group-item" wx:for="{{groups || []}}" wx:key="_id" data-index="{{index}}" bindtap="onSelectGroupForCopy">
+<view class="modal-mask {{showGroupPickerModal ? 'show' : ''}}" catchtap="hideGroupPickerModal" wx:if="{{showGroupPickerModal}}"></view>
+<view class="group-modal {{showGroupPickerModal ? 'show' : ''}}" wx:if="{{showGroupPickerModal}}">
+  <view class="modal-header">
+    <text class="modal-title">选择组织</text>
+    <view class="modal-close" bindtap="hideGroupPickerModal">
+      <text>✕</text>
+    </view>
+  </view>
+  <view class="modal-body">
+    <view class="group-list" wx:if="{{groups.length > 0}}">
+      <view class="group-item" wx:for="{{groups}}" wx:key="_id" data-index="{{index}}" bindtap="onSelectGroupForCopy">
         <text class="group-name">{{item.name}}</text>
-        <text class="arrow">></text>
+        <text class="arrow-right">›</text>
       </view>
     </view>
-    <button class="btn-secondary" bindtap="hideGroupPickerModal">取消</button>
+    <view class="empty-groups" wx:else>
+      <text>暂无可用群组</text>
+    </view>
+  </view>
+  <view class="modal-footer">
+    <button class="btn-secondary full" bindtap="hideGroupPickerModal">取消</button>
   </view>
 </view>

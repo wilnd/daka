@@ -141,7 +141,7 @@ Component({
         wx.switchTab({ url: '/pages/index/index' })
       } catch (e: any) {
         wx.hideLoading()
-        console.error('创建小组失败', e)
+        console.error('创建组织失败', e)
         const msg = ((e && e.errMsg) || (e && e.message) || '')
         if (msg.includes('-1') || msg.includes('system error')) {
           wx.showToast({ title: '云函数未上传或数据库未配置', icon: 'none', duration: 3000 })
@@ -190,7 +190,7 @@ Component({
     // 分享给好友
     onShareAppMessage() {
       return {
-        title: '快来加入我的小组，一起坚持打卡吧！',
+        title: '快来加入我的组织，一起坚持打卡吧！',
         path: '/pages/group/group',
         imageUrl: ''
       }

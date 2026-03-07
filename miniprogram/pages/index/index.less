@@ -107,12 +107,14 @@
 
     .nickname-input {
       width: 100%;
+      height: 96rpx;
       padding: 28rpx 32rpx;
       border: 2rpx solid @color-border;
       border-radius: @radius-lg;
       background: @color-white;
       box-sizing: border-box;
       font-size: @font-size-body;
+      line-height: 1.5;
       color: @color-text-body;
       transition: all 0.3s ease;
 
@@ -162,8 +164,48 @@
 }
 
 @keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10rpx); }
+ 0%, 100% { transform: translateY(0); }
+ 50% { transform: translateY(-10rpx); }
+}
+
+// 通用按钮样式
+.btn-primary {
+  height: 96rpx;
+  background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+  border-radius: @radius-lg;
+  box-shadow: 0 8rpx 24rpx rgba(52, 168, 83, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  border: none;
+
+  &:active {
+    transform: scale(0.98);
+    box-shadow: 0 4rpx 12rpx rgba(52, 168, 83, 0.3);
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+    transform: none;
+  }
+}
+
+.btn-secondary {
+  height: 96rpx;
+  background: @color-white;
+  border: 2rpx solid @color-border;
+  border-radius: @radius-lg;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  color: @color-text-body;
+  font-size: @font-size-body;
+
+  &:active {
+    background: @color-bg-card-hover;
+  }
 }
 .main {
   .checkin-card {

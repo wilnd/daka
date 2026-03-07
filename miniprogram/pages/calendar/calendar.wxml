@@ -8,7 +8,7 @@
         <text class="month-title">{{displayMonth}}</text>
         <text class="nav-btn {{isCurrentMonth ? 'disabled' : ''}}" bindtap="nextMonth">＞</text>
       </view>
-      <view class="makeup-tip">本月剩余补记录 {{makeupRemain}} 次（仅可补近3天内未记录）</view>
+      <view class="makeup-tip">本月还能补 {{makeupRemain}} 次（只能补最近3天的哦）</view>
 
       <view class="calendar">
         <view class="weekday-row">

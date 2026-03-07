@@ -1,0 +1,590 @@
+<navigation-bar title="自律计划" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <view class="container">
+    <!-- 当前进行中的目标 -->
+    <view class="section" wx:if="{{activeGoals.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">进行中的目标</text>
+        <text class="view-all" bindtap="goToAllGoals">查看全部 ></text>
+      </view>
+      <view class="goal-list">
+        <view class="goal-card {{item.status === 'completed' ? 'completed' : ''}} {{item.status === 'failed' ? 'failed' : ''}}" wx:for="{{activeGoals}}" wx:key="_id">
+          <view class="goal-card-main" bindtap="goToGoalProgress" data-id="{{item._id}}">
+            <view class="goal-header">
+              <text class="goal-title">{{item.title}}</text>
+              <view class="goal-header-right">
+                <text class="goal-period {{item.period}}">{{item.period === 'daily' ? '每日' : item.period === 'weekly' ? '每周' : '每月'}}</text>
+                <view class="goal-delete-btn" catchtap="onDeleteGoal" data-id="{{item._id}}">
+                  <text>删除</text>
+                </view>
+              </view>
+            </view>
+            <view class="goal-progress">
+              <view class="progress-bar">
+                <view class="progress-fill" style="width: {{item.progress.percent}}%"></view>
+              </view>
+              <view class="progress-info">
+                <text class="progress-text">{{item.progress.current}}/{{item.progress.target}}</text>
+                <text class="progress-percent">{{item.progress.percent}}%</text>
+              </view>
+            </view>
+            <view class="goal-footer">
+              <view class="goal-dates">
+                <text>{{item.startDate}} ~ {{item.endDate}}</text>
+              </view>
+              <view class="goal-status {{item.status}}">
+                <text wx:if="{{item.status === 'in_progress'}}">进行中</text>
+                <text wx:elif="{{item.status === 'completed'}}">已完成</text>
+                <text wx:elif="{{item.status === 'failed'}}">未完成</text>
+              </view>
+            </view>
+            <view class="goal-actions">
+              <view class="confirmor-badge" wx:if="{{item.needConfirmorVerify}}">
+                <text wx:if="{{item.confirmor.confirmStatus === 'pending'}}">等待确认</text>
+                <text wx:elif="{{item.confirmor.confirmStatus === 'confirmed'}}">已确认</text>
+                <text wx:elif="{{item.confirmor.confirmStatus === 'rejected'}}">已拒绝</text>
+              </view>
+              <view class="reward-badge" wx:if="{{item.reward}}">
+                <text>🎁 {{item.reward.name}}</text>
+              </view>
+              <view class="penalty-badge" wx:if="{{item.penalty && item.penalty.type !== 'none'}}">
+                <text>⚠️ {{item.penalty.name}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 创建新目标 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">立个Flag</text>
+      </view>
+
+      <!-- 目标模式选择 -->
+      <view class="form-group">
+        <text class="form-label">打算怎么玩</text>
+        <view class="mode-selector">
+          <view
+            class="mode-btn {{goalMode === 'periodic' ? 'active' : ''}}"
+            data-mode="periodic"
+            bindtap="onGoalModeChange"
+          >
+            <text class="mode-icon">🔄</text>
+            <text class="mode-text">周期目标</text>
+            <text class="mode-desc">按日/周/月循环计算</text>
+          </view>
+          <view
+            class="mode-btn {{goalMode === 'deadline' ? 'active' : ''}}"
+            data-mode="deadline"
+            bindtap="onGoalModeChange"
+          >
+            <text class="mode-icon">📅</text>
+            <text class="mode-text">时间点目标</text>
+            <text class="mode-desc">在某个时间点前完成</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 周期选择 -->
+      <view class="form-group" wx:if="{{goalMode === 'periodic'}}">
+        <text class="form-label">多久来一次</text>
+        <view class="period-selector">
+          <view class="period-btn {{selectedPeriod === 'daily' ? 'active' : ''}}" data-period="daily" bindtap="onPeriodChange">每日</view>
+          <view class="period-btn {{selectedPeriod === 'weekly' ? 'active' : ''}}" data-period="weekly" bindtap="onPeriodChange">每周</view>
+          <view class="period-btn {{selectedPeriod === 'monthly' ? 'active' : ''}}" data-period="monthly" bindtap="onPeriodChange">每月</view>
+        </view>
+      </view>
+
+      <!-- 目标类型选择 -->
+      <view class="form-group">
+        <text class="form-label">什么类型的Flag</text>
+        <view class="type-selector">
+          <view
+            class="type-btn {{selectedType === 'sports' ? 'active' : ''}}"
+            data-type="sports"
+            bindtap="onTypeChange"
+          >运动类</view>
+          <view
+            class="type-btn {{selectedType === 'study' ? 'active' : ''}}"
+            data-type="study"
+            bindtap="onTypeChange"
+          >学习类</view>
+          <view
+            class="type-btn {{selectedType === 'life' ? 'active' : ''}}"
+            data-type="life"
+            bindtap="onTypeChange"
+          >生活类</view>
+        </view>
+      </view>
+
+      <!-- 子类型选择（根据目标类型显示对应的小类） -->
+      <view class="form-group" wx:if="{{subCategories.length > 0}}">
+        <text class="form-label">选择子类型（可选）</text>
+        <view class="sub-category-selector">
+          <view
+            class="sub-category-item {{selectedSubCategoryId === item.id ? 'active' : ''}}"
+            wx:for="{{subCategories}}"
+            wx:key="id"
+            data-id="{{item.id}}"
+            bindtap="onSubCategoryChange"
+          >{{item.name}}</view>
+        </view>
+      </view>
+
+      <!-- 目标值 -->
+      <view class="form-group">
+        <text class="form-label">打算完成几次</text>
+        <view class="target-input">
+          <slider
+            min="1"
+            max="30"
+            step="1"
+            value="{{targetValue}}"
+            bindchange="onTargetChange"
+            activeColor="#1ABC9C"
+          />
+          <text class="target-value">{{targetValue}}次</text>
+        </view>
+      </view>
+
+      <!-- 时间设置 -->
+      <view class="form-group">
+        <!-- 周期目标：自定义时间开关 -->
+        <block wx:if="{{goalMode === 'periodic'}}">
+          <view class="form-label-row">
+            <text class="form-label">自定义时间</text>
+            <switch checked="{{useCustomDate}}" bindchange="onToggleCustomDate" color="#1ABC9C" />
+          </view>
+          <view class="date-range" wx:if="{{useCustomDate}}">
+            <view class="date-picker">
+              <text class="date-label">开始日期</text>
+              <picker mode="date" value="{{startDate}}" start="2020-01-01" end="2030-12-31" bindchange="onStartDateChange">
+                <view class="picker-value">{{startDate}}</view>
+              </picker>
+            </view>
+            <view class="date-picker">
+              <text class="date-label">结束日期</text>
+              <picker mode="date" value="{{endDate}}" start="2020-01-01" end="2030-12-31" bindchange="onEndDateChange">
+                <view class="picker-value">{{endDate}}</view>
+              </picker>
+            </view>
+          </view>
+        </block>
+        <!-- 时间点目标：截止日期选择 -->
+        <block wx:if="{{goalMode === 'deadline'}}">
+          <text class="form-label">截止日期</text>
+          <view class="date-picker deadline-picker">
+            <picker mode="date" value="{{deadlineDate}}" start="2020-01-01" end="2030-12-31" bindchange="onDeadlineChange">
+              <view class="picker-value">{{deadlineDate}}</view>
+            </picker>
+          </view>
+          <text class="form-hint">Flag将在截止日期当天23:59结算</text>
+        </block>
+      </view>
+
+      <!-- 确认人设置 -->
+      <view class="form-group">
+        <view class="form-label-row">
+          <text class="form-label">找个人盯着你（可选）</text>
+          <view class="add-btn" bindtap="toggleConfirmorModal" wx:if="{{!confirmCode}}">+ 添加</view>
+          <view class="remove-btn" bindtap="removeConfirmor" wx:else>移除</view>
+        </view>
+        <view class="confirmor-info" wx:if="{{confirmCode}}">
+          <view class="confirmor-avatar"></view>
+          <text class="confirmor-name">{{confirmorName}}</text>
+          <text class="edit-btn" bindtap="toggleConfirmorModal">修改</text>
+        </view>
+        <!-- 确认码显示 -->
+        <view class="confirm-code-info" wx:if="{{confirmCode}}">
+          <text class="confirm-code-label">确认码：</text>
+          <text class="confirm-code-value">{{confirmCode}}</text>
+          <text class="copy-btn" bindtap="copyConfirmCode">复制</text>
+        </view>
+        <text class="form-hint" wx:if="{{!confirmCode}}">找人盯着你，完成后需要他确认</text>
+        <text class="form-hint" wx:if="{{confirmCode}}">对方可通过确认码或分享链接确认目标</text>
+      </view>
+
+      <!-- 自定义奖励 - 输入框显示 -->
+      <view class="form-group">
+        <text class="form-label">完成了有啥好处（可选）</text>
+        <view class="tag-input-container {{rewardInputFocused ? 'focused' : ''}}">
+          <view class="tag-input-wrapper">
+            <view class="tag-input-tags" wx:if="{{rewardInputTags.length > 0}}">
+              <view class="tag-input-tag" wx:for="{{rewardInputTags}}" wx:key="id">
+                <text>{{item.name}}</text>
+                <text class="tag-remove" data-id="{{item.id}}" catchtap="removeRewardFromInput">×</text>
+              </view>
+            </view>
+            <input
+              class="tag-input"
+              placeholder="输入自定义奖励，按回车添加..."
+              value="{{rewardInputValue}}"
+              bindinput="onRewardInput"
+              bindconfirm="onRewardInputConfirm"
+              bindblur="onRewardInputBlur"
+              bindfocus="onRewardInputFocus"
+            />
+          </view>
+        </view>
+      </view>
+
+      <!-- 分类奖励标签 -->
+      <view class="form-group">
+        <view class="form-label-row">
+          <text class="form-label">选择奖励</text>
+          <view class="add-btn" bindtap="openTagManageModal" data-type="reward" data-category="{{selectedRewardCategory}}">+ 管理</view>
+        </view>
+
+        <!-- 分类切换 -->
+        <view class="category-tabs">
+          <view
+            class="category-tab {{selectedRewardCategory === 'exercise' ? 'active' : ''}}"
+            data-category="exercise"
+            bindtap="onRewardCategoryChange"
+          >🏃 运动</view>
+          <view
+            class="category-tab {{selectedRewardCategory === 'work' ? 'active' : ''}}"
+            data-category="work"
+            bindtap="onRewardCategoryChange"
+          >💼 工作</view>
+          <view
+            class="category-tab {{selectedRewardCategory === 'life' ? 'active' : ''}}"
+            data-category="life"
+            bindtap="onRewardCategoryChange"
+          >🏠 生活</view>
+          <view
+            class="category-tab {{selectedRewardCategory === 'learning' ? 'active' : ''}}"
+            data-category="learning"
+            bindtap="onRewardCategoryChange"
+          >📚 学习</view>
+        </view>
+
+        <!-- 当前分类的奖励标签 -->
+        <view class="tag-list">
+          <view
+            class="tag-item {{item.selected ? 'selected' : ''}}"
+            wx:for="{{currentRewardTags}}"
+            wx:key="id"
+            data-tag="{{item}}"
+            catchtap="addRewardToInput"
+          >{{item.name}}</view>
+        </view>
+      </view>
+
+      <!-- 自定义惩罚 - 输入框显示 -->
+      <view class="form-group">
+        <text class="form-label">没完成咋整（可选）</text>
+        <view class="tag-input-container {{penaltyInputFocused ? 'focused' : ''}}">
+          <view class="tag-input-wrapper">
+            <view class="tag-input-tags" wx:if="{{penaltyInputTags.length > 0}}">
+              <view class="tag-input-tag penalty" wx:for="{{penaltyInputTags}}" wx:key="id">
+                <text>{{item.name}}</text>
+                <text class="tag-remove" data-id="{{item.id}}" catchtap="removePenaltyFromInput">×</text>
+              </view>
+            </view>
+            <input
+              class="tag-input"
+              placeholder="输入自定义惩罚，按回车添加..."
+              value="{{penaltyInputValue}}"
+              bindinput="onPenaltyInput"
+              bindconfirm="onPenaltyInputConfirm"
+              bindblur="onPenaltyInputBlur"
+              bindfocus="onPenaltyInputFocus"
+            />
+          </view>
+        </view>
+      </view>
+
+      <!-- 分类惩罚标签 -->
+      <view class="form-group">
+        <view class="form-label-row">
+          <text class="form-label">选择惩罚</text>
+          <view class="add-btn" bindtap="openTagManageModal" data-type="penalty" data-category="{{selectedPenaltyCategory}}">+ 管理</view>
+        </view>
+
+        <!-- 分类切换 -->
+        <view class="category-tabs">
+          <view
+            class="category-tab {{selectedPenaltyCategory === 'exercise' ? 'active' : ''}}"
+            data-category="exercise"
+            bindtap="onPenaltyCategoryChange"
+          >🏃 运动</view>
+          <view
+            class="category-tab {{selectedPenaltyCategory === 'work' ? 'active' : ''}}"
+            data-category="work"
+            bindtap="onPenaltyCategoryChange"
+          >💼 工作</view>
+          <view
+            class="category-tab {{selectedPenaltyCategory === 'life' ? 'active' : ''}}"
+            data-category="life"
+            bindtap="onPenaltyCategoryChange"
+          >🏠 生活</view>
+          <view
+            class="category-tab {{selectedPenaltyCategory === 'learning' ? 'active' : ''}}"
+            data-category="learning"
+            bindtap="onPenaltyCategoryChange"
+          >📚 学习</view>
+        </view>
+
+        <!-- 当前分类的惩罚标签 -->
+        <view class="tag-list">
+          <view
+            class="tag-item {{item.selected ? 'selected' : ''}}"
+            wx:for="{{currentPenaltyTags}}"
+            wx:key="id"
+            data-tag="{{item}}"
+            catchtap="addPenaltyToInput"
+          >{{item.name}}</view>
+        </view>
+      </view>
+
+      <!-- 预览按钮 -->
+      <button class="btn-primary" bindtap="onPreview">预览并立Flag</button>
+    </view>
+
+    <!-- 提示 -->
+    <view class="tips">
+      <text class="tips-title">💡 小提示</text>
+      <text class="tips-text">• 每日Flag在当天23:59结算</text>
+      <text class="tips-text">• 每周Flag在周日23:59结算</text>
+      <text class="tips-text">• 每月Flag在月末最后一天23:59结算</text>
+      <text class="tips-text">• 达成Flag可领取奖励，没完成就要执行惩罚啦</text>
+      <text class="tips-text">• 找人盯着你的话，需要他确认才算完成哦</text>
+    </view>
+  </view>
+</scroll-view>
+
+<!-- 确认人设置弹窗 -->
+<view class="modal {{showConfirmorModal ? 'show' : ''}}" catchtap="toggleConfirmorModal">
+  <view class="modal-content" catchtap="preventClose">
+    <!-- 步骤1: 选择组织 -->
+    <block wx:if="{{confirmorSelectionStep === 1}}">
+      <text class="modal-title">找个人盯着你</text>
+      <scroll-view scroll-y class="group-list">
+        <block wx:if="{{confirmorGroups.length > 0}}">
+          <view class="group-item" wx:for="{{confirmorGroups}}" wx:key="_id" bindtap="onSelectConfirmorGroup" data-group="{{item}}">
+            <text class="group-name">{{item.name}}</text>
+            <text class="group-member-count">{{item.memberCount || 0}}人</text>
+          </view>
+        </block>
+        <block wx:else>
+          <text class="empty-hint">还没组织？先创建一个或加入别人的~</text>
+        </block>
+      </scroll-view>
+      <view class="modal-btns">
+        <button class="btn-secondary" bindtap="toggleConfirmorModal">取消</button>
+      </view>
+    </block>
+
+    <!-- 步骤2: 选择成员 -->
+    <block wx:if="{{confirmorSelectionStep === 2}}">
+      <view class="step-header">
+        <text class="back-btn" bindtap="onBackToGroupSelection">← 返回</text>
+        <text class="modal-title">{{selectedConfirmorGroup.name}}</text>
+      </view>
+      <scroll-view scroll-y class="member-list">
+        <block wx:if="{{confirmorGroupMembers.length > 0}}">
+          <view class="member-item" wx:for="{{confirmorGroupMembers}}" wx:key="_id" bindtap="onSelectConfirmorMember" data-member="{{item}}">
+            <image class="member-avatar" src="{{item.avatarUrl || '/assets/default-avatar.png'}}" mode="aspectFill"></image>
+            <text class="member-name">{{item.nickName || '未知用户'}}</text>
+          </view>
+        </block>
+        <block wx:else>
+          <text class="empty-hint">这个组织就你一个人~</text>
+        </block>
+      </scroll-view>
+    </block>
+  </view>
+</view>
+
+<!-- 自定义奖励弹窗 -->
+<view class="modal {{showCustomReward ? 'show' : ''}}" catchtap="hideCustomRewardInput">
+  <view class="modal-content" catchtap="preventClose">
+    <text class="modal-title">添加自定义奖励</text>
+    <view class="form-group">
+      <text class="form-label">奖励名称</text>
+      <input class="input-field" placeholder="请输入奖励名称" value="{{customRewardName}}" bindinput="onCustomRewardNameInput" />
+    </view>
+    <view class="form-group">
+      <text class="form-label">奖励值</text>
+      <input class="input-field" type="number" placeholder="请输入奖励值" value="{{customRewardValue}}" bindinput="onCustomRewardValueInput" />
+    </view>
+    <view class="modal-btns">
+      <button class="btn-secondary" bindtap="hideCustomRewardInput">取消</button>
+      <button class="btn-primary" bindtap="saveCustomReward">保存</button>
+    </view>
+  </view>
+</view>
+
+<!-- 自定义惩罚弹窗 -->
+<view class="modal {{showCustomPenalty ? 'show' : ''}}" catchtap="hideCustomPenaltyInput">
+  <view class="modal-content" catchtap="preventClose">
+    <text class="modal-title">添加自定义惩罚</text>
+    <view class="form-group">
+      <text class="form-label">惩罚名称</text>
+      <input class="input-field" placeholder="请输入惩罚名称" value="{{customPenaltyName}}" bindinput="onCustomPenaltyNameInput" />
+    </view>
+    <view class="form-group">
+      <text class="form-label">惩罚值</text>
+      <input class="input-field" type="number" placeholder="请输入惩罚值" value="{{customPenaltyValue}}" bindinput="onCustomPenaltyValueInput" />
+    </view>
+    <view class="modal-btns">
+      <button class="btn-secondary" bindtap="hideCustomPenaltyInput">取消</button>
+      <button class="btn-primary" bindtap="saveCustomPenalty">保存</button>
+    </view>
+  </view>
+</view>
+
+<!-- 预览弹窗 -->
+<view class="modal {{showPreview ? 'show' : ''}}" catchtap="hidePreview">
+  <view class="modal-content" catchtap="preventClose" wx:if="{{previewGoal}}">
+    <text class="modal-title">确认创建目标</text>
+    <view class="preview-info">
+      <view class="preview-item">
+        <text class="preview-label">目标</text>
+        <text class="preview-value">{{previewGoal.title}}</text>
+      </view>
+      <view class="preview-item">
+        <text class="preview-label">目标类型</text>
+        <text class="preview-value">{{previewGoal.goalMode === 'periodic' ? '周期目标' : '时间点目标'}}</text>
+      </view>
+      <view class="preview-item" wx:if="{{previewGoal.goalMode === 'periodic'}}">
+        <text class="preview-label">周期</text>
+        <text class="preview-value">{{previewGoal.period === 'daily' ? '每日' : previewGoal.period === 'weekly' ? '每周' : '每月'}}</text>
+      </view>
+      <view class="preview-item" wx:if="{{previewGoal.goalMode === 'deadline'}}">
+        <text class="preview-label">截止日期</text>
+        <text class="preview-value">{{previewGoal.deadlineDate}}</text>
+      </view>
+      <view class="preview-item">
+        <text class="preview-label">目标值</text>
+        <text class="preview-value">{{previewGoal.target}}{{previewGoal.type === 'duration' ? '分钟' : '次'}}</text>
+      </view>
+      <view class="preview-item" wx:if="{{previewGoal.category}}">
+        <text class="preview-label">分类</text>
+        <text class="preview-value">{{previewGoal.category}}</text>
+      </view>
+      <view class="preview-item" wx:if="{{previewGoal.goalMode === 'periodic'}}">
+        <text class="preview-label">时间范围</text>
+        <text class="preview-value">{{previewGoal.startDate}} ~ {{previewGoal.endDate}}</text>
+      </view>
+      <view class="preview-item" wx:if="{{previewGoal.confirmor}}">
+        <text class="preview-label">确认人</text>
+        <text class="preview-value confirmor">{{previewGoal.confirmor.nickname}}</text>
+      </view>
+      <view class="preview-item" wx:if="{{previewGoal.reward && previewGoal.reward.type !== 'none'}}">
+        <text class="preview-label">达成奖励</text>
+        <text class="preview-value reward">🎁 {{previewGoal.reward.name}}</text>
+      </view>
+      <view class="preview-item" wx:if="{{previewGoal.penalty && previewGoal.penalty.type !== 'none'}}">
+        <text class="preview-label">未达成惩罚</text>
+        <text class="preview-value penalty">⚠️ {{previewGoal.penalty.name}}</text>
+      </view>
+      <view class="preview-tags" wx:if="{{previewGoal.customRewardTags && previewGoal.customRewardTags.length > 0}}">
+        <text class="preview-label">奖励标签</text>
+        <view class="tag-list">
+          <view class="tag-item selected" wx:for="{{previewGoal.customRewardTags}}" wx:key="id">{{item.name}}</view>
+        </view>
+      </view>
+      <view class="preview-tags" wx:if="{{previewGoal.customPenaltyTags && previewGoal.customPenaltyTags.length > 0}}">
+        <text class="preview-label">惩罚标签</text>
+        <view class="tag-list">
+          <view class="tag-item selected" wx:for="{{previewGoal.customPenaltyTags}}" wx:key="id">{{item.name}}</view>
+        </view>
+      </view>
+    </view>
+    <view class="modal-btns">
+      <button class="btn-secondary" bindtap="hidePreview">取消</button>
+      <button class="btn-primary" bindtap="onCreateGoal">确认创建</button>
+    </view>
+  </view>
+</view>
+
+<!-- 标签管理弹窗 -->
+<view class="modal {{showTagManageModal ? 'show' : ''}}" catchtap="closeTagManageModal">
+  <view class="modal-content" catchtap="preventClose">
+    <text class="modal-title">{{manageTagType === 'reward' ? '管理奖励标签' : '管理惩罚标签'}}</text>
+
+    <view class="form-group">
+      <text class="form-label">选择分类</text>
+      <view class="category-selector">
+        <view
+          class="category-option {{manageTagCategory === 'exercise' ? 'active' : ''}}"
+          data-category="exercise"
+          catchtap="onManageTagCategoryChange"
+        >🏃 运动</view>
+        <view
+          class="category-option {{manageTagCategory === 'work' ? 'active' : ''}}"
+          data-category="work"
+          catchtap="onManageTagCategoryChange"
+        >💼 工作</view>
+        <view
+          class="category-option {{manageTagCategory === 'life' ? 'active' : ''}}"
+          data-category="life"
+          catchtap="onManageTagCategoryChange"
+        >🏠 生活</view>
+        <view
+          class="category-option {{manageTagCategory === 'learning' ? 'active' : ''}}"
+          data-category="learning"
+          catchtap="onManageTagCategoryChange"
+        >📚 学习</view>
+      </view>
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">添加新标签</text>
+      <input
+        wx:if="{{manageTagType === 'reward'}}"
+        class="input-field"
+        placeholder="请输入标签名称"
+        value="{{customRewardName}}"
+        bindinput="onCustomRewardNameInput"
+      />
+      <input
+        wx:if="{{manageTagType === 'penalty'}}"
+        class="input-field"
+        placeholder="请输入标签名称"
+        value="{{customPenaltyName}}"
+        bindinput="onCustomPenaltyNameInput"
+      />
+      <input
+        class="input-field"
+        type="number"
+        placeholder="标签值（可选）"
+        value="{{manageTagType === 'reward' ? customRewardValue : customPenaltyValue}}"
+        bindinput="{{manageTagType === 'reward' ? 'onCustomRewardValueInput' : 'onCustomPenaltyValueInput'}}"
+        style="margin-top: 10rpx;"
+      />
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">当前分类已有标签</text>
+      <view class="tag-list" wx:if="{{manageTagType === 'reward'}}">
+        <view
+          class="tag-item {{item.isCustom ? '' : 'readonly'}}"
+          wx:for="{{categorizedRewardTags[manageTagCategory]}}"
+          wx:key="id"
+        >{{item.name}}
+          <text class="delete-tag" wx:if="{{item.isCustom}}" data-id="{{item.id}}" catchtap="onDeleteTag">×</text>
+        </view>
+      </view>
+      <view class="tag-list" wx:if="{{manageTagType === 'penalty'}}">
+        <view
+          class="tag-item {{item.isCustom ? '' : 'readonly'}}"
+          wx:for="{{categorizedPenaltyTags[manageTagCategory]}}"
+          wx:key="id"
+        >{{item.name}}
+          <text class="delete-tag" wx:if="{{item.isCustom}}" data-id="{{item.id}}" catchtap="onDeleteTag">×</text>
+        </view>
+      </view>
+      <text class="form-hint" wx:if="{{manageTagsCount === 0}}">暂无标签，请添加</text>
+    </view>
+
+    <view class="modal-btns">
+      <button class="btn-secondary" catchtap="closeTagManageModal">关闭</button>
+      <button class="btn-primary" catchtap="onAddNewTag">添加标签</button>
+    </view>
+  </view>
+</view>

@@ -140,7 +140,8 @@ export function calculateTheme(checkedToday: boolean, checkedYesterday: boolean)
   }
 
   // 未记录：根据时间计算动态颜色
-  const hour = new Date().getHours() + new Date().getMinutes() / 60
+  const now = new Date()
+  const hour = now.getHours() + now.getMinutes() / 60
   const dynamicColor = getColorByTime(hour)
 
   return {
@@ -198,7 +199,8 @@ export async function getUserTheme(userId: string): Promise<ThemeConfig> {
  * 用于不需要精确昨日状态的场景
  */
 export function getSimpleThemeColor(): string {
-  const hour = new Date().getHours() + new Date().getMinutes() / 60
+  const now = new Date()
+  const hour = now.getHours() + now.getMinutes() / 60
   return getColorByTime(hour)
 }
 

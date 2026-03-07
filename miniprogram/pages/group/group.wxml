@@ -1,4 +1,4 @@
-<navigation-bar title="小组" back="{{false}}" color="white" background="{{themeColor}}"></navigation-bar>
+<navigation-bar title="组织" back="{{false}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view wx:if="{{!hasUserInfo}}" class="need-auth">
@@ -11,16 +11,16 @@
     <view wx:else>
       <view class="actions">
         <view class="action-btn create" bindtap="showCreate">
-          <text class="btn-icon">+</text> 创建小组
+          <text class="btn-icon">+</text> 创建组织
         </view>
         <view class="action-btn join" bindtap="showJoin">
-          <text class="btn-icon">↔</text> 加入小组
+          <text class="btn-icon">↔</text> 加入组织
         </view>
       </view>
 
       <view class="section-header" wx:if="{{groups.length > 0}}">
         <view class="title-row">
-          <text class="section-title">我的小组</text>
+          <text class="section-title">我的组织</text>
           <text class="section-count">{{groups.length}} 个</text>
         </view>
         <view class="refresh-btn" bindtap="loadGroups">
@@ -39,19 +39,19 @@
         </view>
         <view wx:if="{{groups.length === 0 && !loading}}" class="empty">
           <image class="empty-icon" src="/assets/icons/normal/moments.png" mode="aspectFit"></image>
-          <text class="empty-text">暂无小组</text>
-          <text class="empty-hint">创建或加入小组开始记录</text>
+          <text class="empty-text">还没有组织</text>
+          <text class="empty-hint">创建一个或加入别人的组织吧~</text>
         </view>
       </view>
     </view>
   </view>
 </scroll-view>
 
-<!-- 创建小组弹窗 -->
+<!-- 创建组织弹窗 -->
 <view class="modal {{showCreateModal ? 'show' : ''}}" wx:if="{{showCreateModal}}" bindtap="hideCreate">
   <view class="modal-content" catchtap="stopPropagation">
-    <text class="modal-title">创建小组</text>
-    <input class="modal-input" placeholder="小组名称 2-10 字" value="{{createName}}" bindinput="onCreateInput" />
+    <text class="modal-title">创建组织</text>
+    <input class="modal-input" placeholder="组织名称 2-10 字" value="{{createName}}" bindinput="onCreateInput" />
     <view class="modal-btns">
       <button class="btn-secondary" bindtap="hideCreate">取消</button>
       <button class="btn-primary" bindtap="doCreate">确认创建</button>
@@ -59,10 +59,10 @@
   </view>
 </view>
 
-<!-- 加入小组弹窗 -->
+<!-- 加入组织弹窗 -->
 <view class="modal {{showJoinModal ? 'show' : ''}}" wx:if="{{showJoinModal}}" bindtap="hideJoin">
   <view class="modal-content" catchtap="stopPropagation">
-    <text class="modal-title">加入小组</text>
+    <text class="modal-title">加入组织</text>
     <input class="modal-input" placeholder="输入邀请码" value="{{joinCode}}" bindinput="onJoinInput" maxlength="6" />
     <view class="modal-btns">
       <button class="btn-secondary" bindtap="hideJoin">取消</button>

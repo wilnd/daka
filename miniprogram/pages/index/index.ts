@@ -5,90 +5,27 @@ import { doCheckinWithContent, isCheckedToday } from '../../services/checkin'
 import { getStreak, getMissStreak, getTotalDays, getTotalCount, getAllRank, getDayRank, getWeekRank, getMonthRank, RankUser } from '../../services/stats'
 import { getYesterdayCheckin, getSimpleThemeColor } from '../../services/theme'
 import { callGetMyRank, callGetGroupStats, callGetStats, callGetAchievements, RankResult, GroupStats } from '../../services/score'
+import { getCachedGroups, setCachedGroups, convertRankAvatarUrls, convertCloudUrl, hexToRgb, uploadAvatarIfNeeded, defaultAvatar } from '../../services/utils'
 
 const app = getApp() as IAppOption
-const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
 /** 将十六进制颜色转换为 RGB 格式 */
-function hexToRgb(hex: string): string {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  if (result) {
-    return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
-  }
-  // 默认返回绿色 RGB
-  return '26, 188, 156'
-}
+// 使用 utils.ts 中的 hexToRgb 函数
 
 /** 本地缓存的群组列表 key */
-const GROUPS_CACHE_KEY = 'cachedGroups'
+// 使用 utils.ts 中的 getCachedGroups / setCachedGroups 函数
 
 /** 从本地缓存获取群组列表 */
-function getCachedGroups(): any[] {
-  try {
-    const cached = wx.getStorageSync(GROUPS_CACHE_KEY)
-    return cached || []
-  } catch {
-    return []
-  }
-}
+// 已迁移到 utils.ts
 
 /** 保存群组列表到本地缓存 */
-function setCachedGroups(groups: any[]): void {
-  wx.setStorageSync(GROUPS_CACHE_KEY, groups)
-}
+// 已迁移到 utils.ts
 
 /** 将云存储 fileID 转换为临时可访问的 HTTP URL */
-async function convertCloudUrl(fileId: string): Promise<string> {
-  if (!fileId) return defaultAvatar
-  if (!fileId.startsWith('cloud://')) return fileId
-  try {
-    const res = await wx.cloud.getTempFileURL({ fileList: [fileId] })
-    if (res.fileList && res.fileList[0]) {
-      // 检查是否有错误
-      if (res.fileList[0].status !== 0) {
-        console.warn('云存储文件获取失败:', res.fileList[0].errMsg || '未知错误')
-        return defaultAvatar  // 返回默认头像
-      }
-      if (res.fileList[0].tempFileURL) {
-        return res.fileList[0].tempFileURL
-      }
-    }
-  } catch (e) {
-    console.warn('转换云存储URL失败', e)
-  }
-  return defaultAvatar  // 转换失败返回默认头像
-}
+// 已迁移到 utils.ts，使用 convertCloudUrl
 
 /** 批量转换排行榜头像 URL */
-async function convertRankAvatarUrls(rankList: RankUser[]): Promise<RankUser[]> {
-  if (!rankList || rankList.length === 0) return rankList || []
-  // 收集需要转换的 cloud:// URL
-  const cloudUrls: string[] = []
-  const urlIndexMap = new Map<string, number>()
-  for (let i = 0; i < rankList.length; i++) {
-    const url = rankList[i].avatarUrl
-    if (url && url.startsWith('cloud://')) {
-      cloudUrls.push(url)
-      urlIndexMap.set(url, i)
-    }
-  }
-  if (cloudUrls.length === 0) return rankList || []
-  try {
-    const res = await wx.cloud.getTempFileURL({ fileList: cloudUrls })
-    for (const item of res.fileList || []) {
-      // 只处理成功的文件，失败的返回默认头像
-      if (item.status === 0 && item.fileID && item.tempFileURL) {
-        const idx = urlIndexMap.get(item.fileID)
-        if (idx !== undefined) {
-          rankList[idx].avatarUrl = item.tempFileURL
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('批量转换排行榜头像URL失败', e)
-  }
-  return rankList || []
-}
+// 已迁移到 utils.ts
 
 Component({
   data: {
@@ -125,7 +62,7 @@ Component({
       const dynamicColorRgb = hexToRgb(dynamicColor)
       this.setData({ themeColor: dynamicColor, themeColorRgb: dynamicColorRgb })
       this.init()
-      // 启动排行榜定时刷新（每5秒）
+      // 启动排行榜定时刷新（每30秒，减少不必要的网络请求）
       this.startRankAutoRefresh()
     },
     detached() {
@@ -288,7 +225,9 @@ Component({
           // 更新全局主题
           const checkedYesterday = await getYesterdayCheckin(openid)
           console.log('[Index] loadData() getYesterdayCheckin 返回:', checkedYesterday)
-          app.updateTheme!(checkedToday, checkedYesterday)
+          if (app.updateTheme) {
+            app.updateTheme(checkedToday, checkedYesterday)
+          }
         } else {
           console.warn('[Index] loadData() cur (当前群组) 为空，不获取记录和统计')
         }
@@ -310,64 +249,77 @@ Component({
       }
     },
     onChooseAvatar(e: any) {
-      const { avatarUrl } = e.detail
-      this.setData({ 'userInfo.avatarUrl': avatarUrl || this.data.userInfo.avatarUrl })
+      console.log('[Index] onChooseAvatar 事件:', JSON.stringify(e.detail))
+      // 微信头像选择返回的头像已经是临时文件路径
+      const avatarUrl = e.detail.avatarUrl
+      if (avatarUrl) {
+        this.setData({ 'userInfo.avatarUrl': avatarUrl })
+      }
+    },
+    onNicknameInput(e: any) {
+      console.log('[Index] onNicknameInput:', e.detail.value)
+      const nickName = e.detail.value || ''
+      this.setData({ 'userInfo.nickName': nickName })
     },
     onNicknameBlur(e: any) {
       const nickName = e.detail.value || ''
       this.setData({ 'userInfo.nickName': nickName })
     },
-    async uploadAvatarIfNeeded(avatarUrl: string, openid: string): Promise<string> {
-      console.log('[Index] uploadAvatarIfNeeded() avatarUrl:', avatarUrl, 'openid:', openid)
-      // 如果已经是云存储路径，直接返回
-      if (avatarUrl.startsWith('cloud://')) {
-        console.log('[Index] uploadAvatarIfNeeded() 已经是云存储路径，直接返回')
-        return avatarUrl
-      }
-      // 如果是本地临时路径，需要上传到云存储
-      if (avatarUrl.startsWith('/tmp/') || avatarUrl.startsWith('http://tmp/') || avatarUrl.startsWith('wxfile://')) {
-        console.log('[Index] uploadAvatarIfNeeded() 需要上传到云存储')
-        try {
-          const cloudPath = `avatars/${openid}/${Date.now()}.jpg`
-          const uploadRes = await wx.cloud.uploadFile({
-            cloudPath,
-            filePath: avatarUrl,
-          })
-          console.log('[Index] uploadAvatarIfNeeded() 上传成功, fileID:', uploadRes.fileID)
-          return uploadRes.fileID
-        } catch (e) {
-          console.error('[Index] uploadAvatarIfNeeded() 头像上传失败', e)
-          return avatarUrl
-        }
-      }
-      console.log('[Index] uploadAvatarIfNeeded() 非临时路径，直接返回')
-      return avatarUrl
-    },
+
+    // uploadAvatarIfNeeded 已迁移到 services/utils.ts
 
     async onConfirmAuth() {
+      const currentNickName = this.data.userInfo.nickName
+      const { avatarUrl } = this.data.userInfo
+
       console.log('[Index] onConfirmAuth() 开始授权')
-      const { nickName, avatarUrl } = this.data.userInfo
-      console.log('[Index] onConfirmAuth() nickName:', nickName, 'avatarUrl:', avatarUrl)
-      if (!nickName || !avatarUrl) {
-        wx.showToast({ title: '请填写昵称并选择头像', icon: 'none' })
+      console.log('[Index] onConfirmAuth() nickName:', currentNickName, 'avatarUrl:', avatarUrl)
+
+      // 昵称是必填的，头像使用默认的或选择的
+      if (!currentNickName || currentNickName.trim() === '') {
+        wx.showToast({ title: '请填写昵称', icon: 'none' })
         return
       }
+
+      const trimmedNickName = currentNickName.trim()
       wx.showLoading({ title: '登录中' })
       try {
+        // 第一步：获取 openid
+        console.log('[Index] onConfirmAuth() 第一步：获取 openid')
         const openid = await this.ensureOpenid()
         console.log('[Index] onConfirmAuth() openid:', openid)
         if (!openid) throw new Error('获取 openid 失败')
-        // 如果选择了新头像，先上传到云存储
-        const savedAvatarUrl = await this.uploadAvatarIfNeeded(avatarUrl, openid)
+
+        // 第二步：上传头像
+        console.log('[Index] onConfirmAuth() 第二步：上传头像')
+        const savedAvatarUrl = await uploadAvatarIfNeeded(avatarUrl, openid)
         console.log('[Index] onConfirmAuth() 上传后头像:', savedAvatarUrl)
-        await getOrCreateUser(openid, nickName, savedAvatarUrl)
-        wx.setStorageSync('userInfo', { nickName, avatarUrl: savedAvatarUrl })
-        this.setData({ hasUserInfo: true, userInfo: { ...this.data.userInfo, avatarUrl: savedAvatarUrl } })
-        this.loadData()
+
+        // 第三步：创建或更新用户
+        console.log('[Index] onConfirmAuth() 第三步：创建或更新用户')
+        await getOrCreateUser(openid, trimmedNickName, savedAvatarUrl)
+        console.log('[Index] onConfirmAuth() 用户创建/更新成功')
+
+        // 第四步：保存到本地存储
+        console.log('[Index] onConfirmAuth() 第四步：保存到本地存储')
+        wx.setStorageSync('userInfo', { nickName: trimmedNickName, avatarUrl: savedAvatarUrl })
+
+        // 第五步：更新页面状态
+        console.log('[Index] onConfirmAuth() 第五步：更新页面状态')
+        this.setData({
+          hasUserInfo: true,
+          userInfo: { nickName: trimmedNickName, avatarUrl: savedAvatarUrl }
+        })
+
+        // 第六步：加载数据
+        console.log('[Index] onConfirmAuth() 第六步：加载数据')
+        app.globalData.openid = openid
+        this.loadData(true)
+
         wx.showToast({ title: '登录成功' })
-      } catch (e) {
+      } catch (e: any) {
         console.error('[Index] onConfirmAuth() 授权失败:', e)
-        wx.showToast({ title: '授权失败，请稍后重试', icon: 'none' })
+        wx.showToast({ title: '授权失败: ' + (e && e.message ? e.message : '请稍后重试'), icon: 'none' })
       } finally {
         wx.hideLoading()
       }
@@ -390,7 +342,7 @@ Component({
     goJoinGroup() {
       console.log('[Index] goJoinGroup()')
       this.setData({ showSwitchModal: false })
-      // 设置标志位，通知小组页面打开加入弹窗
+      // 设置标志位，通知组织页面打开加入弹窗
       const app = getApp() as IAppOption
       app.globalData.shouldOpenJoinModal = true
       wx.switchTab({ url: '/pages/group/group' })
@@ -400,15 +352,16 @@ Component({
     // 启动排行榜定时刷新
     startRankAutoRefresh() {
       this.stopRankAutoRefresh()
+      // 30秒刷新一次，减少不必要的网络请求
       this.data.rankTimer = setInterval(() => {
         this.refreshRankList()
-      }, 5000)
+      }, 30000)
     },
     // 停止排行榜定时刷新
     stopRankAutoRefresh() {
       if (this.data.rankTimer) {
         clearInterval(this.data.rankTimer)
-        this.data.rankTimer = null
+        this.setData({ rankTimer: null })
       }
     },
     // 刷新排行榜数据
@@ -539,7 +492,7 @@ Component({
       console.log('[Index] updateCurrentRankList() 更新后排行榜, length:', currentRankList.length)
       this.setData({ currentRankList })
     },
-    // 切换小组时刷新排行榜（只刷新排行榜，不刷新整个页面）
+    // 切换组织时刷新排行榜（只刷新排行榜，不刷新整个页面）
     async refreshRankForNewGroup(groupId: string) {
       console.log('[Index] refreshRankForNewGroup() 开始刷新排行榜, groupId:', groupId)
       const openid = app.globalData.openid
@@ -644,7 +597,7 @@ Component({
         return
       }
 
-      // 构建记录URL，可选传入当前选中的小组用于排名对比
+      // 构建记录URL，可选传入当前选中的组织用于排名对比
       const groupId = currentGroup ? currentGroup._id : (groups[0] ? groups[0]._id : '')
       const groupName = currentGroup ? currentGroup.name : (groups[0] ? groups[0].name : '')
 

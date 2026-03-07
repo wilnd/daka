@@ -1,18 +1,152 @@
 <navigation-bar title="联系管理员" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
-    <view class="card">
-      <text class="title">添加管理员微信</text>
-      <text class="desc">复制微信号后，去微信搜索添加好友</text>
-      <view class="wxid-row">
-        <text class="label">微信号</text>
-        <text class="wxid" selectable="true">{{wechatId}}</text>
+    <!-- Tab 切换 -->
+    <view class="tab-bar">
+      <view
+        class="tab-item {{currentTab === 'suggest' ? 'active' : ''}}"
+        data-tab="suggest"
+        bindtap="switchTab"
+      >
+        提意见
       </view>
-      <view class="actions">
-        <button class="btn-primary" bindtap="copyWechatId">复制微信号</button>
-        <button class="btn-secondary" bindtap="showGuide">如何添加</button>
+      <view
+        class="tab-item {{currentTab === 'wechat' ? 'active' : ''}}"
+        data-tab="wechat"
+        bindtap="switchTab"
+      >
+        加微信
+      </view>
+    </view>
+
+    <!-- 提意见表单 -->
+    <view wx:if="{{currentTab === 'suggest'}}" class="suggest-form">
+      <view class="form-card">
+        <view class="form-title">提交您的意见或建议</view>
+        <view class="form-desc">我们会认真阅读每一条反馈</view>
+
+        <!-- 意见类型选择 -->
+        <view class="type-selector">
+          <view class="type-label">反馈类型</view>
+          <view class="type-list">
+            <view
+              class="type-item {{selectedType === 'bug' ? 'active' : ''}}"
+              data-type="bug"
+              bindtap="selectType"
+            >
+              Bug反馈
+            </view>
+            <view
+              class="type-item {{selectedType === 'feature' ? 'active' : ''}}"
+              data-type="feature"
+              bindtap="selectType"
+            >
+              功能建议
+            </view>
+            <view
+              class="type-item {{selectedType === 'vip_request' ? 'active' : ''}}"
+              data-type="vip_request"
+              bindtap="selectType"
+            >
+              VIP申请
+            </view>
+            <view
+              class="type-item {{selectedType === 'feedback' ? 'active' : ''}}"
+              data-type="feedback"
+              bindtap="selectType"
+            >
+              其他反馈
+            </view>
+          </view>
+        </view>
+
+        <!-- VIP申请说明 -->
+        <view wx:if="{{selectedType === 'vip_request'}}" class="vip-tips">
+          <view class="vip-tips-title">VIP申请说明</view>
+          <view class="vip-tips-text">请详细说明您希望获得VIP的理由，如：</view>
+          <view class="vip-tips-text">- 对小程序功能的改进建议</view>
+          <view class="vip-tips-text">- 您的打卡心得和贡献</view>
+          <view class="vip-tips-text">- 其他能让管理员认可的理由</view>
+          <view class="vip-tips-text">提交后管理员会进行审批，审批通过后将自动为您增加VIP时间</view>
+        </view>
+
+        <!-- 意见内容 -->
+        <view class="form-item">
+          <view class="form-label">意见内容 <text class="required">*</text></view>
+          <textarea
+            class="content-textarea"
+            value="{{content}}"
+            bindinput="onContentInput"
+            placeholder="请详细描述您的意见或建议..."
+            maxlength="500"
+          />
+          <view class="word-count">{{content.length}}/500</view>
+        </view>
+
+        <!-- 联系方式 -->
+        <view class="form-item">
+          <view class="form-label">联系方式（选填）</view>
+          <input
+            class="contact-input"
+            value="{{contact}}"
+            bindinput="onContactInput"
+            placeholder="方便管理员回复您"
+          />
+        </view>
+
+        <!-- 提交按钮 -->
+        <button
+          class="submit-btn {{submitting ? 'disabled' : ''}}"
+          bindtap="submitSuggestion"
+          disabled="{{submitting}}"
+        >
+          {{submitting ? '提交中...' : '提交意见'}}
+        </button>
+      </view>
+
+      <!-- 我的提交记录 -->
+      <view class="history-section" wx:if="{{suggestions.length > 0}}">
+        <view class="history-title">我的提交记录</view>
+
+        <view
+          wx:for="{{suggestions}}"
+          wx:key="_id"
+          class="history-card"
+        >
+          <view class="history-header">
+            <view class="history-type type-{{item.type}}">
+              {{item.type === 'vip_request' ? 'VIP申请' : (item.type === 'bug' ? 'Bug反馈' : (item.type === 'feature' ? '功能建议' : '其他反馈'))}}
+            </view>
+            <view class="history-status status-{{item.status}}">
+              {{item.status === 'pending' ? '待处理' : (item.status === 'approved' ? '已通过' : '已拒绝')}}
+            </view>
+          </view>
+          <view class="history-content">{{item.content}}</view>
+          <view class="history-time">{{formatTime(item.createTime)}}</view>
+          <view class="history-result" wx:if="{{item.status !== 'pending'}}">
+            <view wx:if="{{item.adminRemark}}">管理员回复: {{item.adminRemark}}</view>
+            <view wx:if="{{item.vipDays && item.vipDays > 0}}" class="vip-added">
+              恭喜！已为您增加 {{item.vipDays}} 天VIP时间
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 微信联系方式 -->
+    <view wx:if="{{currentTab === 'wechat'}}" class="wechat-section">
+      <view class="card">
+        <text class="title">添加管理员微信</text>
+        <text class="desc">复制微信号后，去微信搜索添加好友</text>
+        <view class="wxid-row">
+          <text class="label">微信号</text>
+          <text class="wxid" selectable="true">{{wechatId}}</text>
+        </view>
+        <view class="actions">
+          <button class="btn-primary" bindtap="copyWechatId">复制微信号</button>
+          <button class="btn-secondary" bindtap="showGuide">如何添加</button>
+        </view>
       </view>
     </view>
   </view>
 </scroll-view>
-

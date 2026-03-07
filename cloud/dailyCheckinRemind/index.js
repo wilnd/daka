@@ -90,7 +90,7 @@ exports.main = async (event, context) => {
           continue
         }
 
-        // 获取用户所在的小组
+        // 获取用户所在的组织
         const { data: members } = await db.collection('members').where({
           userId: user.openid,
           status: 'normal'

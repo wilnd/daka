@@ -99,7 +99,7 @@ Component({
         console.log('group-detail attached, this.options:', selfOptions, 'id:', id)
       }
 
-      // 3. 再兜底：使用全局当前小组 ID
+      // 3. 再兜底：使用全局当前组织 ID
       if (!id && app.globalData.currentGroupId) {
         id = app.globalData.currentGroupId
       }
@@ -143,7 +143,7 @@ Component({
         const _ = db.command
 
         const group = await getGroupById(groupId)
-        if (!group) { wx.showToast({ title: '小组不存在', icon: 'none' }); wx.navigateBack(); return }
+        if (!group) { wx.showToast({ title: '组织不存在', icon: 'none' }); wx.navigateBack(); return }
         const members = await getGroupMembers(groupId)
         if (!Array.isArray(members)) {
           wx.showToast({ title: '数据错误', icon: 'none' })
@@ -373,7 +373,7 @@ Component({
       if (!selectedMember) return
       this.setData({
         confirmTitle: '移除成员',
-        confirmContent: `确定将 ${selectedMember.nickName} 移出小组吗？`,
+        confirmContent: `确定将 ${selectedMember.nickName} 移出组织吗？`,
         confirmActionType: 'removeMember',
         showMemberModal: false,
         showConfirmModal: true
@@ -381,8 +381,8 @@ Component({
     },
     onQuitGroup() {
       this.setData({
-        confirmTitle: '退出小组',
-        confirmContent: '确定要退出该小组吗？',
+        confirmTitle: '退出组织',
+        confirmContent: '确定要退出该组织吗？',
         confirmActionType: 'quitGroup',
         showMemberModal: false,
         showConfirmModal: true
@@ -403,8 +403,8 @@ Component({
     },
     onDissolveGroup() {
       this.setData({
-        confirmTitle: '解散小组',
-        confirmContent: '确定要解散该小组吗？解散后所有成员将被移除，且无法恢复。',
+        confirmTitle: '解散组织',
+        confirmContent: '确定要解散该组织吗？解散后所有成员将被移除，且无法恢复。',
         confirmActionType: 'dissolveGroup',
         showConfirmModal: true
       })
@@ -429,7 +429,7 @@ Component({
             if (myMember) {
               result = await quitGroup(myMember._id, openid)
             } else {
-              result = { ok: false, msg: '未找到你的小组信息' }
+              result = { ok: false, msg: '未找到你的组织信息' }
             }
             break
           case 'dissolveGroup':
@@ -443,7 +443,7 @@ Component({
           wx.showToast({ title: '操作成功' })
           this.hideConfirmModal()
           if (confirmActionType === 'quitGroup' || confirmActionType === 'dissolveGroup') {
-            // 退出或解散小组后，返回小组列表页
+            // 退出或解散组织后，返回组织列表页
             wx.navigateBack({ delta: 1 })
           } else {
             this.load()
@@ -460,12 +460,12 @@ Component({
       const { group, inviteEnabled } = this.data
       if (!inviteEnabled || !group.inviteCode) {
         return {
-          title: '快来加入我的小组吧',
+          title: '快来加入我的组织吧',
           path: '/pages/group/group'
         }
       }
       return {
-        title: `${group.name || '小组'} 邀请码：${group.inviteCode}，点击即可加入！`,
+        title: `${group.name || '组织'} 邀请码：${group.inviteCode}，点击即可加入！`,
         path: `/pages/group/group?inviteCode=${group.inviteCode}`,
         imageUrl: ''
       }
@@ -475,12 +475,12 @@ Component({
       const { group, inviteEnabled } = this.data
       if (!inviteEnabled || !group.inviteCode) {
         return {
-          title: group.name ? `${group.name} - 邀请你加入` : '快来加入小组吧',
+          title: group.name ? `${group.name} - 邀请你加入` : '快来加入组织吧',
           query: ''
         }
       }
       return {
-        title: `${group.name || '小组'} 邀请码：${group.inviteCode}，点击即可加入！`,
+        title: `${group.name || '组织'} 邀请码：${group.inviteCode}，点击即可加入！`,
         query: `inviteCode=${group.inviteCode}`
       }
     },

@@ -35,7 +35,7 @@ function drawHomeIcon(ctx, color) {
   ctx.fill();
 }
 
-// 绘制小组图标（三人团队）
+// 绘制组织图标（三人团队）
 function drawGroupIcon(ctx, color) {
   ctx.fillStyle = color;
   

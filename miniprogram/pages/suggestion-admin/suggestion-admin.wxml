@@ -1,0 +1,178 @@
+<navigation-bar title="意见管理" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <!-- 非管理员提示 -->
+  <view wx:if="{{!isAdmin}}" class="no-admin">
+    <view class="no-admin-content">
+      <view class="no-admin-icon">🔒</view>
+      <view class="no-admin-title">无权限访问</view>
+      <view class="no-admin-desc">只有管理员才能访问此页面</view>
+    </view>
+  </view>
+
+  <!-- 管理员内容 -->
+  <view wx:else class="admin-container">
+    <!-- 统计卡片 -->
+    <view class="stats-card">
+      <view class="stats-title">意见统计</view>
+      <view class="stats-grid">
+        <view class="stats-item">
+          <view class="stats-num">{{stats.total}}</view>
+          <view class="stats-label">总意见</view>
+        </view>
+        <view class="stats-item pending">
+          <view class="stats-num">{{stats.pending}}</view>
+          <view class="stats-label">待处理</view>
+        </view>
+        <view class="stats-item approved">
+          <view class="stats-num">{{stats.approved}}</view>
+          <view class="stats-label">已通过</view>
+        </view>
+        <view class="stats-item rejected">
+          <view class="stats-num">{{stats.rejected}}</view>
+          <view class="stats-label">已拒绝</view>
+        </view>
+      </view>
+      <view class="stats-vip" wx:if="{{stats.vipApproved > 0}}">
+        VIP申请已批准: {{stats.vipApproved}} 条
+      </view>
+    </view>
+
+    <!-- Tab 切换 -->
+    <view class="tab-bar">
+      <view
+        class="tab-item {{currentTab === 'pending' ? 'active' : ''}}"
+        data-tab="pending"
+        bindtap="switchTab"
+      >
+        待处理 ({{stats.pending}})
+      </view>
+      <view
+        class="tab-item {{currentTab === 'history' ? 'active' : ''}}"
+        data-tab="history"
+        bindtap="switchTab"
+      >
+        历史记录
+      </view>
+    </view>
+
+    <!-- 加载中 -->
+    <view wx:if="{{loading}}" class="loading">
+      <view class="loading-icon">⟳</view>
+      <view class="loading-text">加载中...</view>
+    </view>
+
+    <!-- 待处理列表 -->
+    <view wx:elif="{{currentTab === 'pending'}}" class="suggestion-list">
+      <view wx:if="{{pendingSuggestions.length === 0}}" class="empty">
+        <view class="empty-icon">✓</view>
+        <view class="empty-text">暂无待处理的意见</view>
+      </view>
+
+      <view
+        wx:for="{{pendingSuggestions}}"
+        wx:key="_id"
+        class="suggestion-card"
+      >
+        <view class="suggestion-header">
+          <view class="suggestion-type type-{{item.type}}">
+            {{item.type === 'vip_request' ? 'VIP申请' : (item.type === 'bug' ? 'Bug反馈' : (item.type === 'feature' ? '功能建议' : '其他反馈'))}}
+          </view>
+          <view class="suggestion-time">{{formatTime(item.createTime)}}</view>
+        </view>
+
+        <view class="suggestion-content">{{item.content}}</view>
+
+        <view class="suggestion-contact" wx:if="{{item.contact}}">
+          联系方式: {{item.contact}}
+        </view>
+
+        <view class="suggestion-actions">
+          <button
+            class="btn btn-reject"
+            size="mini"
+            data-suggestion="{{item}}"
+            bindtap="showApprovalDialog"
+          >
+            处理
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 历史记录 -->
+    <view wx:elif="{{currentTab === 'history'}}" class="suggestion-list">
+      <view wx:if="{{allSuggestions.length === 0}}" class="empty">
+        <view class="empty-icon">📋</view>
+        <view class="empty-text">暂无历史记录</view>
+      </view>
+
+      <view
+        wx:for="{{allSuggestions}}"
+        wx:key="_id"
+        class="suggestion-card history"
+      >
+        <view class="suggestion-header">
+          <view class="suggestion-type type-{{item.type}}">
+            {{item.type === 'vip_request' ? 'VIP申请' : (item.type === 'bug' ? 'Bug反馈' : (item.type === 'feature' ? '功能建议' : '其他反馈'))}}
+          </view>
+          <view class="suggestion-status status-{{item.status}}">
+            {{item.status === 'approved' ? '已通过' : (item.status === 'rejected' ? '已拒绝' : '待处理')}}
+          </view>
+        </view>
+
+        <view class="suggestion-content">{{item.content}}</view>
+
+        <view class="suggestion-result" wx:if="{{item.status !== 'pending'}}">
+          <view wx:if="{{item.adminRemark}}">备注: {{item.adminRemark}}</view>
+          <view wx:if="{{item.vipDays && item.vipDays > 0}}">VIP天数: +{{item.vipDays}}天</view>
+          <view>处理时间: {{formatTime(item.processedAt)}}</view>
+        </view>
+
+        <view class="suggestion-time create-time">
+          提交时间: {{formatTime(item.createTime)}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 审批弹窗 -->
+  <view wx:if="{{showApprovalModal}}" class="modal-mask" bindtap="hideApprovalDialog">
+    <view class="modal-content" catchtap="">
+      <view class="modal-title">处理意见</view>
+
+      <view class="modal-body">
+        <view class="modal-type">
+          类型: {{selectedSuggestion.type === 'vip_request' ? 'VIP申请' : (selectedSuggestion.type === 'bug' ? 'Bug反馈' : (selectedSuggestion.type === 'feature' ? '功能建议' : '其他反馈'))}}
+        </view>
+        <view class="modal-content-text">{{selectedSuggestion.content}}</view>
+        <view class="modal-contact" wx:if="{{selectedSuggestion.contact}}">
+          联系方式: {{selectedSuggestion.contact}}
+        </view>
+
+        <!-- VIP申请才显示VIP天数输入 -->
+        <view class="vip-input" wx:if="{{selectedSuggestion.type === 'vip_request'}}">
+          <view class="vip-label">增加VIP天数:</view>
+          <input
+            class="vip-input-field"
+            type="number"
+            value="{{approvalVipDays}}"
+            bindinput="onVipDaysChange"
+            placeholder="请输入天数"
+          />
+          <view class="vip-hint">默认30天，0表示不增加VIP</view>
+        </view>
+
+        <view class="remark-input">
+          <view class="remark-label">备注:</view>
+          <textarea
+            class="remark-field"
+            value="{{approvalRemark}}"
+            bindinput="onRemarkChange"
+            placeholder="请输入处理备注（可选）"
+            maxlength="200"
+          />
+        </view>
+      </view>
+    </view>
+  </view>
+  </scroll-view>

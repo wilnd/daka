@@ -20,8 +20,8 @@
   <!-- 空状态 -->
   <view wx:elif="{{!loading && (!moments || moments.length === 0)}}" class="empty-state">
     <view class="empty-icon">📷</view>
-    <text class="empty-title">还没有成长墙动态</text>
-    <text class="empty-desc">记录后会自动发布到成长墙</text>
+    <text class="empty-title">成长墙空空如也</text>
+    <text class="empty-desc">快去记录，就会自动发布到这里啦</text>
   </view>
 
   <!-- 成长墙列表 -->
@@ -100,7 +100,7 @@
     <text>加载中...</text>
   </view>
   <view class="no-more" wx:if="{{noMore && moments && moments.length > 0}}">
-    <text>没有更多了</text>
+    <text>已经到底啦</text>
   </view>
 </scroll-view>
 
@@ -123,10 +123,10 @@
   </view>
 </view>
 
-<!-- 切换小组弹窗 -->
+<!-- 切换组织弹窗 -->
 <view class="modal {{showSwitchModal ? 'show' : ''}}" bindtap="hideSwitchGroup" wx:if="{{showSwitchModal}}">
   <view class="modal-content" catchtap="stopPropagation">
-    <text class="modal-title">切换小组</text>
+    <text class="modal-title">切换组织</text>
     <view wx:for="{{groups || []}}" wx:key="_id" class="group-option {{item._id === currentGroupId ? 'active' : ''}}" bindtap="selectGroup" data-id="{{item._id}}">
       <view class="group-option-info">
         <text>{{item.name}}</text>
@@ -138,7 +138,7 @@
       </view>
     </view>
     <view class="modal-actions">
-      <button class="btn-text" bindtap="goCreateGroup">创建新小组</button>
+      <button class="btn-text" bindtap="goCreateGroup">创建新组织</button>
       <button class="btn-secondary" bindtap="hideSwitchGroup">取消</button>
     </view>
   </view>
