@@ -55,7 +55,7 @@
 
       <!-- 时间和互动信息 -->
       <view class="moment-footer">
-        <text class="moment-time">{{formatTime(item.createTime)}}</text>
+        <text class="moment-time">发表时间 {{formatPublishTime(item.createTime)}}</text>
         <view class="moment-stats">
           <text class="stat-item">❤️ {{item.likeCount || 0}}</text>
           <text class="stat-item">💬 {{item.commentCount || 0}}</text>

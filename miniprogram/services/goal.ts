@@ -4,7 +4,7 @@
 import { goalsCol, goalRecordsCol, userTagsCol, db, getTodayStr } from './db'
 
 /** 目标类型 - 与打卡分类一致 */
-export type GoalType = 'sports' | 'study' | 'life'
+export type GoalType = 'sports' | 'study' | 'life' | 'work'
 
 /** 目标周期 */
 export type GoalPeriod = 'daily' | 'weekly' | 'monthly'
@@ -80,8 +80,8 @@ export interface GoalConfirmor {
   confirmRemark?: string
   /** 确认码（6位数字） */
   confirmCode?: string
-  /** 确认人用户ID（UUID） */
-  userId?: string
+  /** 确认人 openid */
+  openid?: string
 }
 
 /** 目标信息 */
@@ -270,16 +270,19 @@ export const GoalConfigs = {
     sports: { title: '每日运动', description: '每天完成至少1次运动打卡', defaultTarget: 1 },
     study: { title: '每日学习', description: '每天完成至少1次学习打卡', defaultTarget: 1 },
     life: { title: '每日生活', description: '每天完成至少1次生活打卡', defaultTarget: 1 },
+    work: { title: '每日工作', description: '每天完成至少1次工作打卡', defaultTarget: 1 },
   },
   weekly: {
     sports: { title: '每周运动', description: '每周完成指定次数运动打卡', defaultTarget: 5 },
     study: { title: '每周学习', description: '每周完成指定次数学习打卡', defaultTarget: 5 },
     life: { title: '每周生活', description: '每周完成指定次数生活打卡', defaultTarget: 5 },
+    work: { title: '每周工作', description: '每周完成指定次数工作打卡', defaultTarget: 5 },
   },
   monthly: {
     sports: { title: '每月运动', description: '每月完成指定次数运动打卡', defaultTarget: 20 },
     study: { title: '每月学习', description: '每月完成指定次数学习打卡', defaultTarget: 20 },
     life: { title: '每月生活', description: '每月完成指定次数生活打卡', defaultTarget: 20 },
+    work: { title: '每月工作', description: '每月完成指定次数工作打卡', defaultTarget: 20 },
   }
 }
 
@@ -964,10 +967,9 @@ export async function recordGoalProgress(openid: string, goalId: string, progres
           }
         } as any)
     } else {
-      // 创建新记录
+      // 创建新记录（不传 _openid，云开发会自动注入当前用户 openid）
       await goalRecordsCol().add({
         data: {
-          _openid: openid,
           goalId: goalId,
           period: 'current',
           current: progress,
@@ -981,6 +983,85 @@ export async function recordGoalProgress(openid: string, goalId: string, progres
   } catch (e) {
     console.error('recordGoalProgress error:', e)
     return false
+  }
+}
+
+/**
+ * 打卡后同步目标进度
+ * 根据打卡类型（categoryId 和 subCategoryId）找到匹配的目标并更新进度
+ * 每天每条目标只更新一次，避免重复
+ * @param openid 用户openid
+ * @param categoryId 打卡大类ID（如 'sports', 'study', 'life'）
+ * @param subCategoryId 打卡小类ID（可选）
+ * @returns 返回更新的目标数量
+ */
+export async function syncGoalProgressAfterCheckin(
+  openid: string,
+  categoryId: string,
+  subCategoryId?: string
+): Promise<number> {
+  if (!categoryId) return 0
+
+  const today = getTodayStr()
+
+  try {
+    // 查询当前进行中的目标（未删除且在有效期内）
+    const { data: goals } = await goalsCol()
+      .where({
+        _openid: openid,
+        deleted: db.command.neq(true),
+        startDate: db.command.lte(today),
+        endDate: db.command.gte(today)
+      })
+      .get()
+
+    if (!goals || goals.length === 0) return 0
+
+    let updatedCount = 0
+
+    for (const goal of goals as Goal[]) {
+      // 检查目标是否需要特定分类
+      if (goal.category) {
+        // 精确匹配 categoryId 和 subCategoryId
+        const goalCategoryId = goal.category.categoryId
+        const goalSubCategoryId = goal.category.subCategoryId
+
+        let isMatch = false
+        // 如果目标指定了 subCategoryId，必须精确匹配
+        if (goalSubCategoryId) {
+          isMatch = goalCategoryId === categoryId && goalSubCategoryId === subCategoryId
+        } else {
+          // 只匹配大类
+          isMatch = goalCategoryId === categoryId
+        }
+
+        if (isMatch) {
+          // 检查今天是否已经更新过该目标（避免重复更新）
+          const { data: todayRecords } = await goalRecordsCol()
+            .where({
+              _openid: openid,
+              goalId: goal._id,
+              createTime: db.command.gte(new Date(today + 'T00:00:00.000Z'))
+            })
+            .get()
+
+          if (todayRecords && todayRecords.length > 0) {
+            // 今天已经更新过，跳过
+            continue
+          }
+
+          // 获取当前进度并 +1
+          const progress = await calculateGoalProgress(openid, goal)
+          await recordGoalProgress(openid, goal._id!, progress.current + 1)
+          updatedCount++
+        }
+      }
+    }
+
+    return updatedCount
+  } catch (e) {
+    console.error('syncGoalProgressAfterCheckin error:', e)
+    return 0
   }
 }
 
@@ -1195,7 +1276,6 @@ export async function addUserTag(
 
     await userTagsCol().add({
       data: {
-        _openid: openid,
         ...newTag
       } as any
     })
@@ -1345,13 +1425,13 @@ export async function getGoalByConfirmCode(confirmCode: string): Promise<Goal | 
 /**
  * 确认人确认目标（通过确认码）
  * @param confirmCode 确认码
- * @param userId 确认人用户ID
+ * @param openid 确认人 openid
  * @param confirmed 是否确认
  * @param remark 备注
  */
 export async function confirmGoalByCode(
   confirmCode: string,
-  userId: string,
+  openid: string,
   confirmed: boolean,
   remark?: string
 ): Promise<{ success: boolean; msg?: string }> {
@@ -1374,7 +1454,7 @@ export async function confirmGoalByCode(
           'confirmor.confirmStatus': confirmed ? 'confirmed' : 'rejected',
           'confirmor.confirmTime': new Date(),
           'confirmor.confirmRemark': remark || '',
-          'confirmor.userId': userId,
+          'confirmor.openid': openid,
           updatedAt: new Date()
         } as any
       })

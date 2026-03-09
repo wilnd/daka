@@ -73,7 +73,7 @@ export async function isAdmin(openid: string): Promise<boolean> {
   }
 
   // 方式1: 检查 isAdmin 字段
-  const { data } = await usersCol().where({ openid, isAdmin: true }).get()
+  const { data } = await usersCol().where({ _openid: openid, isAdmin: true } as any).get()
   if (data.length > 0) return true
 
   // 方式2: 检查是否在管理员列表中
@@ -106,7 +106,7 @@ export async function submitSuggestion(
     const now = new Date()
     const { _id } = await suggestionsCol().add({
       data: {
-        openid,
+        _openid: openid,
         content: content.trim(),
         type,
         status: 'pending' as SuggestionStatus,
@@ -129,7 +129,7 @@ export async function submitSuggestion(
 export async function getUserSuggestions(openid: string): Promise<Suggestion[]> {
   try {
     const { data } = await suggestionsCol()
-      .where({ openid })
+      .where({ _openid: openid } as any)
       .orderBy('createTime', 'desc')
       .get()
     return data as Suggestion[]
@@ -145,7 +145,7 @@ export async function getUserSuggestions(openid: string): Promise<Suggestion[]> 
 export async function getLatestSuggestion(openid: string): Promise<Suggestion | null> {
   try {
     const { data } = await suggestionsCol()
-      .where({ openid })
+      .where({ _openid: openid } as any)
       .orderBy('createTime', 'desc')
       .limit(1)
       .get()

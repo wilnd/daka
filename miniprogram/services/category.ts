@@ -63,6 +63,19 @@ export const CHECKIN_CATEGORIES: Category[] = [
       { id: 'habit', name: '习惯养成' },
       { id: 'other_life', name: '其他' }
     ]
+  },
+  {
+    id: 'work',
+    name: '工作类',
+    subCategories: [
+      { id: 'meeting', name: '会议' },
+      { id: 'report', name: '报告撰写' },
+      { id: 'coding', name: '代码开发' },
+      { id: 'design', name: '设计工作' },
+      { id: 'planning', name: '计划总结' },
+      { id: 'communication', name: '沟通协调' },
+      { id: 'other_work', name: '其他' }
+    ]
   }
 ]
 

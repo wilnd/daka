@@ -7,7 +7,7 @@
         <text class="empty-icon">👤</text>
       </view>
       <text class="empty-title">请先完成授权</text>
-      <text class="empty-desc">登录后就可以查看你的运动数据啦</text>
+      <text class="empty-desc">登录后就能看到你有多优秀了</text>
       <navigator url="/pages/index/index" class="btn-primary auth-btn">
         <text>去首页报道</text>
       </navigator>
@@ -31,17 +31,21 @@
             </view>
           </view>
           <view class="vip-benefits">
-            <text wx:if="{{vipInfo.level === 0}}" class="vip-hint">完成挑战任务，VIP免费领</text>
-            <text wx:else class="vip-expire">有效期至 {{vipInfo.expireTime || '永久有效'}}</text>
+            <text wx:if="{{vipInfo.level > 0}}" class="vip-expire">有效期至 {{vipInfo.expireTimeText || '永久有效'}}</text>
+            <text wx:else class="vip-hint">完成挑战任务，VIP 白嫖</text>
           </view>
           <view class="vip-privileges">
             <view class="privilege-item">
               <text class="privilege-icon">📅</text>
-              <text class="privilege-text">每月补卡+{{vipInfo.level > 0 ? 2 + vipInfo.level * 2 : 0}}次</text>
+              <text class="privilege-text">每月补卡{{vipInfo.level > 0 ? vipInfo.makeupQuotaText : '2次'}}</text>
             </view>
             <view class="privilege-item">
               <text class="privilege-icon">⭐</text>
-              <text class="privilege-text">成长值+{{vipInfo.level > 0 ? vipInfo.level * 20 : 0}}%</text>
+              <text class="privilege-text">成长值加成{{vipInfo.level > 0 ? '+' + vipInfo.level * 20 + '%' : ''}}</text>
+            </view>
+            <view class="privilege-item">
+              <text class="privilege-icon">📝</text>
+              <text class="privilege-text">小勤点评 {{aiReviewQuotaText || '--'}}</text>
             </view>
           </view>
           <view wx:if="{{claimableVipTasks.length > 0}}" class="vip-task-tip">
@@ -68,45 +72,8 @@
           <view class="user-info">
             <text class="nick">{{userInfo.nickName}}</text>
             <text class="remark" wx:if="{{userInfo.remarkName}}">备注：{{userInfo.remarkName}}</text>
-            <view class="user-meta">
-              <text class="meta-item">打卡 {{stats.totalDays || 0}} 天</text>
-              <text class="meta-divider">|</text>
-              <text class="meta-item">连续 {{stats.streak || 0}} 天</text>
-            </view>
           </view>
           <text class="arrow-right">›</text>
-        </view>
-      </view>
-
-      <!-- 数据统计卡片 -->
-      <view class="stats-card">
-        <view class="stats-header">
-          <text class="stats-title">运动数据</text>
-        </view>
-        <view class="stats-grid">
-          <view class="stat-item">
-            <view class="stat-value-wrap primary">
-              <text class="stat-value">{{stats.totalDays || 0}}</text>
-              <text class="stat-unit">天</text>
-            </view>
-            <text class="stat-label">打卡天数</text>
-          </view>
-          <view class="stat-divider"></view>
-          <view class="stat-item">
-            <view class="stat-value-wrap primary">
-              <text class="stat-value">{{stats.streak || 0}}</text>
-              <text class="stat-unit">天</text>
-            </view>
-            <text class="stat-label">当前连续</text>
-          </view>
-          <view class="stat-divider"></view>
-          <view class="stat-item">
-            <view class="stat-value-wrap {{(stats.missStreak || 0) > 0 ? 'warn' : ''}}">
-              <text class="stat-value">{{stats.missStreak || 0}}</text>
-              <text class="stat-unit">天</text>
-            </view>
-            <text class="stat-label">偷懒天数</text>
-          </view>
         </view>
       </view>
 
@@ -152,6 +119,17 @@
             <view class="menu-info">
               <text class="menu-title">记录日历</text>
               <text class="menu-desc">看看你的打卡日历</text>
+            </view>
+          </navigator>
+
+          <!-- 小勤同学点评(AI) -->
+          <navigator url="/pages/ai-review/ai-review" class="menu-card">
+            <view class="menu-icon-wrap">
+              <text class="menu-icon">🤖</text>
+            </view>
+            <view class="menu-info">
+              <text class="menu-title">小勤同学点评</text>
+              <text class="menu-desc">AI 周/月/年批注，一键分享海报</text>
             </view>
           </navigator>
 
@@ -256,7 +234,7 @@
     </view>
   </view>
   <view class="modal-body">
-    <picker mode="time" value="{{remindTime}}" start="00:00" end="23:59" bindchange="onTimeChange">
+    <picker mode="time" value="{{remindTime}}" start="06:00" end="23:30" minute-step="30" bindchange="onTimeChange">
       <view class="time-display">
         <text class="time-value">{{remindTime}}</text>
         <text class="time-hint">点击选择时间</text>

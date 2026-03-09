@@ -8,8 +8,15 @@ const _ = db.command
 // 订阅消息模板ID
 const TEMPLATE_ID = process.env.SUBSCRIBE_TEMPLATE_ID || 'Onu-1essigRNJuZ8K0a_WdBq7qR5ktHKxST6F0fCDuQ'
 
-// 默认提醒时间
-const DEFAULT_REMIND_TIME = '21:00'
+// 所有可选提醒时间段（每30分钟一个）
+const REMIND_TIME_SLOTS = [
+  '06:00', '06:30', '07:00', '07:30', '08:00', '08:30',
+  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
+  '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+  '18:00', '18:30', '19:00', '19:30', '20:00', '20:30',
+  '21:00', '21:30', '22:00', '22:30', '23:00', '23:30'
+]
 
 exports.main = async (event, context) => {
   // 只有定时触发器调用时才执行
@@ -22,7 +29,10 @@ exports.main = async (event, context) => {
   const currentMinute = String(now.getMinutes()).padStart(2, '0')
   const currentTime = `${currentHour}:${currentMinute}`
 
-  console.log(`开始每日打卡提醒任务... 当前时间: ${currentTime}`)
+  // 将当前时间对齐到30分钟区间（如 21:05 -> 21:00, 21:35 -> 21:30）
+  const currentSlot = getTimeSlot(currentTime)
+
+  console.log(`开始每日打卡提醒任务... 当前时间: ${currentTime}, 时间段: ${currentSlot}`)
 
   // 获取今天的日期
   const today = getTodayStr()
@@ -48,18 +58,20 @@ exports.main = async (event, context) => {
     for (const user of users) {
       try {
         // 获取用户的提醒时间设置
-        const userRemindTime = user.remindTime || DEFAULT_REMIND_TIME
+        const userRemindTime = user.remindTime || '21:00'
 
-        // 检查是否到达用户的提醒时间（允许5分钟误差）
-        const timeDiff = timeToMinutes(currentTime) - timeToMinutes(userRemindTime)
-        if (Math.abs(timeDiff) > 5) {
-          console.log(`用户 ${user.openid} 提醒时间未到 (${userRemindTime})，跳过`)
+        // 将用户提醒时间对齐到30分钟区间
+        const userSlot = getTimeSlot(userRemindTime)
+
+        // 检查当前时间段是否匹配用户的提醒时间段
+        if (currentSlot !== userSlot) {
+          console.log(`用户 ${user.openid} 提醒时间段未到 (${userRemindTime} -> ${userSlot})，当前 ${currentSlot}，跳过`)
           continue
         }
 
         // 检查是否已经发送过提醒（避免重复发送）
         const { data: existingReminds } = await db.collection('dailyReminds').where({
-          userId: user.openid,
+          openid: user.openid,
           date: today
         }).get()
 
@@ -70,7 +82,7 @@ exports.main = async (event, context) => {
 
         // 检查用户今日是否已打卡
         const { data: checkins } = await db.collection('checkins').where({
-          userId: user.openid,
+          openid: user.openid,
           date: today
         }).get()
 
@@ -79,7 +91,7 @@ exports.main = async (event, context) => {
           // 记录已发送
           await db.collection('dailyReminds').add({
             data: {
-              userId: user.openid,
+              openid: user.openid,
               date: today,
               sent: false,
               reason: 'already_checked_in',
@@ -92,7 +104,7 @@ exports.main = async (event, context) => {
 
         // 获取用户所在的组织
         const { data: members } = await db.collection('members').where({
-          userId: user.openid,
+          openid: user.openid,
           status: 'normal'
         }).get()
 
@@ -120,7 +132,7 @@ exports.main = async (event, context) => {
         // 记录发送结果
         await db.collection('dailyReminds').add({
           data: {
-            userId: user.openid,
+            openid: user.openid,
             date: today,
             sent: (result.result && result.result.success) || false,
             createTime: new Date()
@@ -167,8 +179,10 @@ function getTodayStr() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-// 将时间转换为分钟数
-function timeToMinutes(timeStr) {
+// 将时间对齐到30分钟区间（如 21:05 -> 21:00, 21:35 -> 21:30）
+function getTimeSlot(timeStr) {
   const [hour, minute] = timeStr.split(':').map(Number)
-  return hour * 60 + minute
+  // 将分钟数向下取整到最近的30分钟
+  const alignedMinute = minute < 30 ? '00' : '30'
+  return `${String(hour).padStart(2, '0')}:${alignedMinute}`
 }

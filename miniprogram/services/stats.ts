@@ -2,7 +2,19 @@
  * 数据统计服务：连胜、连续未记录、记录率
  * 优化：单次查询记录，本地计算，避免多次 DB 请求卡顿
  */
-import { db, checkinsCol, membersCol, usersCol, getTodayStr, getDateBefore } from './db'
+import { db, checkinsCol, checkinStatsCol, membersCol, usersCol, getTodayStr, getDateBefore } from './db'
+
+/** 获取用户创建时间 */
+async function getUserCreateTime(openid: string): Promise<Date | null> {
+  const { data } = await usersCol()
+    .where({ _openid: openid } as any)
+    .limit(1)
+    .get()
+  if (data && data.length > 0) {
+    return data[0].createTime || null
+  }
+  return null
+}
 
 /** 排行榜缓存 key */
 const RANK_CACHE_KEY = 'rankCache'
@@ -124,96 +136,148 @@ export async function convertRankAvatarUrlsWithCache(rankList: RankUser[]): Prom
   return rankList
 }
 
-/** 获取近 400 天的打卡记录（用于计算连胜/未打卡） */
+/** 获取近 400 天的打卡记录（用于计算连胜/未打卡）
+ * 注意：使用 _openid 字段查询（云开发自动填充） */
 async function getRecentCheckins(
-  userId: string,
-  _groupId?: string  // 保留参数兼容性，但实际不使用
+  openid: string
 ): Promise<{ date: string; isMakeup: boolean }[]> {
   const today = getTodayStr()
   const start = getDateBefore(today, 400)
   const _ = db.command
-  const { data } = await checkinsCol()
-    .where({
-      userId,
-      date: _.and(_.gte(start), _.lte(today)),
-    })
-    .limit(500)
-    .get()
-  return (data || []) as { date: string; isMakeup: boolean }[]
+
+  const allCheckins: { date: string; isMakeup: boolean }[] = []
+  let skip = 0
+  const batchSize = 100
+
+  while (true) {
+    // 使用 _openid 字段查询（云开发自动填充）
+    const { data } = await checkinsCol()
+      .where({
+        _openid: openid,
+        date: _.and(_.gte(start), _.lte(today)),
+      })
+      .orderBy('date', 'desc')
+      .skip(skip)
+      .limit(batchSize)
+      .get()
+    
+    if (!data || data.length === 0) break
+    allCheckins.push(...(data as { date: string; isMakeup: boolean }[]))
+    
+    if (data.length < batchSize) break
+    skip += batchSize
+  }
+  
+  return allCheckins
+}
+
+/**
+ * 统一获取所有统计数据（从云函数一次获取）
+ */
+export interface AllStatsData {
+  streak: number
+  bestStreak: number
+  missStreak: number
+  totalDays: number
+  totalCount: number
+  totalMinutes: number
+  avgScore: number
+}
+
+export async function getAllStats(openid: string): Promise<AllStatsData> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: { action: 'getAllStats', period: 'all' }
+    }) as any
+    if (res.result && res.result.success) {
+      const data = res.result.data
+      return {
+        streak: data.streak || 0,
+        bestStreak: data.bestStreak || 0,
+        missStreak: data.missStreak || 0,
+        totalDays: data.totalDays || 0,
+        totalCount: data.totalCheckins || 0,
+        totalMinutes: data.totalMinutes || 0,
+        avgScore: data.avgScore || 0
+      }
+    }
+    return { streak: 0, bestStreak: 0, missStreak: 0, totalDays: 0, totalCount: 0, totalMinutes: 0, avgScore: 0 }
+  } catch (e) {
+    console.error('[getAllStats] error:', e)
+    return { streak: 0, bestStreak: 0, missStreak: 0, totalDays: 0, totalCount: 0, totalMinutes: 0, avgScore: 0 }
+  }
 }
 
 /** 计算连胜天数（不含补卡）
  * 逻辑：
- * - 昨天打卡了，今天还没打 → 显示昨天之前的连续天数
+ * - 昨天打卡了，今天还没打 → 显示昨天之前的连胜天数
  * - 昨天没打，今天打了 → 显示1
  * - 昨天今天都没打 → 显示0
  */
-export async function getStreak(userId: string, groupId?: string): Promise<number> {
-  const checkins = await getRecentCheckins(userId, groupId)
-  if (!checkins || checkins.length === 0) return 0
-
-  const normalDates = new Set(
-    checkins.map((c) => c.date)  // 包含补卡
-  )
-
-  const today = getTodayStr()
-  const yesterday = getDateBefore(today, 1)
-
-  // 昨天没打卡
-  if (!normalDates.has(yesterday)) {
-    // 今天打了，返回1；今天没打，返回0
-    return normalDates.has(today) ? 1 : 0
-  }
-
-  // 昨天打卡了，从昨天往前连续统计
-  let streak = 0
-  let d = yesterday
-  for (let i = 0; i < 365; i++) {
-    if (normalDates.has(d)) {
-      streak++
-      d = getDateBefore(d, 1)
-    } else {
-      break
+/** 获取连胜天数 - 直接从云函数获取（数据库统计，不受条数限制） */
+export async function getStreak(openid: string): Promise<number> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: { action: 'getAllStats', period: 'all' }
+    }) as any
+    if (res.result && res.result.success) {
+      return (res.result.data && res.result.data.streak) || 0
     }
-  }
-  // 如果今天也打卡了，需要把今天算上
-  if (normalDates.has(today)) {
-    streak++
-  }
-
-  return streak
-}
-
-/** 计算连续未打卡天数（只算到昨天为止，今天未打卡不算） */
-export async function getMissStreak(
-  userId: string,
-  groupId?: string
-): Promise<number> {
-  const checkins = await getRecentCheckins(userId, groupId)
-  // 没有打卡记录时，返回0
-  if (!checkins || checkins.length === 0) {
+    return 0
+  } catch (e) {
+    console.error('[getStreak] error:', e)
     return 0
   }
-  const checkedDates = new Set(checkins.map((c) => c.date))
-  let miss = 0
-  // 从昨天开始计算连续未打卡，不包含今天
-  let d = getDateBefore(getTodayStr(), 1)
-  for (let i = 0; i < 365; i++) {
-    if (!checkedDates.has(d)) {
-      miss++
-      d = getDateBefore(d, 1)
-    } else {
-      break
-    }
+}
+
+/**
+ * 从 checkinStats 表直接读取当前连胜天数（打卡/补卡后由云函数更新，数据权威）
+ */
+export async function getStreakFromCheckinStats(openid: string): Promise<number> {
+  if (!openid) return 0
+  try {
+    const { data } = await checkinStatsCol()
+      .where({ _openid: openid } as any)
+      .limit(1)
+      .get()
+    const row = data && data[0] ? (data[0] as { current_streak?: number }) : null
+    const streak = row && row.current_streak != null ? row.current_streak : 0
+    return typeof streak === 'number' ? streak : 0
+  } catch (e) {
+    console.warn('[getStreakFromCheckinStats] error:', e)
+    return 0
   }
-  return miss
+}
+
+/** 计算摸鱼天数（直接由云函数统计）
+ * 逻辑：总自然日数（从用户创建账号到当前）- 有记录的天数
+ */
+export async function getMissStreak(
+  openid: string
+): Promise<number> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: { action: 'getAllStats', period: 'all' }
+    }) as any
+    if (res.result && res.result.success) {
+      return (res.result.data && res.result.data.missStreak) || 0
+    }
+    return 0
+  } catch (e) {
+    console.error('[getMissStreak] error:', e)
+    return 0
+  }
 }
 
 /** 判断昨天是否已打卡 */
-export async function wasCheckedInYesterday(userId: string): Promise<boolean> {
+export async function wasCheckedInYesterday(openid: string): Promise<boolean> {
   const yesterday = getDateBefore(getTodayStr(), 1)
+  // 使用 _openid 字段查询
   const { data } = await checkinsCol()
-    .where({ userId, date: yesterday })
+    .where({ _openid: openid, date: yesterday })
     .limit(1)
     .get()
   return (data && data.length > 0) || false
@@ -221,37 +285,67 @@ export async function wasCheckedInYesterday(userId: string): Promise<boolean> {
 
 /** 总打卡次数（所有记录，含同一天多次打卡） */
 export async function getTotalCount(
-  userId: string,
-  groupId?: string  // 保留参数兼容性，但实际不使用
+  openid: string
 ): Promise<number> {
+  // 使用 _openid 字段查询
   const { total } = await checkinsCol()
-    .where({ userId })
+    .where({ _openid: openid })
     .count()
   return total
 }
 
 /** 总打卡天数（去重后的日期数，同一天多次打卡只算1天） */
 export async function getTotalDays(
-  userId: string,
-  groupId?: string  // 保留参数兼容性，但实际不使用
-): Promise<number> {
+  openid: string
+  ): Promise<number> {
   // 查询所有打卡记录，本地按日期去重
-  const { data } = await checkinsCol()
-    .where({ userId })
-    .orderBy('date', 'desc')
-    .limit(1000)
-    .get()
-  
-  if (!data || data.length === 0) return 0
-  
+  const allDates: string[] = []
+  let skip = 0
+  const batchSize = 100
+
+  while (true) {
+    // 使用 _openid 字段查询
+    const { data } = await checkinsCol()
+      .where({ _openid: openid })
+      .orderBy('date', 'desc')
+      .skip(skip)
+      .limit(batchSize)
+      .get()
+
+    if (!data || data.length === 0) break
+    allDates.push(...data.map((c: any) => c.date))
+
+    if (data.length < batchSize) break
+    skip += batchSize
+  }
+
+  if (allDates.length === 0) return 0
+
   // 按日期去重
-  const uniqueDates = new Set(data.map((c: any) => c.date))
+  const uniqueDates = new Set(allDates)
   return uniqueDates.size
+}
+
+/** 获取最佳连胜天数 - 直接从云函数获取 */
+export async function getBestStreak(openid: string): Promise<number> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: { action: 'getAllStats', period: 'all' }
+    }) as any
+    if (res.result && res.result.success) {
+      return (res.result.data && res.result.data.bestStreak) || 0
+    }
+    return 0
+  } catch (e) {
+    console.error('[getBestStreak] error:', e)
+    return 0
+  }
 }
 
 /** 排行榜用户信息 */
 export interface RankUser {
-  userId: string
+  openid: string
   nickName: string
   avatarUrl: string
   streak: number
@@ -298,15 +392,16 @@ async function computeAllRanks(groupId: string): Promise<{ dayRank: RankUser[]; 
     return { dayRank: [], weekRank: [], monthRank: [] }
   }
 
+  // 获取成员 openid 列表
+  const memberOpenids = (members as any[]).map(m => m.openid).filter(Boolean)
+
   // 获取所有成员最近400天的打卡记录
   const today = getTodayStr()
   const start = getDateBefore(today, 400)
-  const memberUserIds = (members as any[]).map(m => m.userId).filter(Boolean)
-  const checkins = await getCheckinsForUsersInRange(memberUserIds, start, today)
+  const checkins = await getCheckinsForUsersInRange(memberOpenids, start, today)
 
   // 获取用户信息（批量查询）
-  const userIds = members.map(m => m.userId).filter(Boolean)
-  const users = await getUsersInfo(userIds || [])
+  const users = await getUsersInfo(memberOpenids)
   const userInfoMap: Record<string, any> = {}
   for (const u of (users || [])) {
     userInfoMap[u.openid] = u
@@ -335,7 +430,7 @@ async function getUsersInfo(userIds: string[]): Promise<any[]> {
   for (let i = 0; i < userIds.length; i += batchSize) {
     const batch = userIds.slice(i, i + batchSize)
     const { data } = await usersCol()
-      .where({ openid: _.in(batch) })
+      .where({ _openid: _.in(batch) } as any)
       .get()
     users.push(...((data || []) as any[]))
   }
@@ -371,9 +466,11 @@ export async function getAllRank(groupId: string): Promise<RankUser[]> {
     return []
   }
 
+  // 获取成员 openid 列表
+  const memberOpenids = members.map(m => m.openid).filter(Boolean)
+
   // 获取用户信息（批量查询）
-  const userIds = members.map(m => m.userId).filter(Boolean)
-  const users = await getUsersInfo(userIds || [])
+  const users = await getUsersInfo(memberOpenids)
   const userInfoMap: Record<string, any> = {}
   for (const u of (users || [])) {
     userInfoMap[u.openid] = u
@@ -381,8 +478,9 @@ export async function getAllRank(groupId: string): Promise<RankUser[]> {
 
   // 查询所有打卡记录，按日期去重
   const _ = db.command
+  // 使用 _openid 字段查询
   const { data: allCheckins } = await checkinsCol()
-    .where({ userId: _.in(userIds) })
+    .where({ _openid: _.in(memberOpenids) })
     .get()
 
   // 按用户分组，统计累计打卡天数
@@ -390,7 +488,8 @@ export async function getAllRank(groupId: string): Promise<RankUser[]> {
   const userCheckinDates: Record<string, Set<string>> = {}
 
   for (const checkin of (allCheckins || [])) {
-    const uid = checkin.userId
+    const uid = checkin._openid || checkin.openid
+    if (!uid) continue
     if (!userCheckinDates[uid]) {
       userCheckinDates[uid] = new Set()
     }
@@ -398,16 +497,16 @@ export async function getAllRank(groupId: string): Promise<RankUser[]> {
   }
 
   // 统计每个用户的累计打卡天数
-  for (const uid of userIds) {
+  for (const uid of memberOpenids) {
     userTotalDays[uid] = userCheckinDates[uid] ? userCheckinDates[uid].size : 0
   }
 
   // 构建结果并按累计天数排序
   const result: RankUser[] = members.map(m => ({
-    userId: m.userId,
-    nickName: (userInfoMap[m.userId] && userInfoMap[m.userId].nickName) || '未知',
-    avatarUrl: (userInfoMap[m.userId] && userInfoMap[m.userId].avatarUrl) || '',
-    streak: userTotalDays[m.userId] || 0,
+    openid: m.openid,
+    nickName: (userInfoMap[m.openid] && userInfoMap[m.openid].nickName) || '未知',
+    avatarUrl: (userInfoMap[m.openid] && userInfoMap[m.openid].avatarUrl) || '',
+    streak: userTotalDays[m.openid] || 0,
   }))
 
   return result.sort((a, b) => b.streak - a.streak)
@@ -425,9 +524,10 @@ async function getCheckinsForUsersInRange(userIds: string[], start: string, end:
     const batch = userIds.slice(i, i + batchSize)
     let skip = 0
     while (true) {
+      // 使用 _openid 字段查询
       const { data } = await checkinsCol()
         .where({
-          userId: _.in(batch),
+          _openid: _.in(batch),
           date: _.and(_.gte(start), _.lte(end)),
         })
         .orderBy('date', 'asc')
@@ -450,13 +550,15 @@ function computeRank(
   checkins: any[],
   userInfoMap: Record<string, any>
 ): { dayRank: RankUser[]; weekRank: RankUser[]; monthRank: RankUser[] } {
-  // 按用户分组打卡记录
+  // 按用户分组打卡记录（云开发返回 _openid，无 openid 字段）
   const userCheckins: Record<string, Set<string>> = {}
   for (const c of checkins) {
-    if (!userCheckins[c.userId]) {
-      userCheckins[c.userId] = new Set()
+    const uid = c._openid || c.openid
+    if (!uid) continue
+    if (!userCheckins[uid]) {
+      userCheckins[uid] = new Set()
     }
-    userCheckins[c.userId].add(c.date)
+    userCheckins[uid].add(c.date)
   }
 
   // 计算每个用户的连续打卡天数
@@ -464,7 +566,7 @@ function computeRank(
   const today = getTodayStr()
   const yesterday = getDateBefore(today, 1)
   for (const member of members) {
-    const uid = member.userId
+    const uid = member.openid
     const dates = userCheckins[uid]
     if (!dates || dates.size === 0) {
       userStreaks[uid] = 0
@@ -500,15 +602,15 @@ function computeRank(
   // 构建结果并排序
   const buildRankList = (): RankUser[] => {
     const result: RankUser[] = members.map(m => ({
-      userId: m.userId,
-      nickName: (userInfoMap[m.userId] && userInfoMap[m.userId].nickName) || '未知',
-      avatarUrl: (userInfoMap[m.userId] && userInfoMap[m.userId].avatarUrl) || '',
-      streak: userStreaks[m.userId] || 0,
+      openid: m.openid,
+      nickName: (userInfoMap[m.openid] && userInfoMap[m.openid].nickName) || '未知',
+      avatarUrl: (userInfoMap[m.openid] && userInfoMap[m.openid].avatarUrl) || '',
+      streak: userStreaks[m.openid] || 0,
     }))
     return result.sort((a, b) => b.streak - a.streak)
   }
 
-  // 三个榜单数据相同（都是按连续天数排序），返回三份引用
+  // 三个榜单数据相同（都是按连胜天数排序），返回三份引用
   const sortedRank = buildRankList()
   return {
     dayRank: sortedRank,

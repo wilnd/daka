@@ -233,10 +233,10 @@ export function throttle<T extends (...args: any[]) => any>(
 }
 
 /** 验证用户是否在群组中 */
-export async function verifyUserInGroup(userId: string, groupId: string): Promise<boolean> {
+export async function verifyUserInGroup(openid: string, groupId: string): Promise<boolean> {
   try {
     const { data } = await membersCol()
-      .where({ userId, groupId, status: 'normal' })
+      .where({ _openid: openid, groupId, status: 'normal' } as any)
       .limit(1)
       .get()
     return data.length > 0

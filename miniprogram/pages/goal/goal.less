@@ -29,6 +29,47 @@
   }
 }
 
+// 制定自律计划区域 - 带边框的卡片样式
+.create-section {
+  background: @color-white;
+  border-radius: @radius-lg;
+  padding: 32rpx;
+  margin: 0 -8rpx;
+  border: 2rpx dashed @color-border;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  
+  .section-title {
+    color: @color-primary !important;
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    
+    &::before {
+      content: '✏️';
+    }
+  }
+}
+
+// 分隔线 - 增强版
+.divider {
+  height: 16rpx;
+  background: linear-gradient(180deg, transparent 0%, #f0f0f0 30%, #f0f0f0 70%, transparent 100%);
+  margin: 24rpx 0;
+  position: relative;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 120rpx;
+    height: 8rpx;
+    background: #ddd;
+    border-radius: 4rpx;
+  }
+}
+
 // 目标卡片
 .goal-list {
   .goal-card {

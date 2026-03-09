@@ -7,8 +7,8 @@ const _ = db.command
 exports.main = async (event, context) => {
   const wxContext = cloud.getWXContext()
   const currentUserId = wxContext.OPENID  // 当前登录用户，用于点赞、评论等操作
-  // 从 event 中解构 userId（这是传入的目标用户，用于获取指定用户的成长墙等）
-  const { action, groupId, momentId, limit = 20, lastId, content, userId: targetUserId } = event
+  // 从 event 中解构 openid（这是传入的目标用户，用于获取指定用户的成长墙等）
+  const { action, groupId, momentId, limit = 20, lastId, content, _openid: targetOpenid } = event
 
   const pickUserInfo = (u) => {
     if (!u) return undefined
@@ -28,7 +28,7 @@ exports.main = async (event, context) => {
 
   const pickCommentUserInfo = (c, userMap) => {
     if (c.isAIFeedback) return AI_USER_INFO
-    return pickUserInfo(userMap.get(c.userId))
+    return pickUserInfo(userMap.get(c.openid || c._openid))
   }
 
   // 兼容老数据：users 可能只有系统字段 _openid，没有自定义 openid
@@ -39,29 +39,18 @@ exports.main = async (event, context) => {
 
     const users = []
     try {
-      const res1 = await db.collection('users')
-        .where({ openid: _.in(list) })
-        .get()
-      users.push(...(res1.data || []))
-    } catch (e) {
-      // ignore
-    }
-    try {
-      const res2 = await db.collection('users')
+      const res = await db.collection('users')
         .where({ _openid: _.in(list) })
         .get()
-      users.push(...(res2.data || []))
+      users.push(...(res.data || []))
     } catch (e) {
       // ignore
     }
 
     for (const u of users) {
-      const key = u.openid || u._openid
+      const key = u._openid || u.openid
       if (!key) continue
-      // 如果同一个 key 出现两份，优先选择带 openid 的那份
-      if (!map.has(key) || (u.openid && map.get(key) && !map.get(key).openid)) {
-        map.set(key, u)
-      }
+      if (!map.has(key)) map.set(key, u)
     }
     return map
   }
@@ -85,12 +74,16 @@ exports.main = async (event, context) => {
           try {
             const lastMoment = await db.collection('moments').doc(lastId).get()
             if (lastMoment.data) {
+              const lastTime = lastMoment.data.createTime
               query = db.collection('moments')
-                .where(_.or(
-                  { groupId },  // 当前群组的动态
-                  { groupId: '' },  // 全局动态
-                  { groupId: _.eq(null) }  // 兼容 null
-                ))
+                .where(_.and([
+                  _.or(
+                    { groupId },
+                    { groupId: '' },
+                    { groupId: _.eq(null) }
+                  ),
+                  { createTime: _.lt(lastTime) }
+                ]))
                 .orderBy('createTime', 'desc')
                 .limit(limit)
             }
@@ -133,7 +126,7 @@ exports.main = async (event, context) => {
           db.collection('momentLikes')
             .where({
               momentId: _.in(moments.map(m => m._id)),
-              userId: currentUserId
+              _openid: currentUserId
             })
             .get(),
           // 所有评论
@@ -154,13 +147,13 @@ exports.main = async (event, context) => {
         // 处理点赞状态
         const likedSet = new Set((likesRes.data || []).map(l => l.momentId))
 
-        // 获取发布者/评论者信息
-        const momentUserIds = [...new Set(moments.map(m => m.userId))]
-        const commentUserIds = [...new Set((allCommentsRes.data || []).map(c => c.userId))]
-        const userMap = await getUsersByIds([...momentUserIds, ...commentUserIds])
+        // 获取发布者/评论者信息（兼容 openid / _openid，避免匿名与头像缺失）
+        const momentOpenids = [...new Set(moments.map(m => m.openid || m._openid).filter(Boolean))]
+        const commentOpenids = [...new Set((allCommentsRes.data || []).map(c => c.openid || c._openid).filter(Boolean))]
+        const userMap = await getUsersByIds([...momentOpenids, ...commentOpenids])
 
         const result = moments.map(moment => {
-          const userInfo = userMap.get(moment.userId)
+          const userInfo = userMap.get(moment.openid || moment._openid)
           const momentComments = (allCommentsRes.data || [])
             .filter(c => c.momentId === moment._id)
             .map(c => ({
@@ -188,7 +181,7 @@ exports.main = async (event, context) => {
       case 'like': {
         // 点赞成长墙
         const { data: existing } = await db.collection('momentLikes')
-          .where({ momentId, userId: currentUserId })
+          .where({ momentId, _openid: currentUserId })
           .get()
 
         if (existing.length > 0) {
@@ -196,7 +189,7 @@ exports.main = async (event, context) => {
         }
 
         await db.collection('momentLikes').add({
-          data: { momentId, userId: currentUserId, createTime: db.serverDate() }
+          data: { momentId, _openid: currentUserId, createTime: db.serverDate() }
         })
 
         // 更新点赞数
@@ -214,7 +207,7 @@ exports.main = async (event, context) => {
       case 'unlike': {
         // 取消点赞
         const { data: existing } = await db.collection('momentLikes')
-          .where({ momentId, userId: currentUserId })
+          .where({ momentId, _openid: currentUserId })
           .get()
 
         if (existing.length === 0) {
@@ -263,7 +256,7 @@ exports.main = async (event, context) => {
         const { _id } = await db.collection('momentComments').add({
           data: {
             momentId,
-            userId: currentUserId,
+            _openid: currentUserId,
             content: content.trim(),
             createTime: db.serverDate()
           }
@@ -289,7 +282,7 @@ exports.main = async (event, context) => {
           data: {
             _id,
             momentId,
-            userId: currentUserId,
+            openid: currentUserId,
             content: content.trim(),
             userInfo: pickUserInfo(commentUser)
           }
@@ -312,7 +305,7 @@ exports.main = async (event, context) => {
           return { success: false, msg: '评论不存在' }
         }
 
-        if (comment.userId !== currentUserId) {
+        if (comment.openid !== currentUserId) {
           return { success: false, msg: '只能删除自己的评论' }
         }
 
@@ -341,9 +334,9 @@ exports.main = async (event, context) => {
           return { success: true, data: [] }
         }
 
-        // 获取评论者信息
-        const userIds = [...new Set(comments.map(c => c.userId))]
-        const userMap = await getUsersByIds(userIds)
+        // 获取评论者信息（兼容 openid / _openid）
+        const openids = [...new Set(comments.map(c => c.openid || c._openid).filter(Boolean))]
+        const userMap = await getUsersByIds(openids)
 
         const result = comments.map(c => ({
           ...c,
@@ -356,7 +349,7 @@ exports.main = async (event, context) => {
       case 'getAllMoments': {
         // 获取用户在所有群组的成长墙列表（首页展示）
         const { data: members } = await db.collection('members')
-          .where({ userId: currentUserId, status: 'normal' })
+          .where({ _openid: currentUserId, status: 'normal' })
           .get()
 
         if (members.length === 0) {
@@ -392,9 +385,9 @@ exports.main = async (event, context) => {
           return { success: true, data: [] }
         }
 
-        // 获取发布者信息
-        const userIds = [...new Set(moments.map(m => m.userId))]
-        const userMap = await getUsersByIds(userIds)
+        // 获取发布者信息（兼容 openid / _openid）
+        const openids = [...new Set(moments.map(m => m.openid || m._openid).filter(Boolean))]
+        const userMap = await getUsersByIds(openids)
 
         // 获取群组信息
         const { data: groups } = await db.collection('groups')
@@ -410,14 +403,14 @@ exports.main = async (event, context) => {
         const { data: likes } = await db.collection('momentLikes')
           .where({ 
             momentId: _.in(moments.map(m => m._id)),
-            userId: currentUserId
+            _openid: currentUserId
           })
           .get()
 
         const likedSet = new Set(likes.map(l => l.momentId))
 
         const result = moments.map(moment => {
-          const userInfo = userMap.get(moment.userId)
+          const userInfo = userMap.get(moment._openid || moment.openid)
           const groupInfo = groupMap.get(moment.groupId)
 
           return {
@@ -433,12 +426,12 @@ exports.main = async (event, context) => {
 
       case 'getUserInfo': {
         // 获取指定用户的信息
-        if (!targetUserId) {
-          return { success: false, msg: '参数错误：缺少userId' }
+        if (!targetOpenid) {
+          return { success: false, msg: '参数错误：缺少_openid' }
         }
 
-        const userMap = await getUsersByIds([targetUserId])
-        const user = userMap.get(targetUserId)
+        const userMap = await getUsersByIds([targetOpenid])
+        const user = userMap.get(targetOpenid)
 
         if (!user) {
           return { success: false, msg: '用户不存在' }
@@ -449,27 +442,27 @@ exports.main = async (event, context) => {
 
       case 'getUserMoments': {
         // 获取指定用户的成长墙列表（不限制群组）
-        if (!targetUserId) {
-          return { success: false, msg: '参数错误：缺少userId' }
+        if (!targetOpenid) {
+          return { success: false, msg: '参数错误：缺少_openid' }
         }
 
         // 获取用户所属的所有群组
         const { data: members } = await db.collection('members')
-          .where({ userId: targetUserId, status: 'normal' })
+          .where({ _openid: targetOpenid, status: 'normal' })
           .get()
 
         let groupIds = members.map(m => m.groupId)
         // 如果用户不属于任何群组，尝试从 moments 表直接查询
         if (groupIds.length === 0) {
           const { data: userMoments } = await db.collection('moments')
-            .where({ userId: targetUserId })
+            .where({ _openid: targetOpenid })
             .get()
           groupIds = [...new Set(userMoments.map(m => m.groupId))]
         }
 
         let query = db.collection('moments')
           .where({ 
-            userId: targetUserId,
+            _openid: targetOpenid,
             ...(groupIds.length > 0 ? { groupId: _.in(groupIds) } : {})
           })
           .orderBy('createTime', 'desc')
@@ -481,7 +474,7 @@ exports.main = async (event, context) => {
             if (lastMoment.data) {
               query = db.collection('moments')
                 .where({
-                  userId: targetUserId,
+                  _openid: targetOpenid,
                   ...(groupIds.length > 0 ? { groupId: _.in(groupIds) } : {}),
                   createTime: _.lt(lastMoment.data.createTime)
                 })
@@ -502,7 +495,7 @@ exports.main = async (event, context) => {
         const { data: likes } = await db.collection('momentLikes')
           .where({ 
             momentId: _.in(moments.map(m => m._id)),
-            userId: currentUserId
+            openid: currentUserId
           })
           .get()
 
@@ -515,9 +508,9 @@ exports.main = async (event, context) => {
           })
           .get()
 
-        // 获取评论者信息
-        const commentUserIds = [...new Set(allComments.map(c => c.userId))]
-        const commentUserMap = await getUsersByIds(commentUserIds)
+        // 获取评论者信息（兼容 openid / _openid）
+        const commentOpenids = [...new Set(allComments.map(c => c.openid || c._openid).filter(Boolean))]
+        const commentUserMap = await getUsersByIds(commentOpenids)
 
         // 获取群组信息
         const { data: groups } = await db.collection('groups')
@@ -530,8 +523,8 @@ exports.main = async (event, context) => {
         }
 
         // 获取用户信息（发布者）
-        const userMap = await getUsersByIds([targetUserId])
-        const userInfo = userMap.get(targetUserId)
+        const userMap = await getUsersByIds([targetOpenid])
+        const userInfo = userMap.get(targetOpenid)
 
         const result = moments.map(moment => {
           const momentComments = allComments
@@ -551,6 +544,28 @@ exports.main = async (event, context) => {
         })
 
         return { success: true, data: result }
+      }
+
+      case 'getAnnotations': {
+        // 小勤同学点评：获取当前用户的周/月/年批注（用于点评页与分享海报）
+        const uid = targetOpenid || currentUserId
+        if (!uid) {
+          return { success: false, msg: '缺少用户标识' }
+        }
+        const { data: list } = await db.collection('momentAnnotations')
+          .where({ _openid: uid })
+          .orderBy('createTime', 'desc')
+          .limit(50)
+          .get()
+        const annotations = (list || []).map((a) => ({
+          _id: a._id,
+          type: a.type,
+          period: a.period,
+          content: a.content,
+          contentShort: a.contentShort != null ? a.contentShort : a.content,
+          createTime: a.createTime
+        }))
+        return { success: true, data: annotations }
       }
 
       default:

@@ -14,7 +14,9 @@
     "pages/tasks/tasks",
     "pages/goal/goal",
     "pages/goal-progress/goal-progress",
-    "pages/goal-confirm/goal-confirm"
+    "pages/goal-confirm/goal-confirm",
+    "pages/ai-review/ai-review",
+    "pages/ai-review-detail/ai-review-detail"
   ],
   "window": {
     "navigationBarTextStyle": "white",

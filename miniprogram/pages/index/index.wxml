@@ -1,4 +1,4 @@
-<navigation-bar title="我的成长小助手" back="{{false}}" color="white" background="{{themeColor}}"></navigation-bar>
+<navigation-bar title="我的成长小助手" back="{{false}}" color="white" background="{{navBarColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <view wx:if="{{!hasUserInfo}}" class="auth-section">
@@ -6,7 +6,7 @@
       <view class="welcome-area">
         <view class="welcome-icon">🏃‍♂️</view>
         <text class="welcome-title">欢迎来到成长星球</text>
-        <text class="welcome-desc">授权一下，让我们一起变强！</text>
+        <text class="welcome-desc">授权一下，让我们一起变强，变富，变好看！</text>
       </view>
 
       <!-- 头像选择 -->
@@ -36,11 +36,11 @@
 
       <!-- 确认按钮 -->
       <button class="btn-primary confirm-auth" bindtap="onConfirmAuth">
-        <text class="btn-text">开始我的表演</text>
+        <text class="btn-text">准备起飞</text>
       </button>
 
       <!-- 隐私说明 -->
-      <text class="privacy-tip">放心，我们只关心你的运动，不关心你的隐私~</text>
+      <text class="privacy-tip">放心，我们只关心你有没有运动，不关心你几点睡~</text>
     </view>
     <view wx:elif="{{loading}}" class="skeleton-wrap">
       <view class="skeleton-card">
@@ -62,7 +62,7 @@
       <view wx:if="{{!currentGroup}}" class="empty-state">
         <view class="empty-icon">🏃</view>
         <text class="empty-title">欢迎来到成长星球</text>
-        <text class="empty-desc">创建一个群或者抱紧大腿，加入组织一起嗨！</text>
+        <text class="empty-desc">创建一个群或者抱紧大腿，加入组织一起开挂！</text>
         <view class="empty-actions">
           <button class="btn-primary" bindtap="goCreateGroup">创建组织</button>
           <button class="btn-secondary" bindtap="goJoinGroup">抱紧大腿</button>
@@ -72,22 +72,22 @@
       <view wx:else>
         <view
           class="checkin-card"
-          style="--btn-color: {{themeColor}}; --btn-color-rgb: {{themeColorRgb}}"
+          style="--btn-color: {{checkinCardColor}}; --btn-color-rgb: {{checkinCardColorRgb}}"
         >
           <view class="checkin-status {{checkedToday ? 'checked' : ''}}">
-            <text class="status-text">{{checkedToday ? '今日已打卡' : '骚年，该运动了！'}}</text>
+            <text class="status-text">{{checkedToday ? '今日已达标' : '骚年，该动起来了！'}}</text>
           </view>
           <view class="checkin-btn-wrapper">
             <button
               class="btn-primary checkin-btn {{checkedToday ? 'checked' : ''}} {{checkinAnimating ? 'animating' : ''}}"
-              style="--btn-color: {{themeColor}}"
+              style="--btn-color: {{checkinCardColor}}; --btn-color-rgb: {{checkinCardColorRgb}}"
               hover-class="btn-hover"
               bindtap="onCheckin"
               disabled="{{!currentGroup || checkinAnimating}}"
             >
               <text wx:if="{{checkinAnimating}}">提交中...</text>
-              <text wx:elif="{{checkedToday}}">再接再厉</text>
-              <text wx:else>记录今日成就</text>
+              <text wx:elif="{{checkedToday}}">太棒了</text>
+              <text wx:else>记录今日份成就</text>
             </button>
             <view wx:if="{{checkedToday}}" class="success-badge">
               <text class="badge-icon">✓</text>
@@ -95,21 +95,96 @@
           </view>
         </view>
         <view wx:if="{{stats}}" class="stats-card">
-          <view class="stat-item highlight">
-            <text class="stat-value primary">{{stats.streak}}</text>
-            <text class="stat-label">连续打卡</text>
+          <!-- 主要数据：连胜展示 -->
+          <view class="stats-highlight">
+            <view class="highlight-main">
+              <view class="streak-fire">🔥</view>
+              <text class="streak-value">{{stats.streak}}</text>
+              <text class="streak-unit">天</text>
+            </view>
+            <text class="streak-label">当前连胜</text>
+            <view wx:if="{{stats.streak >= 7}}" class="streak-badge">
+              <text>超神！</text>
+            </view>
           </view>
-          <view class="stat-item">
-            <text class="stat-value">{{stats.totalCount}}</text>
-            <text class="stat-label">累计打卡</text>
+          
+          <!-- 次要数据网格 -->
+          <view class="stats-grid">
+            <view class="stat-item">
+              <view class="stat-icon trophy">🏆</view>
+              <view class="stat-content">
+                <text class="stat-value">{{stats.bestStreak || 0}}</text>
+                <text class="stat-label">最佳连胜</text>
+              </view>
+            </view>
+            <view class="stat-item">
+              <view class="stat-icon calendar">📅</view>
+              <view class="stat-content">
+                <text class="stat-value">{{stats.totalDays}}</text>
+                <text class="stat-label">有记录的天</text>
+              </view>
+            </view>
+            <view class="stat-item">
+              <view class="stat-icon record">📊</view>
+              <view class="stat-content">
+                <text class="stat-value">{{stats.totalCount}}</text>
+                <text class="stat-label">总记录数</text>
+              </view>
+            </view>
+            <view class="stat-item">
+              <view class="stat-icon rest">😴</view>
+              <view class="stat-content">
+                <text class="stat-value warn">{{stats.missStreak}}</text>
+                <text class="stat-label">摸鱼天数</text>
+              </view>
+            </view>
           </view>
-          <view class="stat-item">
-            <text class="stat-value">{{stats.totalDays}}</text>
-            <text class="stat-label">打卡天数</text>
+          
+          <!-- 成就进度条 -->
+          <view wx:if="{{stats.totalDays > 0}}" class="stats-progress">
+            <view class="progress-header">
+              <text class="progress-label">成长进度</text>
+              <text class="progress-percent">{{stats.progressPercent}}%</text>
+            </view>
+            <view class="progress-bar">
+              <view class="progress-fill" style="width: {{stats.progressPercent}}%"></view>
+            </view>
+            <text class="progress-tip">{{stats.totalDays}} / 30 天，{{stats.totalDays >= 30 ? '你已经是个老手了！' : '再坚持' + (30 - stats.totalDays) + '天就是一个月啦！'}}</text>
           </view>
-          <view class="stat-item">
-            <text class="stat-value {{stats.missStreak > 0 ? 'warn' : ''}}">{{stats.missStreak}}</text>
-            <text class="stat-label">偷懒天数</text>
+        </view>
+
+        <!-- 正在进行的自律计划 -->
+        <view wx:if="{{currentGroup && activeGoals.length > 0}}" class="goals-card">
+          <view class="goals-header">
+            <text class="goals-title">正在进行的自律计划</text>
+            <text class="goals-view-all" bindtap="goToAllGoals">查看全部</text>
+          </view>
+          <view class="goals-list">
+            <view
+              class="goal-item {{item.status === 'completed' ? 'completed' : ''}} {{item.status === 'failed' ? 'failed' : ''}}"
+              wx:for="{{activeGoals}}"
+              wx:key="_id"
+              bindtap="goToGoalProgress"
+              data-id="{{item._id}}"
+            >
+              <view class="goal-item-main">
+                <view class="goal-item-header">
+                  <text class="goal-item-title">{{item.title}}</text>
+                  <text class="goal-item-period">{{item.period === 'daily' ? '每日' : item.period === 'weekly' ? '每周' : '每月'}}</text>
+                </view>
+                <view class="goal-item-progress">
+                  <view class="goal-progress-bar">
+                    <view class="goal-progress-fill" style="width: {{item.progress.percent}}%"></view>
+                  </view>
+                  <text class="goal-progress-text">{{item.progress.current}}/{{item.progress.target}}</text>
+                </view>
+                <view class="goal-item-status">
+                  <text wx:if="{{item.status === 'in_progress'}}">进行中</text>
+                  <text wx:elif="{{item.status === 'completed'}}">已完成</text>
+                  <text wx:elif="{{item.status === 'failed'}}">未完成</text>
+                </view>
+              </view>
+            </view>
           </view>
         </view>
 
@@ -117,45 +192,44 @@
         <view wx:if="{{currentGroup}}" class="rank-card">
           <view class="rank-header">
             <view class="group-selector" bindtap="showSwitchGroup">
-              <text class="rank-title">{{currentGroup.name}}</text>
+              <text class="rank-title">{{currentGroup.name || '测试小组'}}</text>
               <text class="arrow">▼</text>
             </view>
           </view>
           <view class="rank-tabs">
-            <view class="rank-tab {{rankType === 'week' ? 'active' : ''}}" bindtap="switchRank" data-type="week">周榜</view>
-            <view class="rank-tab {{rankType === 'month' ? 'active' : ''}}" bindtap="switchRank" data-type="month">月榜</view>
+            <view class="rank-tab {{rankType === 'week' ? 'active' : ''}}" bindtap="switchRank" data-type="week">本周</view>
+            <view class="rank-tab {{rankType === 'month' ? 'active' : ''}}" bindtap="switchRank" data-type="month">本月</view>
             <view class="rank-tab {{rankType === 'all' ? 'active' : ''}}" bindtap="switchRank" data-type="all">总榜</view>
           </view>
           <!-- 多维度切换 -->
           <view class="dimension-tabs">
             <view class="dimension-tab {{rankDimension === 'days' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="days">记录天数</view>
-            <view class="dimension-tab {{rankDimension === 'minutes' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="minutes">运动时长</view>
-            <view class="dimension-tab {{rankDimension === 'score' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="score">平均成长值</view>
+            <view class="dimension-tab {{rankDimension === 'minutes' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="minutes">肝时长</view>
+            <view class="dimension-tab {{rankDimension === 'score' ? 'active' : ''}}" bindtap="switchRankDimension" data-dimension="score">成长值</view>
           </view>
-          <!-- 统计对比 -->
-          <view wx:if="{{myRank && myRank.minutes && myRank.days && myRank.score && groupAvg && !statsLoading}}" class="stats-compare">
+          <!-- 统计对比 - 显示所有群组的汇总数据 -->
+          <view wx:if="{{allStats && !statsLoading}}" class="stats-compare">
             <view class="compare-header">
-              <text class="compare-title">我的位置</text>
-              <text class="compare-rank">第{{rankDimension === 'minutes' ? myRank.minutes.rank : rankDimension === 'days' ? myRank.days.rank : myRank.score.rank}}名 / {{totalMembers}}人</text>
+              <text class="compare-title">全部群组汇总</text>
             </view>
             <view class="compare-stats">
               <view class="compare-item">
-                <text class="compare-value">{{rankDimension === 'minutes' ? myRank.minutes.totalMinutes : rankDimension === 'days' ? myRank.days.checkinDays : myRank.score.avgScore}}</text>
+                <text class="compare-value">{{rankDimension === 'minutes' ? allStats.totalMinutes : rankDimension === 'days' ? allStats.totalDays : allStats.avgScore}}</text>
                 <text class="compare-label">{{rankDimension === 'minutes' ? '分钟' : rankDimension === 'days' ? '天' : '成长值'}}</text>
               </view>
               <view class="compare-item group">
-                <text class="compare-value">{{rankDimension === 'minutes' ? groupAvg.totalMinutes : rankDimension === 'days' ? groupAvg.checkinDays : groupAvg.avgScore}}</text>
-                <text class="compare-label">组织平均</text>
+                <text class="compare-value">{{allStats.totalCheckins}}</text>
+                <text class="compare-label">总记录</text>
               </view>
             </view>
             <view class="compare-percent">
-              <text wx:if="{{groupPercentiles}}">超越组织 {{rankDimension === 'minutes' ? groupPercentiles.minutes : rankDimension === 'days' ? groupPercentiles.days : groupPercentiles.score}}% 的成员</text>
+              <text>连续 {{allStats.streak}} 天 / 最佳 {{allStats.bestStreak}} 天</text>
             </view>
           </view>
-          <view wx:if="{{statsLoading}}" class="rank-loading">正在计算排名...</view>
+          <view wx:if="{{statsLoading}}" class="rank-loading">正在算账...啊不，算排名...</view>
           <view wx:elif="{{!currentRankList || currentRankList.length === 0}}" class="rank-empty">暂无数据</view>
           <view wx:else class="rank-list">
-            <view wx:for="{{currentRankList || []}}" wx:key="userId" class="rank-item" bindtap="onViewUserMoments" data-user-id="{{item.userId}}" data-nick-name="{{item.nickName}}" data-avatar-url="{{item.avatarUrl}}">
+            <view wx:for="{{currentRankList || []}}" wx:key="openid" class="rank-item" bindtap="onViewUserMoments" data-openid="{{item.openid}}" data-nick-name="{{item.nickName}}" data-avatar-url="{{item.avatarUrl}}">
               <view class="rank-index {{index < 3 ? 'top' : ''}}">{{index + 1}}</view>
               <image class="rank-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
               <text class="rank-name">{{item.nickName}}</text>
@@ -171,7 +245,7 @@
 <!-- 切换组织弹窗 -->
 <view class="modal {{showSwitchModal ? 'show' : ''}}" bindtap="hideSwitchGroup" wx:if="{{showSwitchModal}}">
   <view class="modal-content" catchtap="stopPropagation">
-    <text class="modal-title">切换组织</text>
+    <text class="modal-title">切换到哪个组织</text>
     <view wx:for="{{groups || []}}" wx:key="_id" class="group-option {{item._id === currentGroup._id ? 'active' : ''}}" bindtap="selectGroup" data-id="{{item._id}}">
       <view class="group-option-info">
         <text>{{item.name}}</text>

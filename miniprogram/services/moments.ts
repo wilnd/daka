@@ -7,7 +7,7 @@ import { getTodayStr } from './db'
 
 export interface Moment {
   _id: string
-  userId: string
+  openid: string
   groupId: string
   checkinId: string
   content: MomentContent
@@ -28,21 +28,21 @@ export interface MomentContent {
 export interface MomentLike {
   _id: string
   momentId: string
-  userId: string
+  openid: string
   createTime: Date
 }
 
 export interface MomentComment {
   _id: string
   momentId: string
-  userId: string
+  openid: string
   content: string
   createTime: Date
 }
 
 /** 打卡时自动发布到成长墙 */
 export async function publishMomentFromCheckin(
-  userId: string,
+  openid: string,
   groupId: string,
   checkinId: string,
   content: MomentContent
@@ -50,7 +50,7 @@ export async function publishMomentFromCheckin(
   const now = new Date()
   const { _id } = await momentsCol().add({
     data: {
-      userId,
+      openid,
       groupId,
       checkinId,
       content,
@@ -86,19 +86,20 @@ export async function getMomentsByGroup(
 
 /** 获取用户在所有群组的成长墙列表（首页展示） */
 export async function getAllMomentsByUserId(
-  userId: string,
+  openid: string,
   limit = 20,
   lastId?: string
 ): Promise<Moment[]> {
-  // 获取用户加入的所有群组
-  const { data: members } = await membersCol()
-    .where({ userId, status: 'normal' })
+  // 查询用户加入的组织
+  const res = await membersCol()
+    .where({ _openid: openid, status: 'normal' } as any)
     .get()
-  
+  const members = res.data || []
+
   if (members.length === 0) return []
 
   const groupIds = (members as any[]).map(m => m.groupId)
-  
+
   let query = momentsCol()
     .where({ groupId: db.command.in(groupIds) })
     .orderBy('createTime', 'desc')
@@ -108,7 +109,7 @@ export async function getAllMomentsByUserId(
     const lastMoment = await momentsCol().doc(lastId).get()
     if (lastMoment.data) {
       query = momentsCol()
-        .where({ 
+        .where({
           groupId: db.command.in(groupIds),
           createTime: db.command.lt(lastMoment.data.createTime)
         })
@@ -128,10 +129,10 @@ export async function getMomentById(momentId: string): Promise<Moment | null> {
 }
 
 /** 点赞成长墙 */
-export async function likeMoment(momentId: string, userId: string): Promise<{ ok: boolean; msg?: string }> {
+export async function likeMoment(momentId: string, openid: string): Promise<{ ok: boolean; msg?: string }> {
   // 检查是否已点赞
   const { data: existing } = await momentLikesCol()
-    .where({ momentId, userId })
+    .where({ momentId, _openid: openid } as any)
     .get()
 
   if (existing.length > 0) {
@@ -140,7 +141,7 @@ export async function likeMoment(momentId: string, userId: string): Promise<{ ok
 
   const now = new Date()
   await momentLikesCol().add({
-    data: { momentId, userId, createTime: now }
+    data: { momentId, _openid: openid, createTime: now }
   })
 
   // 使用原子操作更新点赞数，避免并发问题
@@ -152,9 +153,9 @@ export async function likeMoment(momentId: string, userId: string): Promise<{ ok
 }
 
 /** 取消点赞 */
-export async function unlikeMoment(momentId: string, userId: string): Promise<{ ok: boolean; msg?: string }> {
+export async function unlikeMoment(momentId: string, openid: string): Promise<{ ok: boolean; msg?: string }> {
   const { data: existing } = await momentLikesCol()
-    .where({ momentId, userId })
+    .where({ momentId, _openid: openid } as any)
     .get()
 
   if (existing.length === 0) {
@@ -172,9 +173,9 @@ export async function unlikeMoment(momentId: string, userId: string): Promise<{ 
 }
 
 /** 获取用户对某条成长墙的点赞状态 */
-export async function getLikeStatus(momentId: string, userId: string): Promise<boolean> {
+export async function getLikeStatus(momentId: string, openid: string): Promise<boolean> {
   const { data } = await momentLikesCol()
-    .where({ momentId, userId })
+    .where({ momentId, _openid: openid } as any)
     .get()
   return data.length > 0
 }
@@ -191,7 +192,7 @@ export async function getMomentLikes(momentId: string): Promise<MomentLike[]> {
 /** 评论成长墙 */
 export async function commentMoment(
   momentId: string,
-  userId: string,
+  openid: string,
   content: string
 ): Promise<{ ok: boolean; msg?: string; commentId?: string }> {
   if (!content || content.trim().length === 0) {
@@ -204,7 +205,7 @@ export async function commentMoment(
 
   const now = new Date()
   const { _id } = await momentCommentsCol().add({
-    data: { momentId, userId, content: content.trim(), createTime: now }
+    data: { momentId, _openid: openid, content: content.trim(), createTime: now }
   })
 
   // 使用原子操作更新评论数，避免并发问题
@@ -218,7 +219,7 @@ export async function commentMoment(
 /** 删除评论（仅评论者本人可删除，且必须在群组中） */
 export async function deleteComment(
   commentId: string,
-  userId: string
+  openid: string
 ): Promise<{ ok: boolean; msg?: string }> {
   const { data: comment } = await momentCommentsCol().doc(commentId).get()
 
@@ -226,7 +227,7 @@ export async function deleteComment(
     return { ok: false, msg: '评论不存在' }
   }
 
-  if ((comment as any).userId !== userId) {
+  if ((comment as any)._openid !== openid && (comment as any).openid !== openid) {
     return { ok: false, msg: '只能删除自己的评论' }
   }
 
@@ -238,7 +239,7 @@ export async function deleteComment(
 
   // 验证用户是否仍在群组中（已退群用户不能删除评论）
   const { data: members } = await membersCol()
-    .where({ groupId: (moment as any).groupId, userId, status: 'normal' })
+    .where({ groupId: (moment as any).groupId, _openid: openid, status: 'normal' } as any)
     .limit(1)
     .get()
 
@@ -268,7 +269,7 @@ export async function getMomentComments(momentId: string): Promise<MomentComment
 /** 删除成长墙（仅发布者本人可删除，且必须在群组中） */
 export async function deleteMoment(
   momentId: string,
-  userId: string
+  openid: string
 ): Promise<{ ok: boolean; msg?: string }> {
   const { data: moment } = await momentsCol().doc(momentId).get()
 
@@ -277,13 +278,13 @@ export async function deleteMoment(
   }
 
   // 验证是否是发布者本人
-  if ((moment as any).userId !== userId) {
+  if ((moment as any)._openid !== openid && (moment as any).openid !== openid) {
     return { ok: false, msg: '只能删除自己的成长墙' }
   }
 
   // 验证用户是否仍在群组中（已退群用户不能删除）
   const { data: members } = await membersCol()
-    .where({ groupId: (moment as any).groupId, userId, status: 'normal' })
+    .where({ groupId: (moment as any).groupId, _openid: openid, status: 'normal' } as any)
     .limit(1)
     .get()
 
@@ -311,7 +312,7 @@ export interface MomentWithUser extends Moment {
 
 export async function getMomentsWithUserInfo(
   groupId: string,
-  userId: string,
+  openid: string,
   limit = 20,
   lastId?: string
 ): Promise<MomentWithUser[]> {
@@ -319,21 +320,21 @@ export async function getMomentsWithUserInfo(
   if (moments.length === 0) return []
 
   // 获取发布者信息
-  const userIds = [...new Set(moments.map(m => m.userId))]
+  const userIds = [...new Set(moments.map((m: any) => m._openid || m.openid))]
   const { data: users } = await wx.cloud.database().collection('users')
-    .where({ _id: db.command.in(userIds) })
+    .where({ _openid: db.command.in(userIds) } as any)
     .get()
 
   const userMap = new Map()
-  for (const user of users) {
-    userMap.set(user._id, user)
+  for (const user of users as any[]) {
+    userMap.set(user._openid || user.openid, user)
   }
 
   // 获取当前用户对每条成长墙的点赞状态
   const result: MomentWithUser[] = []
   for (const moment of moments) {
-    const isLiked = await getLikeStatus(moment._id, userId)
-    const userInfo = userMap.get(moment.userId)
+    const isLiked = await getLikeStatus(moment._id, openid)
+    const userInfo = userMap.get((moment as any)._openid || moment.openid)
     result.push({
       ...moment,
       userInfo: userInfo ? {

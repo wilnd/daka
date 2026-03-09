@@ -1,9 +1,11 @@
-// 云函数：获取服务器时间
-exports.main = async (event, context) => {
-  const serverTime = new Date()
-  return {
-    serverTime: serverTime.toISOString(),
-    timestamp: serverTime.getTime(),
-    currentMonth: `${serverTime.getFullYear()}-${String(serverTime.getMonth() + 1).padStart(2, '0')}`,
-  }
+// 云函数：返回服务器当前时间（用于补卡等需要防篡改月份的场景）
+const cloud = require('wx-server-sdk')
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+
+exports.main = async () => {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth() + 1
+  const currentMonth = `${y}-${m < 10 ? '0' + m : m}`
+  return { currentMonth }
 }

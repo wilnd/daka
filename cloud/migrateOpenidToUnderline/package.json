@@ -1,0 +1,9 @@
+{
+  "name": "migrateOpenidToUnderline",
+  "version": "1.0.0",
+  "description": "数据迁移：将 openid/userId 统一为 _openid",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~3.0.5-beta.1"
+  }
+}

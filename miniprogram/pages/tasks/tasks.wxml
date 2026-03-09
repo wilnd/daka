@@ -5,7 +5,7 @@
     <view class="user-card">
       <view class="user-info">
         <view class="avatar-wrapper">
-          <image class="avatar" src="{{userInfo.avatarUrl || '/assets/default-avatar.png'}}" mode="aspectFill"></image>
+          <image class="avatar" src="{{userInfo.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
           <view class="vip-badge" wx:if="{{vipInfo && vipInfo.level > 0}}">VIP</view>
         </view>
         <view class="user-detail">
@@ -67,7 +67,7 @@
             </view>
           </view>
           <view class="claim-right">
-            <text class="claim-reward">+{{item.reward}}积分</text>
+            <text class="claim-reward">+{{item.rewardText}}</text>
             <button class="claim-btn" bindtap="onClaimReward" data-task="{{item}}">立即领取</button>
           </view>
         </view>
@@ -106,7 +106,7 @@
           <view class="task-footer" wx:if="{{item.percent < 100}}">
             <view class="task-reward">
               <text class="reward-icon">🎁</text>
-              <text class="reward-text">完成奖励: +{{item.reward}}积分</text>
+              <text class="reward-text">完成奖励: +{{item.rewardText}}</text>
             </view>
           </view>
         </view>

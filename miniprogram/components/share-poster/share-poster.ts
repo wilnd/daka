@@ -1,4 +1,6 @@
 // share-poster.ts
+// 静态导入，避免小程序动态 import 解析为 http URL 导致 Failed to fetch
+import { getStreakFromCheckinStats } from '../../services/stats'
 
 Component({
   options: {
@@ -13,6 +15,26 @@ Component({
     checkinData: {
       type: Object,
       value: {}
+    },
+    // 是否为周日（用于显示AI总结）
+    isSunday: {
+      type: Boolean,
+      value: false
+    },
+    // 打卡页传入的当前连胜天数（本地查询为 0 时用此值，与特效一致）
+    currentStreak: {
+      type: Number,
+      value: 0
+    },
+    // 海报模式：空为打卡分享，aiReview 为小勤同学点评海报
+    mode: {
+      type: String,
+      value: ''
+    },
+    // 小勤点评海报数据：{ nickName, weekly, monthly, yearly, periodWeekly?, periodMonthly?, periodYearly? }
+    aiReviewData: {
+      type: Object,
+      value: null
     }
   },
 
@@ -23,10 +45,25 @@ Component({
     userInfo: null,
     canvasWidth: 300,
     canvasHeight: 540,
-    posterLoading: true
+    posterLoading: true,
+    // AI总结相关
+    weekSummary: '',
+    showAISummary: false
   },
 
   lifetimes: {
+    created() {
+      // 尽早挂到实例上，避免渲染层在首帧调用 _getData/getData 时报错（defineProperty 保证存在且不被覆盖）
+      const self = this
+      const getDataFn = function () { return self.data }
+      try {
+        Object.defineProperty(this, '_getData', { value: getDataFn, writable: true, configurable: true })
+        Object.defineProperty(this, 'getData', { value: getDataFn, writable: true, configurable: true })
+      } catch (_) {
+        this._getData = getDataFn
+        this.getData = getDataFn
+      }
+    },
     attached() {
       const userInfo = wx.getStorageSync('userInfo')
       this.setData({ userInfo })
@@ -37,21 +74,160 @@ Component({
         canvasWidth: 300 * ratio, 
         canvasHeight: 540 * ratio 
       })
+      // 再次确保渲染层可用的 _getData/getData（部分环境下 created 与渲染层不同步）
+      const self = this
+      const getDataFn = function () { return self.data }
+      if (typeof this._getData !== 'function') this._getData = getDataFn
+      if (typeof this.getData !== 'function') this.getData = getDataFn
+    },
+    ready() {
+      const self = this
+      const getDataFn = function () { return self.data }
+      if (typeof this._getData !== 'function') this._getData = getDataFn
+      if (typeof this.getData !== 'function') this.getData = getDataFn
     }
   },
 
   observers: {
     'visible': function(visible) {
       if (visible && !this.data.posterGenerated) {
-        this.generatePoster()
+        const mode = this.properties.mode
+        setTimeout(() => {
+          if (mode === 'aiReview') {
+            this.generateAIPoster()
+          } else {
+            this.generatePoster()
+          }
+        }, 80)
       } else if (visible && this.data.posterGenerated) {
-        // 重新生成时重置
         this.setData({ posterLoading: false })
       }
     }
   },
 
   methods: {
+    /** 兼容渲染层：部分环境下会调用 _getData/getData，attached 中已挂到实例，此处保留以兼容 methods 调用 */
+    _getData() {
+      return this.data
+    },
+    getData() {
+      return this.data
+    },
+
+    /** 日期类型：工作日 / 周末 / 法定假日 */
+    getDayType(): 'workday' | 'weekend' | 'holiday' {
+      const today = new Date()
+      const year = today.getFullYear()
+      const month = today.getMonth() + 1
+      const day = today.getDate()
+      if (this.isStatutoryHoliday(year, month, day)) return 'holiday'
+      const dayOfWeek = today.getDay()
+      if (dayOfWeek === 0 || dayOfWeek === 6) return 'weekend'
+      return 'workday'
+    },
+
+    /** 中国法定节假日（阳历近似，含调休区间） */
+    isStatutoryHoliday(year: number, month: number, day: number): boolean {
+      const ranges: { year?: number; month: number; start: number; end: number }[] = [
+        { month: 1, start: 1, end: 1 },
+        { year: 2025, month: 1, start: 28, end: 31 },
+        { year: 2025, month: 2, start: 1, end: 4 },
+        { year: 2026, month: 2, start: 17, end: 24 },
+        { month: 4, start: 4, end: 6 },
+        { month: 5, start: 1, end: 5 },
+        { year: 2025, month: 5, start: 31, end: 31 },
+        { year: 2026, month: 6, start: 19, end: 19 },
+        { year: 2025, month: 10, start: 1, end: 7 },
+        { year: 2026, month: 9, start: 25, end: 25 },
+        { year: 2026, month: 10, start: 1, end: 7 },
+      ]
+      for (const range of ranges) {
+        if (range.year !== undefined && range.year !== year) continue
+        if (range.month !== month) continue
+        if (day >= range.start && day <= range.end) return true
+      }
+      return false
+    },
+
+    // 判断是否为周日（优先使用props传入的值）
+    isSundayMethod(): boolean {
+      if (this.properties.isSunday !== undefined) {
+        return this.properties.isSunday
+      }
+      const today = new Date()
+      return today.getDay() === 0
+    },
+
+    // 获取本周开始日期（周一）
+    getWeekStartDate(): string {
+      const today = new Date()
+      const day = today.getDay()
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1)
+      const weekStart = new Date(today.setDate(diff))
+      const year = weekStart.getFullYear()
+      const month = ('0' + (weekStart.getMonth() + 1)).slice(-2)
+      const dayStr = ('0' + weekStart.getDate()).slice(-2)
+      return year + '-' + month + '-' + dayStr
+    },
+
+    // 获取一周打卡数据
+    async getWeekCheckinData(openid: string): Promise<{ checkins: any[], totalDays: number, totalCount: number }> {
+      const db = wx.cloud.database()
+      const weekStart = this.getWeekStartDate()
+      const today = new Date()
+      const todayYear = today.getFullYear()
+      const todayMonth = ('0' + (today.getMonth() + 1)).slice(-2)
+      const todayDay = ('0' + today.getDate()).slice(-2)
+      const todayStr = todayYear + '-' + todayMonth + '-' + todayDay
+
+      try {
+        const _ = db.command
+        const checkinsRes = await db.collection('checkins')
+          .where({
+            _openid: openid,
+            date: _.and(_.gte(weekStart), _.lte(todayStr))
+          })
+          .orderBy('date', 'asc')
+          .get()
+
+        const checkins = checkinsRes.data || []
+        const uniqueDates = new Set(checkins.map((c: any) => c.date))
+
+        return {
+          checkins,
+          totalDays: uniqueDates.size,
+          totalCount: checkins.length
+        }
+      } catch (e) {
+        console.error('获取周数据失败', e)
+        return { checkins: [], totalDays: 0, totalCount: 0 }
+      }
+    },
+
+    // 调用云函数获取AI一周总结（兼容多种返回结构）
+    async getAISummary(openidParam: string): Promise<string> {
+      try {
+        const res = await wx.cloud.callFunction({
+          name: 'getWeekSummary',
+          data: { _openid: openidParam }
+        }) as any
+        const raw = res && (res.result !== undefined ? res.result : res)
+        if (!raw) {
+          console.warn('[分享海报] getWeekSummary 返回为空', res)
+          return ''
+        }
+        const s = typeof raw.summary === 'string' ? raw.summary.trim() : ''
+        if (s) return s
+        if (raw.success === false && raw.msg) {
+          console.warn('[分享海报] getWeekSummary 失败:', raw.msg)
+        }
+        return ''
+      } catch (e) {
+        console.error('[分享海报] 获取AI总结失败', e)
+        return ''
+      }
+    },
+
     // 获取指定日期前N天的日期字符串
     getDateBefore(dateStr: string, days: number): string {
       const date = new Date(dateStr)
@@ -87,40 +263,82 @@ Component({
       return streak
     },
 
+    /** 小勤同学点评海报：仅用 aiReviewData 生成 */
+    async generateAIPoster() {
+      const aiReviewData = this.properties.aiReviewData
+      if (!aiReviewData || aiReviewData.mode !== 'aiReview') {
+        this.setData({ posterLoading: false })
+        wx.showToast({ title: '点评数据为空', icon: 'none' })
+        return
+      }
+      this.setData({ posterLoading: true })
+      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
+      try {
+        const posterUrl = await Promise.race([
+          this.drawAIPoster(aiReviewData),
+          timeout
+        ])
+        this.setData({ posterGenerated: true, posterUrl, posterLoading: false })
+      } catch (e) {
+        console.error('生成点评海报失败', e)
+        this.setData({ posterLoading: false })
+        wx.showToast({ title: '生成海报失败', icon: 'none' })
+      }
+    },
+
     async generatePoster() {
-      const checkinData = this.properties.checkinData
-      const openid = wx.getStorageSync('openid') || ''
+      const checkinData = this.properties.checkinData || {}
+      const app = getApp() as any
+      const openid = (app && app.globalData && app.globalData.openid) || wx.getStorageSync('openid') || ''
+      const isSunday = this.isSundayMethod()
 
       this.setData({ posterLoading: true })
 
-      // 获取连胜
+      // 连胜直接查 checkinStats 表（与打卡页一致，数据权威）；使用静态导入避免动态 import 失败
       let streak = 0
-      try {
-        const db = wx.cloud.database()
-        const _ = db.command
-        const today = new Date()
-        const todayYear = today.getFullYear()
-        const todayMonth = ('0' + (today.getMonth() + 1)).slice(-2)
-        const todayDay = ('0' + today.getDate()).slice(-2)
-        const todayStr = todayYear + '-' + todayMonth + '-' + todayDay
-        
-        const checkinsRes = await db.collection('checkins')
-          .where({
-            userId: openid,
-            date: _.gte(this.getDateBefore(todayStr, 400))
-          })
-          .limit(500)
-          .get()
-        
-        const checkins = checkinsRes.data || []
-        if (checkins.length > 0) {
-          streak = this.calculateStreak(checkins, todayStr)
+      if (openid) {
+        try {
+          streak = await getStreakFromCheckinStats(openid)
+        } catch (e) {
+          console.error('获取连胜失败', e)
         }
-      } catch (e) {
-        console.error('获取连胜失败', e)
       }
+      // 优先使用打卡页传入的 currentStreak（刚打卡后取较大值避免显示 0）
+      const fromParent = this.properties.currentStreak || 0
+      streak = Math.max(streak, fromParent)
 
       this.setData({ streak })
+
+      const dayType = this.getDayType()
+      // 仅周末且为周日时获取 AI 周总结；工作日、法定假日不展示
+      let weekSummary = ''
+      let showAISummary = false
+      if (dayType === 'weekend' && isSunday && openid) {
+        try {
+          weekSummary = await this.getAISummary(openid)
+          if (!weekSummary || !weekSummary.trim()) {
+            const weekData = await this.getWeekCheckinData(openid)
+            if (weekData.totalDays > 0) {
+              weekSummary = `本周打卡 ${weekData.totalDays} 天，共 ${weekData.totalCount} 次记录，坚持就是胜利～`
+              showAISummary = true
+            }
+          } else {
+            showAISummary = true
+          }
+        } catch (e) {
+          console.error('获取AI总结失败', e)
+          try {
+            const weekData = await this.getWeekCheckinData(openid)
+            if (weekData.totalDays > 0) {
+              weekSummary = `本周打卡 ${weekData.totalDays} 天，共 ${weekData.totalCount} 次，继续加油！`
+              showAISummary = true
+            }
+          } catch (e2) {
+            console.error('获取周数据兜底失败', e2)
+          }
+        }
+      }
+      this.setData({ weekSummary, showAISummary })
 
       // 生成海报（含超时保底，防止永久卡在 loading）
       const timeout = new Promise((_, rej) =>
@@ -128,10 +346,10 @@ Component({
       )
       try {
         const posterUrl = await Promise.race([
-          this.drawPoster(streak, checkinData),
+          this.drawPoster(dayType, streak, checkinData, { weekSummary, showAISummary }),
           timeout
         ])
-        this.setData({ 
+        this.setData({
           posterGenerated: true,
           posterUrl,
           posterLoading: false
@@ -143,268 +361,503 @@ Component({
       }
     },
 
-    async drawPoster(streak: number, checkinData: any): Promise<string> {
+    /** 按打卡类型返回一条励志文案（从储备库中选取） */
+    getMottoByCategory(categoryId: string, streak: number): string {
+      const lib: Record<string, string[]> = {
+        sports: [
+          '每一次迈步，都在靠近更好的自己',
+          '动起来，世界就是你的跑道',
+          '汗水不会骗人，坚持必有回响',
+          '身体和灵魂，都要在路上',
+          '今天你运动了吗？',
+          '自律给我自由',
+          '运动是治愈一切的良药',
+        ],
+        study: [
+          '每天进步一点点，时间会给你答案',
+          '学习是回报最高的投资',
+          '读书破万卷，下笔如有神',
+          '今天的努力，是明天的底气',
+          '学而不思则罔，思而不学则殆',
+          '持续学习，终身成长',
+          '知识就是力量',
+        ],
+        life: [
+          '记录生活，留住美好',
+          '每一天都值得被记住',
+          '用心生活，自有回响',
+          '小确幸积累成幸福',
+          '生活不在别处，在此刻',
+          '认真记录的人，不会被生活辜负',
+          '把日子过成诗',
+        ],
+        work: [
+          '专注当下，成就未来',
+          '把每一件小事做到极致',
+          '效率来自日复一日的积累',
+          '今日事今日毕',
+          '工作是最好的修行',
+          '专业成就价值',
+          '坚持复盘，持续精进',
+        ],
+      }
+      const list = lib[categoryId] || lib['sports']
+      const idx = Math.floor(Math.random() * list.length)
+      return list[idx]
+    },
+
+    async drawPoster(dayType: 'workday' | 'weekend' | 'holiday', streak: number, checkinData: any, aiSummary?: { weekSummary: string, showAISummary: boolean }): Promise<string> {
+      const weekSummary = (aiSummary && aiSummary.weekSummary) || ''
+      const showAISummary = !!(aiSummary && aiSummary.showAISummary)
+      const hasAISummary = dayType === 'weekend' && showAISummary && weekSummary && weekSummary.trim()
+
+      const userInfo = this.data.userInfo
+      const r = wx.getSystemInfoSync().windowWidth / 375
+      const W0 = 300
+      const pad = 20 * r
+      const cardRad = 18 * r
+      const summaryMaxLines = 7
+      const summaryLineH = 20 * r
+      const summaryPad = 16 * r
+      const summaryBlockH = hasAISummary
+        ? (summaryPad * 2 + 24 * r + summaryMaxLines * summaryLineH)
+        : 0
+      const mainCardTop = 24 * r
+      const mainCardPad = 20 * r
+      const gap = 24 * r
+      const labelY = mainCardTop + mainCardPad + 18 * r
+      const streakY = labelY + 12 * r + gap + 24 * r
+      const streakLabelY = streakY + 24 * r + 10 * r + 6 * r
+      const mottoGap = 18 * r
+      const mottoY = streakLabelY + 12 * r + mottoGap + 6 * r
+      const dividerY = mottoY + 6 * r + mottoGap
+      // 姓名+时间区域高度
+      const userRowH = 36 * r
+      const nickY = dividerY + 10 * r
+      const tagY = dividerY + userRowH + 14 * r
+      const mainCardH = tagY - mainCardTop + 22 * r + mainCardPad
+      const summaryCardTop = mainCardTop + mainCardH + 16 * r
+      const qrCardH = 88 * r
+      const qrCardGap = 16 * r
+      const H0 = hasAISummary
+        ? (summaryCardTop + summaryBlockH + qrCardGap + qrCardH + 24 * r)
+        : (mainCardTop + mainCardH + qrCardGap + qrCardH + 24 * r)
+
+      const W = W0 * r
+      const H = H0
+      const cx = W / 2
+      const cardX = pad
+      const cardW = W - pad * 2
+      const qrCardY = hasAISummary ? summaryCardTop + summaryBlockH + qrCardGap : mainCardTop + mainCardH + qrCardGap
+      const qrSize = 64 * r
+      const qrPad = 16 * r
+      const qrX = cardX + qrPad
+      const qrY = qrCardY + (qrCardH - qrSize) / 2
+
+      this.setData({ canvasWidth: W, canvasHeight: H })
+
+      const categoryId = checkinData.categoryId || 'sports'
+      const bigCategoryNames: Record<string, string> = {
+        sports: '运动',
+        study: '学习',
+        life: '生活',
+        work: '工作',
+      }
+      const bigName = ((checkinData.categoryName || '').trim() || bigCategoryNames[categoryId] || '运动')
+      const smallName = (checkinData.subCategoryName || '').trim() || (checkinData.categoryName || '').trim() || bigName
+      const typeSubText = bigName === smallName ? bigName : bigName + '·' + smallName
+      const copyMap: Record<string, { streakLabel: string; cta: string }> = {
+        sports: { streakLabel: '连续打卡', cta: '扫码加入，一起成长' },
+        study:  { streakLabel: '连续打卡', cta: '扫码加入，一起成长' },
+        life:   { streakLabel: '连续打卡', cta: '扫码加入，一起成长' },
+        work:   { streakLabel: '连续打卡', cta: '扫码加入，一起成长' },
+      }
+      const copy = copyMap[categoryId] || copyMap['sports']
+      let motto = this.getMottoByCategory(categoryId, streak)
+      if (motto.length > 18) motto = motto.slice(0, 17) + '…'
+      const isHoliday = dayType === 'holiday'
+      const accent = isHoliday ? '#b8860b' : '#2d7d6e'
+      const accentLight = isHoliday ? '#f0e6c8' : '#e8f2f0'
+
       return new Promise((resolve, reject) => {
-        const ctx = wx.createCanvasContext('poster-canvas', this)
-        const W0 = 300, H0 = 540
-        const userInfo = this.data.userInfo
-        const r = wx.getSystemInfoSync().windowWidth / 375
-        const W = W0 * r
-        const H = H0 * r
-        const cx = W / 2
+        setTimeout(() => {
+          this.createSelectorQuery()
+            .in(this)
+            .select('#poster-canvas')
+            .fields({ node: true })
+            .exec((res) => {
+              if (!res || !res[0] || !res[0].node) {
+                reject(new Error('canvas node not found'))
+                return
+              }
+              const canvas = res[0].node as WechatMiniprogram.Canvas
+              const dpr = wx.getSystemInfoSync().pixelRatio || 2
+              canvas.width = W * dpr
+              canvas.height = H * dpr
+              const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+              ctx.scale(dpr, dpr)
 
-        this.setData({ canvasWidth: W, canvasHeight: H })
+              const roundRect = (x: number, y: number, w: number, h: number, radius: number) => {
+                ctx.beginPath()
+                ctx.arc(x + radius, y + radius, radius, Math.PI, Math.PI * 1.5)
+                ctx.arc(x + w - radius, y + radius, radius, Math.PI * 1.5, 0)
+                ctx.arc(x + w - radius, y + h - radius, radius, 0, Math.PI * 0.5)
+                ctx.arc(x + radius, y + h - radius, radius, Math.PI * 0.5, Math.PI)
+                ctx.closePath()
+              }
 
-        // ── 背景：深红 → 正红 → 橙红 热烈渐变 ──
-        const bg = ctx.createLinearGradient(0, 0, 0, H)
-        bg.addColorStop(0, '#6B0000')
-        bg.addColorStop(0.45, '#C80000')
-        bg.addColorStop(1, '#FF4500')
-        ctx.setFillStyle(bg)
-        ctx.fillRect(0, 0, W, H)
+              // 背景：浅色渐变
+              const bg = ctx.createLinearGradient(0, 0, 0, H)
+              bg.addColorStop(0, '#f5f2ee')
+              bg.addColorStop(1, '#ebe8e2')
+              ctx.fillStyle = bg as unknown as string
+              ctx.fillRect(0, 0, W, H)
 
-        // ── 顶部放射光线（12条，金橙交替）──
-        const rayCount = 12
-        const rayLen = H * 0.55
-        for (let i = 0; i < rayCount; i++) {
-          const angle = Math.PI + (i / rayCount) * Math.PI
-          const nextAngle = Math.PI + ((i + 0.5) / rayCount) * Math.PI
-          ctx.beginPath()
-          ctx.moveTo(cx, 0)
-          ctx.arc(cx, 0, rayLen, angle, nextAngle, false)
-          ctx.closePath()
-          ctx.setFillStyle(i % 2 === 0
-            ? 'rgba(255, 200, 0, 0.13)'
-            : 'rgba(255, 120, 0, 0.09)')
-          ctx.fill()
-        }
+              // 主卡片（白底 + 阴影）
+              ctx.shadowOffsetX = 0
+              ctx.shadowOffsetY = 4 * r
+              ctx.shadowBlur = 16 * r
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.08)'
+              ctx.fillStyle = '#ffffff'
+              roundRect(cardX, mainCardTop, cardW, mainCardH, cardRad)
+              ctx.fill()
+              ctx.shadowColor = 'transparent'
+              ctx.shadowBlur = 0
+              ctx.strokeStyle = 'rgba(0, 0, 0, 0.04)'
+              ctx.lineWidth = 1
+              roundRect(cardX, mainCardTop, cardW, mainCardH, cardRad)
+              ctx.stroke()
 
-        // ── 顶部暗色半圆（衬托标题）──
-        ctx.setFillStyle('rgba(0, 0, 0, 0.25)')
-        ctx.beginPath()
-        ctx.arc(cx, 0, 90 * r, 0, Math.PI, false)
-        ctx.fill()
+              ctx.textAlign = 'center'
+              ctx.fillStyle = accent
+              ctx.font = `600 ${18 * r}px sans-serif`
+              ctx.fillText('我的成长助手', cx, labelY)
+              if (isHoliday) {
+                ctx.fillStyle = '#b8860b'
+                ctx.font = `${11 * r}px sans-serif`
+                ctx.fillText('假期也在坚持', cx, labelY + 18 * r)
+              }
 
-        // ── 按类别定制文案 ──
-        const categoryId = checkinData.categoryId || 'sports'
-        const copyMap: Record<string, { badge: string; slogan: string; streakLabel: string; cta1: string; cta2: string; cta3: string }> = {
-          sports: {
-            badge:       '★  每日运动记录  ★',
-            slogan:      '燃烧卡路里，超越自我！',
-            streakLabel: '连续运动',
-            cta1:        '扫码一起运动记录',
-            cta2:        '燃烧卡路里，健康生活',
-            cta3:        '加入记录群，一起变强！',
-          },
-          study: {
-            badge:       '★  每日学习记录  ★',
-            slogan:      '知识改变命运，坚持成就未来！',
-            streakLabel: '连续学习',
-            cta1:        '扫码一起学习记录',
-            cta2:        '坚持学习，知识赋能',
-            cta3:        '加入学习群，共同进步！',
-          },
-          life: {
-            badge:       '★  每日生活记录  ★',
-            slogan:      '积极生活，热爱每一天！',
-            streakLabel: '连续记录',
-            cta1:        '扫码一起生活记录',
-            cta2:        '好习惯，好生活',
-            cta3:        '加入记录群，一起成长！',
-          },
-        }
-        const copy = copyMap[categoryId] || copyMap['sports']
+              const streakStr = streak.toString()
+              ctx.fillStyle = accent
+              ctx.font = `600 ${48 * r}px sans-serif`
+              ctx.fillText(streakStr + ' 天', cx, streakY)
+              ctx.fillStyle = '#999'
+              ctx.font = `${12 * r}px sans-serif`
+              ctx.fillText(copy.streakLabel, cx, streakLabelY)
+              ctx.fillStyle = '#555'
+              ctx.font = `${12 * r}px sans-serif`
+              ctx.fillText(motto, cx, mottoY)
 
-        // ── 标题区 ──
-        ctx.setTextAlign('center')
-        ctx.setFillStyle('#FFD700')
-        ctx.setFontSize(11 * r)
-        ctx.fillText(copy.badge, cx, 26 * r)
+              ctx.strokeStyle = 'rgba(0, 0, 0, 0.06)'
+              ctx.lineWidth = 1
+              ctx.beginPath()
+              ctx.moveTo(cardX + mainCardPad, dividerY)
+              ctx.lineTo(cardX + cardW - mainCardPad, dividerY)
+              ctx.stroke()
 
-        ctx.setFillStyle('#FFFFFF')
-        ctx.setFontSize(17 * r)
-        ctx.fillText(copy.slogan, cx, 56 * r)
+                      const nickName = userInfo && (userInfo as { nickName?: string }).nickName
+              const displayName = (nickName || '运动达人').substring(0, 8)
+              const now = new Date()
+              const dateStr = `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()}`
+              ctx.textAlign = 'center'
+              ctx.fillStyle = '#333'
+              ctx.font = `${14 * r}px sans-serif`
+              ctx.fillText(displayName, cx, nickY)
+              ctx.fillStyle = '#999'
+              ctx.font = `${11 * r}px sans-serif`
+              ctx.fillText(dateStr, cx, nickY + 14 * r)
 
-        // ── 黄金装饰短横线 ──
-        ctx.setStrokeStyle('#FFD700')
-        ctx.setLineWidth(1.5 * r)
-        ctx.beginPath()
-        ctx.moveTo(cx - 60 * r, 65 * r)
-        ctx.lineTo(cx - 20 * r, 65 * r)
-        ctx.stroke()
-        ctx.beginPath()
-        ctx.moveTo(cx + 20 * r, 65 * r)
-        ctx.lineTo(cx + 60 * r, 65 * r)
-        ctx.stroke()
+              if (typeSubText) {
+                ctx.fillStyle = accentLight
+                const tagW = Math.min((typeSubText.length * 12 + 28) * r, cardW - mainCardPad * 2)
+                roundRect(cx - tagW / 2, tagY, tagW, 22 * r, 11 * r)
+                ctx.fill()
+                ctx.fillStyle = accent
+                ctx.font = `${11 * r}px sans-serif`
+                ctx.fillText(typeSubText, cx, tagY + 14 * r)
+              }
 
-        // ── 连胜光环（多层渐变营造炫光感）──
-        const circleY = 162 * r
+              if (hasAISummary) {
+                ctx.fillStyle = '#ffffff'
+                ctx.shadowOffsetY = 4 * r
+                ctx.shadowBlur = 12 * r
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.06)'
+                roundRect(cardX, summaryCardTop, cardW, summaryBlockH, cardRad)
+                ctx.fill()
+                ctx.shadowColor = 'transparent'
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.04)'
+                roundRect(cardX, summaryCardTop, cardW, summaryBlockH, cardRad)
+                ctx.stroke()
+                ctx.fillStyle = '#666'
+                ctx.font = `${12 * r}px sans-serif`
+                ctx.fillText('本周总结', cx, summaryCardTop + summaryPad + 18 * r)
+                const summaryLines = this.wrapText(weekSummary, 14).slice(0, summaryMaxLines)
+                ctx.fillStyle = '#444'
+                ctx.font = `${13 * r}px sans-serif`
+                summaryLines.forEach((line: string, i: number) => {
+                  ctx.fillText(line, cx, summaryCardTop + summaryPad + 24 * r + 18 * r + (i + 1) * summaryLineH)
+                })
+              }
 
-        // 最外层散射光
-        const aura3 = ctx.createCircularGradient(cx, circleY, 82 * r)
-        aura3.addColorStop(0, 'rgba(255, 220, 0, 0.22)')
-        aura3.addColorStop(1, 'rgba(255, 220, 0, 0)')
-        ctx.setFillStyle(aura3)
-        ctx.beginPath()
-        ctx.arc(cx, circleY, 82 * r, 0, 2 * Math.PI)
-        ctx.fill()
+              ctx.fillStyle = '#ffffff'
+              ctx.shadowOffsetY = 4 * r
+              ctx.shadowBlur = 12 * r
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.06)'
+              roundRect(cardX, qrCardY, cardW, qrCardH, cardRad)
+              ctx.fill()
+              ctx.shadowColor = 'transparent'
+              ctx.strokeStyle = 'rgba(0, 0, 0, 0.04)'
+              roundRect(cardX, qrCardY, cardW, qrCardH, cardRad)
+              ctx.stroke()
+              ctx.fillStyle = accent
+              ctx.fillRect(cardX, qrCardY, cardW, 3 * r)
+              ctx.fillStyle = '#333'
+              ctx.font = `${15 * r}px sans-serif`
+              ctx.textAlign = 'left'
+              ctx.fillText(copy.cta, cardX + qrPad + qrSize + 14 * r, qrCardY + qrCardH / 2 + 6 * r)
+              ctx.textAlign = 'center'
 
-        // 中层光晕
-        const aura2 = ctx.createCircularGradient(cx, circleY, 65 * r)
-        aura2.addColorStop(0, 'rgba(255, 180, 0, 0.35)')
-        aura2.addColorStop(1, 'rgba(255, 180, 0, 0)')
-        ctx.setFillStyle(aura2)
-        ctx.beginPath()
-        ctx.arc(cx, circleY, 65 * r, 0, 2 * Math.PI)
-        ctx.fill()
+              const img = canvas.createImage()
+              img.onload = () => {
+                ctx.drawImage(img as unknown as CanvasImageSource, qrX, qrY, qrSize, qrSize)
+                wx.canvasToTempFilePath({
+                  canvas,
+                  success: (res) => resolve(res.tempFilePath),
+                  fail: reject
+                })
+              }
+              img.onerror = () => reject(new Error('qrcode load failed'))
+              img.src = '/images/qrcode.png'
+            })
+        }, 50)
+      })
+    },
 
-        // 金色描边圆环
-        ctx.setStrokeStyle('#FFD700')
-        ctx.setLineWidth(3 * r)
-        ctx.beginPath()
-        ctx.arc(cx, circleY, 52 * r, 0, 2 * Math.PI)
-        ctx.stroke()
+    /** 绘制小勤同学点评海报（与打卡海报同套浅色卡片风格，布局更舒展） */
+    drawAIPoster(aiReviewData: any): Promise<string> {
+      const r = wx.getSystemInfoSync().windowWidth / 375
+      const W0 = 300
+      const pad = 24 * r
+      const cardRad = 18 * r
+      const W = W0 * r
+      const nickName = (aiReviewData.nickName || '我').toString().slice(0, 8)
+      const weekly = (aiReviewData.weekly || '').trim()
+      const monthly = (aiReviewData.monthly || '').trim()
+      const yearly = (aiReviewData.yearly || '').trim()
+      const lineH = 22 * r
+      const maxLinesPerBlock = 6
+      const weeklyMaxLines = 10
+      const weeklyCharsPerLine = 16
+      const blockGap = 22 * r
+      const blockLabelH = 26 * r
+      const contentPadV = 20 * r
+      const contentPadH = 20 * r
+      let contentH = 0
+      const blocks: { label: string; lines: string[] }[] = []
+      if (yearly) {
+        blocks.push({ label: '年批注', lines: this.wrapText(yearly, 14).slice(0, maxLinesPerBlock) })
+        contentH += blockLabelH + blocks[blocks.length - 1].lines.length * lineH + blockGap
+      }
+      if (monthly) {
+        blocks.push({ label: '月批注', lines: this.wrapText(monthly, 14).slice(0, maxLinesPerBlock) })
+        contentH += blockLabelH + blocks[blocks.length - 1].lines.length * lineH + blockGap
+      }
+      if (weekly) {
+        blocks.push({ label: '周批注', lines: this.wrapText(weekly, weeklyCharsPerLine).slice(0, weeklyMaxLines) })
+        contentH += blockLabelH + blocks[blocks.length - 1].lines.length * lineH + blockGap
+      }
+      if (contentH < 80 * r) contentH = 80 * r
+      contentH += contentPadV * 2
+      const qrCardH = 96 * r
+      const topCardTop = 28 * r
+      const topCardH = 118 * r
+      const cardGap = 24 * r
+      const contentCardTop = topCardTop + topCardH + cardGap
+      const qrCardY = contentCardTop + contentH + cardGap
+      const H = qrCardY + qrCardH + 32 * r
+      this.setData({ canvasWidth: W, canvasHeight: H })
 
-        // 内填充（深红半透明，营造立体感）
-        ctx.setFillStyle('rgba(80, 0, 0, 0.65)')
-        ctx.beginPath()
-        ctx.arc(cx, circleY, 50 * r, 0, 2 * Math.PI)
-        ctx.fill()
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          this.createSelectorQuery()
+            .in(this)
+            .select('#poster-canvas')
+            .fields({ node: true })
+            .exec((res) => {
+              if (!res || !res[0] || !res[0].node) {
+                reject(new Error('canvas node not found'))
+                return
+              }
+              const canvas = res[0].node as WechatMiniprogram.Canvas
+              const dpr = wx.getSystemInfoSync().pixelRatio || 2
+              canvas.width = W * dpr
+              canvas.height = H * dpr
+              const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+              ctx.scale(dpr, dpr)
 
-        // 连胜数字 + 天
-        const streakStr = streak.toString()
-        ctx.setFillStyle('#FFD700')
-        ctx.setFontSize(46 * r)
-        ctx.fillText(streakStr + '天', cx, circleY + 16 * r)
+              const roundRect = (x: number, y: number, w: number, h: number, radius: number) => {
+                ctx.beginPath()
+                ctx.arc(x + radius, y + radius, radius, Math.PI, Math.PI * 1.5)
+                ctx.arc(x + w - radius, y + radius, radius, Math.PI * 1.5, 0)
+                ctx.arc(x + w - radius, y + h - radius, radius, 0, Math.PI * 0.5)
+                ctx.arc(x + radius, y + h - radius, radius, Math.PI * 0.5, Math.PI)
+                ctx.closePath()
+              }
 
-        // 类别标签（圆圈下方）
-        ctx.setFontSize(12 * r)
-        ctx.setFillStyle('#FFE87C')
-        ctx.fillText(copy.streakLabel, cx, circleY + 72 * r)
+              const accent = '#2d7d6e'
+              const cx = W / 2
+              const cardX = pad
+              const cardW = W - pad * 2
+              const qrSize = 64 * r
+              const qrPad = 16 * r
+              const qrX = cardX + qrPad
+              const qrY = qrCardY + (qrCardH - qrSize) / 2
 
-        // ── 侧面装饰小圆点 ──
-        const dots = [
-          { x: 28, y: 115, s: 4 }, { x: 18, y: 148, s: 3 },
-          { x: 35, y: 180, s: 5 }, { x: 272, y: 120, s: 3 },
-          { x: 280, y: 158, s: 5 }, { x: 265, y: 190, s: 4 },
-        ]
-        dots.forEach(d => {
-          ctx.setFillStyle('rgba(255, 215, 0, 0.6)')
-          ctx.beginPath()
-          ctx.arc(d.x * r, d.y * r, d.s * r / 2, 0, 2 * Math.PI)
-          ctx.fill()
-        })
+              const bg = ctx.createLinearGradient(0, 0, 0, H)
+              bg.addColorStop(0, '#f5f2ee')
+              bg.addColorStop(1, '#ebe8e2')
+              ctx.fillStyle = bg as unknown as string
+              ctx.fillRect(0, 0, W, H)
 
-        // ── 金色分割线 ──
-        const divY = 253 * r
-        const divGrd = ctx.createLinearGradient(30 * r, divY, W - 30 * r, divY)
-        divGrd.addColorStop(0, 'rgba(255, 215, 0, 0)')
-        divGrd.addColorStop(0.5, 'rgba(255, 215, 0, 0.85)')
-        divGrd.addColorStop(1, 'rgba(255, 215, 0, 0)')
-        ctx.setStrokeStyle(divGrd)
-        ctx.setLineWidth(1)
-        ctx.beginPath()
-        ctx.moveTo(30 * r, divY)
-        ctx.lineTo(W - 30 * r, divY)
-        ctx.stroke()
+              ctx.shadowOffsetX = 0
+              ctx.shadowOffsetY = 4 * r
+              ctx.shadowBlur = 16 * r
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.08)'
+              ctx.fillStyle = '#ffffff'
+              roundRect(cardX, topCardTop, cardW, topCardH, cardRad)
+              ctx.fill()
+              ctx.shadowColor = 'transparent'
+              ctx.strokeStyle = 'rgba(0, 0, 0, 0.04)'
+              roundRect(cardX, topCardTop, cardW, topCardH, cardRad)
+              ctx.stroke()
 
-        // ── 用户信息区 ──
-        const avatarCY = 292 * r
-        // 头像外环
-        ctx.setStrokeStyle('#FFD700')
-        ctx.setLineWidth(2 * r)
-        ctx.beginPath()
-        ctx.arc(cx, avatarCY, 30 * r, 0, 2 * Math.PI)
-        ctx.stroke()
-        // 头像填充
-        ctx.setFillStyle('rgba(139, 0, 0, 0.8)')
-        ctx.beginPath()
-        ctx.arc(cx, avatarCY, 28 * r, 0, 2 * Math.PI)
-        ctx.fill()
-        // 头像首字
-        ctx.setFillStyle('#FFD700')
-        ctx.setFontSize(22 * r)
-        const nickName = userInfo && userInfo.nickName
-        ctx.fillText((nickName || '运').slice(0, 1), cx, avatarCY + 8 * r)
+              ctx.fillStyle = accent
+              ctx.font = `600 ${15 * r}px sans-serif`
+              ctx.textAlign = 'center'
+              ctx.textBaseline = 'middle'
+              ctx.fillText('小勤(AI)点评', cx, topCardTop + 22 * r)
 
-        // 用户名
-        ctx.setFillStyle('#FFFFFF')
-        ctx.setFontSize(15 * r)
-        ctx.fillText((nickName || '运动达人').substring(0, 8), cx, 337 * r)
+              const avatarR = 22 * r
+              const avatarY = topCardTop + 56 * r
+              const userInfo = this.data.userInfo as { avatarUrl?: string; nickName?: string } | null
+              const avatarUrl = userInfo && userInfo.avatarUrl && (userInfo.avatarUrl.startsWith('http') || userInfo.avatarUrl.startsWith('https') || userInfo.avatarUrl.startsWith('/') || userInfo.avatarUrl.startsWith('wxfile://')) ? userInfo.avatarUrl : ''
+              const firstLetter = (nickName || '我').slice(0, 1)
 
-        // 日期
-        const now = new Date()
-        const dateStr = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`
-        ctx.setFillStyle('rgba(255, 230, 140, 0.9)')
-        ctx.setFontSize(11 * r)
-        ctx.fillText(dateStr, cx, 356 * r)
+              const drawAvatarLetter = () => {
+                ctx.fillStyle = '#e8f2f0'
+                ctx.beginPath()
+                ctx.arc(cx, avatarY, avatarR, 0, 2 * Math.PI)
+                ctx.fill()
+                ctx.fillStyle = accent
+                ctx.font = `600 ${24 * r}px sans-serif`
+                ctx.textAlign = 'center'
+                ctx.textBaseline = 'middle'
+                ctx.fillText(firstLetter, cx, avatarY)
+              }
+              const drawTopCardRest = () => {
+                ctx.fillStyle = '#333'
+                ctx.font = `${14 * r}px sans-serif`
+                ctx.textAlign = 'center'
+                ctx.textBaseline = 'alphabetic'
+                ctx.fillText(nickName + ' 的成长点评', cx, topCardTop + 96 * r)
+                ctx.fillStyle = '#999'
+                ctx.font = `${11 * r}px sans-serif`
+                ctx.fillText(new Date().toLocaleDateString('zh-CN'), cx, topCardTop + 112 * r)
+              }
+              const drawContentAndQr = () => {
+                ctx.fillStyle = '#ffffff'
+                ctx.shadowOffsetY = 4 * r
+                ctx.shadowBlur = 12 * r
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.06)'
+                roundRect(cardX, contentCardTop, cardW, contentH, cardRad)
+                ctx.fill()
+                ctx.shadowColor = 'transparent'
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.04)'
+                roundRect(cardX, contentCardTop, cardW, contentH, cardRad)
+                ctx.stroke()
+                let y = contentCardTop + contentPadV
+                for (const block of blocks) {
+                  ctx.fillStyle = '#666'
+                  ctx.font = `${13 * r}px sans-serif`
+                  ctx.fillText(block.label, cx, y)
+                  y += blockLabelH
+                  ctx.fillStyle = '#444'
+                  ctx.font = `${13 * r}px sans-serif`
+                  block.lines.forEach((line: string) => {
+                    ctx.fillText(line, cx, y)
+                    y += lineH
+                  })
+                  y += blockGap
+                }
+                ctx.fillStyle = '#ffffff'
+                ctx.shadowOffsetY = 4 * r
+                ctx.shadowBlur = 12 * r
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.06)'
+                roundRect(cardX, qrCardY, cardW, qrCardH, cardRad)
+                ctx.fill()
+                ctx.shadowColor = 'transparent'
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.04)'
+                roundRect(cardX, qrCardY, cardW, qrCardH, cardRad)
+                ctx.stroke()
+                ctx.fillStyle = accent
+                ctx.fillRect(cardX, qrCardY, cardW, 3 * r)
+                ctx.fillStyle = '#333'
+                ctx.font = `${15 * r}px sans-serif`
+                ctx.textAlign = 'left'
+                ctx.fillText('扫码加入，一起成长', cardX + qrPad + qrSize + 14 * r, qrCardY + qrCardH / 2 + 6 * r)
+                ctx.textAlign = 'center'
+                const qrImg = canvas.createImage()
+                qrImg.onload = () => {
+                  ctx.drawImage(qrImg as unknown as CanvasImageSource, qrX, qrY, qrSize, qrSize)
+                  wx.canvasToTempFilePath({
+                    canvas,
+                    success: (res) => resolve(res.tempFilePath),
+                    fail: reject
+                  })
+                }
+                qrImg.onerror = () => reject(new Error('qrcode load failed'))
+                qrImg.src = '/images/qrcode.png'
+              }
 
-        // 记录类别标签
-        const categoryText = checkinData.subCategoryId || checkinData.categoryId || ''
-        if (categoryText) {
-          const tagW = (categoryText.length * 13 + 28) * r
-          ctx.setFillStyle('rgba(255, 215, 0, 0.2)')
-          ctx.fillRect(cx - tagW / 2, 364 * r, tagW, 22 * r)
-          ctx.setFillStyle('#FFD700')
-          ctx.setFontSize(11 * r)
-          ctx.fillText(categoryText, cx, 379 * r)
-        }
-
-        // 记录内容文字
-        if (checkinData.text) {
-          const text = checkinData.text.length > 28
-            ? checkinData.text.substring(0, 28) + '...'
-            : checkinData.text
-          ctx.setFillStyle('rgba(255, 255, 255, 0.88)')
-          ctx.setFontSize(12 * r)
-          ctx.fillText(`"${text}"`, cx, 403 * r)
-        }
-
-        // ── 底部二维码卡片区 ──
-        const cardY = 420 * r
-        const cardH = 106 * r
-        const cardX = 14 * r
-        const cardW = W - 28 * r
-
-        // 白色卡片背景
-        ctx.setFillStyle('rgba(255, 255, 255, 0.95)')
-        ctx.fillRect(cardX, cardY, cardW, cardH)
-
-        // 卡片顶部红色细条
-        ctx.setFillStyle('#CC0000')
-        ctx.fillRect(cardX, cardY, cardW, 4 * r)
-
-        // 二维码图片（直接用包路径，文件不存在时静默跳过不阻塞）
-        const qrSize = 80 * r
-        const qrX = cardX + 12 * r
-        const qrY = cardY + (cardH - qrSize) / 2
-        ctx.drawImage('/images/qrcode.png', qrX, qrY, qrSize, qrSize)
-
-        // 右侧文字
-        const textX = cardX + 12 * r + qrSize + 14 * r
-        ctx.setTextAlign('left')
-        ctx.setFillStyle('#CC0000')
-        ctx.setFontSize(14 * r)
-        ctx.fillText(copy.cta1, textX, cardY + 30 * r)
-        ctx.setFillStyle('#555555')
-        ctx.setFontSize(11 * r)
-        ctx.fillText(copy.cta2, textX, cardY + 52 * r)
-        ctx.fillText(copy.cta3, textX, cardY + 70 * r)
-        ctx.setTextAlign('center')
-
-        let settled = false
-        const finish = () => {
-          if (settled) return
-          settled = true
-          wx.canvasToTempFilePath({
-            canvasId: 'poster-canvas',
-            success: (res) => resolve(res.tempFilePath),
-            fail: reject
-          }, this)
-        }
-        // draw 回调不可靠时兜底：600ms 后强制导出
-        ctx.draw(false, () => setTimeout(finish, 300))
-        setTimeout(finish, 2500)
+              ctx.save()
+              ctx.beginPath()
+              ctx.arc(cx, avatarY, avatarR, 0, 2 * Math.PI)
+              ctx.closePath()
+              ctx.clip()
+              if (avatarUrl) {
+                const img = canvas.createImage()
+                img.onload = () => {
+                  ctx.drawImage(img as unknown as CanvasImageSource, cx - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2)
+                  ctx.restore()
+                  drawTopCardRest()
+                  drawContentAndQr()
+                }
+                img.onerror = () => {
+                  ctx.restore()
+                  drawAvatarLetter()
+                  ctx.strokeStyle = 'rgba(0,0,0,0.06)'
+                  ctx.lineWidth = 1
+                  ctx.beginPath()
+                  ctx.arc(cx, avatarY, avatarR, 0, 2 * Math.PI)
+                  ctx.stroke()
+                  drawTopCardRest()
+                  drawContentAndQr()
+                }
+                img.src = avatarUrl
+              } else {
+                drawAvatarLetter()
+                ctx.restore()
+                ctx.strokeStyle = 'rgba(0,0,0,0.06)'
+                ctx.lineWidth = 1
+                ctx.beginPath()
+                ctx.arc(cx, avatarY, avatarR, 0, 2 * Math.PI)
+                ctx.stroke()
+                drawTopCardRest()
+                drawContentAndQr()
+              }
+            })
+        }, 50)
       })
     },
 
@@ -447,6 +900,31 @@ Component({
       this.setData({ posterGenerated: false, posterUrl: '' })
       this.triggerEvent('close')
       this.triggerEvent('skip')
+    },
+
+    // 文字换行处理
+    wrapText(text: string, maxCharsPerLine: number): string[] {
+      const lines: string[] = []
+      let currentLine = ''
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i]
+        if (char === '\n') {
+          lines.push(currentLine)
+          currentLine = ''
+        } else if (currentLine.length >= maxCharsPerLine) {
+          lines.push(currentLine)
+          currentLine = char
+        } else {
+          currentLine += char
+        }
+      }
+
+      if (currentLine) {
+        lines.push(currentLine)
+      }
+
+      return lines
     },
 
     preventTap() {}

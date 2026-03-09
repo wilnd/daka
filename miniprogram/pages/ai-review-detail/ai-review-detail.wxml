@@ -1,0 +1,34 @@
+<navigation-bar title="点评详情" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <view class="container" wx:if="{{item}}">
+    <view class="period-bar">
+      <text class="period-label">{{typeLabel}}</text>
+      <text class="period-value">{{item.period}}{{periodSuffix}}</text>
+    </view>
+    <view class="content-card">
+      <text class="content-full">{{item.content}}</text>
+    </view>
+    <view class="share-bar">
+      <button class="share-btn" bindtap="onSharePoster">
+        <text class="share-icon">🖼</text>
+        <text>生成点评海报</text>
+      </button>
+    </view>
+  </view>
+  <view class="empty-wrap" wx:elif="{{!loading && !item}}">
+    <text class="empty-icon">📝</text>
+    <text class="empty-title">未找到该条点评</text>
+    <text class="empty-desc">可能已被删除或参数有误</text>
+  </view>
+  <view class="loading-wrap" wx:elif="{{loading}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+</scroll-view>
+
+<share-poster
+  visible="{{showSharePoster}}"
+  mode="aiReview"
+  aiReviewData="{{aiReviewPosterData}}"
+  bind:close="onClosePoster"
+/>

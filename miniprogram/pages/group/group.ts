@@ -24,6 +24,7 @@ Component({
     showJoinModal: false,
     createName: '',
     joinCode: '',
+    inviterOpenid: '' as string, // 从分享链接带入，用于邀请业务埋点
     // 动态主题色
     themeColor: '#1ABC9C',
   },
@@ -156,7 +157,7 @@ Component({
       const openid = app.globalData.openid
       if (!openid) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
       try {
-        const result = await joinByInviteCode(code, openid)
+        const result = await joinByInviteCode(code, openid, this.data.inviterOpenid || undefined)
         if (result.ok) {
           this.hideJoin()
           this.loadGroups()
@@ -174,17 +175,17 @@ Component({
       const id = e.currentTarget.dataset.id
       wx.navigateTo({ url: `/pages/group-detail/group-detail?id=${id}` })
     },
-    // 检查是否有邀请码参数（从分享链接带入）
+    // 检查是否有邀请码参数（从分享链接带入，含邀请人 openid 用于埋点）
     checkInviteCodeFromShare() {
       const pages = getCurrentPages()
       const cur = pages[pages.length - 1] as any
       const options = (cur && cur.options) ? cur.options : {}
       const inviteCode = options.inviteCode
+      const inviterOpenid = options.inviterOpenid && typeof options.inviterOpenid === 'string' ? options.inviterOpenid : ''
 
       if (inviteCode && typeof inviteCode === 'string' && inviteCode.length >= 4) {
-        // 自动填充邀请码并打开加入弹窗
         const code = inviteCode.trim().toUpperCase()
-        this.setData({ showJoinModal: true, joinCode: code })
+        this.setData({ showJoinModal: true, joinCode: code, inviterOpenid })
       }
     },
     // 分享给好友

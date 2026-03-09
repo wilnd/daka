@@ -1,7 +1,16 @@
 /**
  * 任务服务
+ *
+ * 成就/任务埋点说明（各成就在对应业务处解锁，任务进度在对应业务处更新）：
+ * - 打卡业务（checkin.ts → syncTaskAndAchievementsAfterCheckin）：
+ *   任务进度：daily_checkin、streak_7、streak_30、upload_photo
+ *   成就：first_checkin、streak_7、streak_30、streak_100、total_50、total_200
+ * - VIP 业务（vip.ts → upgradeVip 成功后）：成就 vip_member
+ * - 邀请业务（group.ts → joinByInviteCode 传入 inviterOpenid 时）：
+ *   任务进度：invite_friend；成就：invite_5
  */
-import { userTasksCol, userAchievementsCol, db } from './db'
+import { userTasksCol, userAchievementsCol } from './db'
+import { getAllStats } from './stats'
 
 /** 任务类型 */
 export type TaskType = 'checkin' | 'streak' | 'duration' | 'upload' | 'invite'
@@ -201,19 +210,24 @@ export async function claimTaskReward(openid: string, taskId: string): Promise<b
   }
 }
 
+/** 成就项（含解锁状态，用于页面展示） */
+export interface AchievementWithUnlocked extends Achievement {
+  unlocked: boolean
+}
+
 /**
- * 获取用户成就列表
+ * 获取用户成就列表（从数据库读取已解锁记录并合并）
  */
-export async function getUserAchievements(openid: string): Promise<Achievement[]> {
+export async function getUserAchievements(openid: string): Promise<AchievementWithUnlocked[]> {
   try {
-    // 这里应该从数据库获取用户已解锁的成就
-    // 目前返回空列表，实际应该查询用户的成就记录
-    // 简化实现：返回所有成就，解锁状态由前端根据条件判断
-    const achievements = ACHIEVEMENTS.map(a => ({
+    const { data: unlockedRecords } = await userAchievementsCol()
+      .where({ _openid: openid })
+      .get()
+    const unlockedIds = new Set((unlockedRecords || []).map((r: { achievementId: string }) => r.achievementId))
+    return ACHIEVEMENTS.map(a => ({
       ...a,
-      unlocked: false // 默认未解锁，实际应该从数据库查询
+      unlocked: unlockedIds.has(a.id)
     }))
-    return achievements
   } catch (e) {
     console.error('getUserAchievements error:', e)
     return []
@@ -221,8 +235,36 @@ export async function getUserAchievements(openid: string): Promise<Achievement[]
 }
 
 /**
- * 解锁用户成就
+ * 打卡业务埋点：打卡成功后同步日常任务进度并解锁符合条件的成就
+ * 在 doCheckinWithContent 成功后调用（需在 syncCheckinStats 之后，以便 getAllStats 拿到最新连胜/累计天数）
  */
+export async function syncTaskAndAchievementsAfterCheckin(
+  openid: string,
+  opts?: { hasPhoto?: boolean }
+): Promise<void> {
+  try {
+    const { streak, totalDays } = await getAllStats(openid)
+
+    // 更新日常任务进度
+    await updateTaskProgress(openid, 'daily_checkin', 1)
+    await updateTaskProgress(openid, 'streak_7', streak)
+    await updateTaskProgress(openid, 'streak_30', streak)
+    if (opts && opts.hasPhoto) {
+      await updateTaskProgress(openid, 'upload_photo', 1)
+    }
+
+    // 按条件解锁成就（已解锁的 unlockAchievement 内会直接返回 true）
+    if (totalDays >= 1) await unlockAchievement(openid, 'first_checkin')
+    if (streak >= 7) await unlockAchievement(openid, 'streak_7')
+    if (streak >= 30) await unlockAchievement(openid, 'streak_30')
+    if (streak >= 100) await unlockAchievement(openid, 'streak_100')
+    if (totalDays >= 50) await unlockAchievement(openid, 'total_50')
+    if (totalDays >= 200) await unlockAchievement(openid, 'total_200')
+  } catch (e) {
+    console.warn('syncTaskAndAchievementsAfterCheckin error:', e)
+  }
+}
+
 /**
  * 解锁用户成就
  */

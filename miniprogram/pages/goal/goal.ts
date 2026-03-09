@@ -32,7 +32,7 @@ import {
   GoalCategory
 } from '../../services/goal'
 import { getTodayStr } from '../../services/db'
-import { generateConfirmCode } from '../../services/utils'
+import { generateConfirmCode, defaultAvatar } from '../../services/utils'
 import { generateGoalShareUrl } from '../../services/goal'
 import { getMyGroups, getGroupMembersWithUserInfo } from '../../services/group'
 import { CHECKIN_CATEGORIES, getSubCategories, getCategoryDisplayName, Category, SubCategory } from '../../services/category'
@@ -42,6 +42,7 @@ const app = getApp() as IAppOption
 Page({
   data: {
     themeColor: '#1ABC9C',
+    defaultAvatar,
     activeGoals: [] as any[],
     today: getTodayStr(),
     // 目标模式：periodic-周期目标，deadline-时间点目标
@@ -249,12 +250,13 @@ Page({
     const { selectedPeriod } = this.data
     const config = GoalConfigs[selectedPeriod][type]
 
-    // 新的目标类型（sports、study、life）本身就是分类
+    // 新的目标类型（sports、study、life、work）本身就是分类
     // 将选中的类型作为分类ID，并获取对应的子类型
     const categoryMap: Record<GoalType, { categoryId: string; categoryName: string; subCategories: any[] }> = {
       sports: { categoryId: 'sports', categoryName: '运动类', subCategories: CHECKIN_CATEGORIES.find(c => c.id === 'sports') && CHECKIN_CATEGORIES.find(c => c.id === 'sports').subCategories ? CHECKIN_CATEGORIES.find(c => c.id === 'sports').subCategories : [] },
       study: { categoryId: 'study', categoryName: '学习类', subCategories: CHECKIN_CATEGORIES.find(c => c.id === 'study') && CHECKIN_CATEGORIES.find(c => c.id === 'study').subCategories ? CHECKIN_CATEGORIES.find(c => c.id === 'study').subCategories : [] },
-      life: { categoryId: 'life', categoryName: '生活类', subCategories: CHECKIN_CATEGORIES.find(c => c.id === 'life') && CHECKIN_CATEGORIES.find(c => c.id === 'life').subCategories ? CHECKIN_CATEGORIES.find(c => c.id === 'life').subCategories : [] }
+      life: { categoryId: 'life', categoryName: '生活类', subCategories: CHECKIN_CATEGORIES.find(c => c.id === 'life') && CHECKIN_CATEGORIES.find(c => c.id === 'life').subCategories ? CHECKIN_CATEGORIES.find(c => c.id === 'life').subCategories : [] },
+      work: { categoryId: 'work', categoryName: '工作类', subCategories: CHECKIN_CATEGORIES.find(c => c.id === 'work') && CHECKIN_CATEGORIES.find(c => c.id === 'work').subCategories ? CHECKIN_CATEGORIES.find(c => c.id === 'work').subCategories : [] }
     }
     const categoryInfo = categoryMap[type]
 
@@ -281,7 +283,8 @@ Page({
     const categoryMap: Record<GoalType, { categoryId: string; categoryName: string }> = {
       sports: { categoryId: 'sports', categoryName: '运动类' },
       study: { categoryId: 'study', categoryName: '学习类' },
-      life: { categoryId: 'life', categoryName: '生活类' }
+      life: { categoryId: 'life', categoryName: '生活类' },
+      work: { categoryId: 'work', categoryName: '工作类' }
     }
     const categoryInfo = categoryMap[defaultType]
 
@@ -370,9 +373,9 @@ Page({
     const { showConfirmorModal: oldShow } = this.data
     if (!oldShow) {
       // 打开弹窗时，加载用户的组织列表
-      const userId = app.globalData.openid
-      if (userId) {
-        const confirmorGroups = await getMyGroups(userId)
+      const openid = app.globalData.openid
+      if (openid) {
+        const confirmorGroups = await getMyGroups(openid)
         this.setData({
           showConfirmorModal: true,
           confirmorSelectionStep: 1,
@@ -397,7 +400,7 @@ Page({
     const groupMembers = await getGroupMembersWithUserInfo(group._id)
     // 过滤掉当前用户
     const currentUserId = app.globalData.openid
-    const filteredMembers = groupMembers.filter(m => m.userId !== currentUserId)
+    const filteredMembers = groupMembers.filter(m => m.openid !== currentUserId)
 
     this.setData({
       confirmorSelectionStep: 2,
@@ -413,7 +416,7 @@ Page({
 
     this.setData({
       confirmorName: member.nickName || '未知用户',
-      confirmorOpenid: member.userId,
+      confirmorOpenid: member.openid,
       confirmCode,
       showConfirmorModal: false
     })

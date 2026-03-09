@@ -1,7 +1,7 @@
 // tasks.ts
 import { TASKS, ACHIEVEMENTS, getClaimableVipTasks, claimTaskReward, getUserTasks, getUserAchievements, Task, UserTaskProgress, Achievement } from '../../services/task'
 import { getVipInfo, VipLevel, VipLevelNames, VipLevelColors } from '../../services/vip'
-import { getStreak, getTotalDays } from '../../services/stats'
+import { getStreak, getTotalDays, getAllStats } from '../../services/stats'
 import { defaultAvatar, convertCloudUrl } from '../../services/utils'
 
 const app = getApp() as IAppOption
@@ -10,12 +10,24 @@ interface TaskWithProgress extends Task {
   progress?: UserTaskProgress
   current: number
   percent: number
+  rewardText?: string
+}
+
+/** 将 reward 对象格式化为展示文案 */
+function formatReward(reward: Task['reward']): string {
+  if (!reward || typeof reward !== 'object') return '0积分'
+  const { type, value } = reward
+  if (type === 'points') return `${value}积分`
+  if (type === 'vip_days') return `${value}天VIP`
+  if (type === 'badge') return `${value}个徽章`
+  return `${value}`
 }
 
 Page({
   data: {
     themeColor: '#1ABC9C',
-    userInfo: null as any,
+    defaultAvatar,
+    userInfo: {} as any,
     vipInfo: null as any,
     vipLevelNames: VipLevelNames,
     vipLevelColors: VipLevelColors,
@@ -60,14 +72,16 @@ Page({
     const displayUserInfo = { ...userInfo, avatarUrl }
 
     try {
-      const [vipInfo, userTasks, claimableTasks, achievements, streak, totalDays] = await Promise.all([
+      const [vipInfo, userTasks, claimableTasks, achievements, allStats] = await Promise.all([
         getVipInfo(openid),
         getUserTasks(openid),
         getClaimableVipTasks(openid),
         getUserAchievements(openid),
-        getStreak(openid),
-        getTotalDays(openid)
+        getAllStats(openid)
       ])
+
+      const streak = allStats.streak
+      const totalDays = allStats.totalDays
 
       // 合并任务和进度
       const tasksWithProgress: TaskWithProgress[] = TASKS.map(task => {
@@ -78,9 +92,13 @@ Page({
           ...task,
           progress,
           current,
-          percent
+          percent,
+          rewardText: formatReward(task.reward)
         }
       })
+
+      // 为可领取任务补充展示文案
+      const claimableTasksWithText = claimableTasks.map(t => ({ ...t, rewardText: formatReward(t.reward) }))
 
       // 计算已完成的任务数
       const completedTasksCount = tasksWithProgress.filter(t => t.percent >= 100).length
@@ -90,7 +108,7 @@ Page({
         vipInfo,
         tasks: tasksWithProgress,
         achievements,
-        claimableTasks,
+        claimableTasks: claimableTasksWithText,
         completedTasksCount,
         userStats: {
           streak,

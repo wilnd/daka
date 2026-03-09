@@ -60,7 +60,7 @@
         <view wx:for="{{members || []}}" wx:key="_id" class="member-row" bindtap="onMemberTap" data-member="{{item}}">
           <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
           <text class="nick">{{item.nickName || '未知'}}</text>
-          <text wx:if="{{group.creatorId === item.userId}}" class="role-badge creator">群主</text>
+          <text wx:if="{{group.creatorId === item.openid}}" class="role-badge creator">群主</text>
           <text wx:elif="{{item.role === 'admin'}}" class="role-badge">组长</text>
           <text class="arrow">></text>
         </view>

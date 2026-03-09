@@ -1,8 +1,8 @@
 // profile.ts
-import { getStreak, getMissStreak, getTotalDays, wasCheckedInYesterday } from '../../services/stats'
+import { getStreak, getMissStreak, wasCheckedInYesterday } from '../../services/stats'
 import { checkinsCol, membersCol, usersCol, SUBSCRIBE_TEMPLATE_ID, getTodayStr } from '../../services/db'
 import { updateUserInfo, getOpenid } from '../../services/auth'
-import { getVipInfo, VipLevel, VipLevelNames, VipLevelColors, VipBenefits } from '../../services/vip'
+import { getVipInfo, VipLevel, VipLevelNames, VipLevelColors, VipBenefits, getMakeupQuotaDisplay } from '../../services/vip'
 import { getClaimableVipTasks, getUserAchievements } from '../../services/task'
 import { getActiveGoals, calculateGoalProgress, Goal } from '../../services/goal'
 import { convertCloudUrl, defaultAvatar, uploadAvatarIfNeeded } from '../../services/utils'
@@ -11,17 +11,28 @@ import { getMyGroups } from '../../services/group'
 
 const app = getApp() as IAppOption
 
+/** 格式化 VIP 有效期为页面展示文案，如 2025年3月8日 */
+function formatVipExpireTime(d: Date): string {
+  const y = d.getFullYear()
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  return `${y}年${m}月${day}日`
+}
+
 Component({
   data: {
     hasUserInfo: false,
     userInfo: {} as any,
-    stats: {} as any,
-    // VIP相关
+    // VIP相关（expireTimeText 为格式化后的有效期文案，用于页面展示）
     vipInfo: {
       level: 0,
       expireTime: null,
-      totalVipDays: 0
+      expireTimeText: '',
+      totalVipDays: 0,
+      makeupQuotaText: '2次'
     } as any,
+    /** 个人页顶部展示：本月剩余小勤点评次数，如 "剩余3/20次" 或 "开通VIP可用" */
+    aiReviewQuotaText: '',
     vipLevelNames: VipLevelNames,
     vipLevelColors: VipLevelColors,
     // 任务相关
@@ -52,6 +63,8 @@ Component({
     isAdmin: false,
     // 动态主题色
     themeColor: '#1ABC9C',
+    // 当前选中的群组
+    currentGroup: null as any,
   },
   lifetimes: {
     attached() { this.init() },
@@ -102,7 +115,7 @@ Component({
       const openid = app.globalData.openid
       if (!openid) return
       try {
-        const { data: users } = await usersCol().where({ openid }).get()
+        const { data: users } = await usersCol().where({ _openid: openid } as any).get()
         const user = users[0] as any
         const isSubscribed = (user && user.subscribeRemindEnabled) === true
         const remindTime = (user && user.remindTime) || '21:00'
@@ -116,11 +129,16 @@ Component({
       if (!openid) return
 
       try {
-        // 直接获取个人统计（与群组无关）
-        const [streak, totalDays, missStreak, vipInfo, claimableTasks, achievements, goals] = await Promise.all([
-          getStreak(openid),
-          getTotalDays(openid),
-          getMissStreak(openid),
+        // 获取群组列表和当前选中的群组
+        const groups = await getMyGroups(openid)
+        const globalGroupId = app.globalData.currentGroupId
+        let currentGroup = groups.find((g: any) => g._id === globalGroupId) || (groups.length > 0 ? groups[0] : null)
+        
+        // 使用当前群组的 groupId（如果有）
+        const groupId = currentGroup ? currentGroup._id : ''
+
+        // 获取统计数据（按群组过滤）
+        const [vipInfo, claimableTasks, achievements, goals] = await Promise.all([
           getVipInfo(openid),
           getClaimableVipTasks(openid),
           getUserAchievements(openid),
@@ -138,9 +156,36 @@ Component({
         const completedGoals = goalsWithProgress.filter((g: any) => g.progress.isCompleted).length
         const inProgressGoals = goalsWithProgress.filter((g: any) => !g.progress.isCompleted && new Date() <= new Date(g.endDate)).length
 
+        // 格式化 VIP 有效期供页面展示（Date 在 setData 后视图层可能不显示）
+        const expireTimeText = vipInfo.expireTime
+          ? formatVipExpireTime(vipInfo.expireTime)
+          : ''
+        const makeupQuotaText = getMakeupQuotaDisplay(vipInfo.level)
+
+        // 本月小勤点评剩余次数文案（成长值加成右侧展示）
+        let aiReviewQuotaText = ''
+        try {
+          const res = await wx.cloud.callFunction({
+            name: 'generateMomentAnnotations',
+            data: { action: 'getQuota' }
+          })
+          const result = (res && res.result != null ? res.result : {}) as { success?: boolean; quota?: number; remaining?: number }
+          if (result && result.success && result.quota != null) {
+            const quota = result.quota
+            const remaining = Math.max(0, result.remaining != null ? result.remaining : 0)
+            aiReviewQuotaText = quota > 0 ? `剩余${remaining}/${quota}次` : '开通VIP可用'
+          } else {
+            aiReviewQuotaText = '开通VIP可用'
+          }
+        } catch (_) {
+          aiReviewQuotaText = '--'
+        }
+
         this.setData({
-          stats: { streak, totalDays, missStreak },
-          vipInfo,
+          groups,
+          currentGroup,
+          vipInfo: { ...vipInfo, expireTimeText, makeupQuotaText },
+          aiReviewQuotaText,
           claimableVipTasks: claimableTasks,
           achievements,
           activeGoals: goalsWithProgress.slice(0, 2),  // 只显示前2个
@@ -153,6 +198,23 @@ Component({
       } catch (e) {
         console.error(e)
       }
+    },
+    // 切换群组
+    async onSelectGroup(e: any) {
+      const { currentGroup, groups } = this.data
+      const index = e.currentTarget.dataset.index
+      const group = groups[index]
+      if (!group) return
+      
+      const openid = app.globalData.openid
+      if (!openid) return
+
+      // 保存到全局
+      app.globalData.currentGroupId = group._id
+
+      this.setData({
+        currentGroup: group
+      })
     },
     onEditUserInfo() {
       const { userInfo } = this.data
@@ -178,7 +240,7 @@ Component({
       }
 
       const params = [
-        `userId=${encodeURIComponent(openid)}`,
+        `openid=${encodeURIComponent(openid)}`,
         `nickName=${encodeURIComponent(userInfo.nickName || '')}`,
         `avatarUrl=${encodeURIComponent(userInfo.avatarUrl || '')}`
       ].join('&')
@@ -276,13 +338,18 @@ Component({
       })
     },
     onTimeChange(e: any) {
-      this.setData({ remindTime: e.detail.value })
+      // 将时间对齐到30分钟区间
+      const time = e.detail.value
+      const [hour, minute] = time.split(':').map(Number)
+      const alignedMinute = minute < 30 ? '00' : '30'
+      const alignedTime = `${hour}:${alignedMinute}`
+      this.setData({ remindTime: alignedTime })
     },
     async saveRemindTime() {
       const openid = app.globalData.openid
       if (!openid) return
       try {
-        const { data: users } = await usersCol().where({ openid }).get()
+        const { data: users } = await usersCol().where({ _openid: openid } as any).get()
         if (users.length > 0) {
           await usersCol().doc((users[0] as any)._id).update({
             data: { remindTime: this.data.remindTime }
@@ -299,7 +366,7 @@ Component({
     },
     async updateSubscriptionStatus(openid: string, enabled: boolean) {
       try {
-        const { data: users } = await usersCol().where({ openid }).get()
+        const { data: users } = await usersCol().where({ _openid: openid } as any).get()
         if (users.length > 0) {
           await usersCol().doc((users[0] as any)._id).update({
             data: { subscribeRemindEnabled: enabled }
@@ -329,10 +396,29 @@ Component({
       const groupIndex = parseInt(e.currentTarget.dataset.index)
       const group = this.data.groups[groupIndex]
       this.setData({ showGroupPickerModal: false })
+      
+      // 更新当前群组和统计数据
+      const openid = app.globalData.openid
+      if (openid) {
+        // 保存到全局
+        app.globalData.currentGroupId = group._id
+        this.setData({ currentGroup: group })
+      }
+      
+      // 继续执行生成提醒文案（如果有）
       this.doGenRemindCopy(group._id)
     },
     hideGroupPickerModal() {
       this.setData({ showGroupPickerModal: false })
+    },
+    // 显示群组选择器（用于切换群组查看数据）
+    showSwitchGroup() {
+      const { groups } = this.data
+      if (groups.length === 0) {
+        wx.showToast({ title: '暂无群组', icon: 'none' })
+        return
+      }
+      this.setData({ showGroupPickerModal: true })
     },
     // 跳转到VIP页面
     goToVip() {
@@ -350,7 +436,7 @@ Component({
       try {
         const today = getTodayStr()
         const { data: members } = await membersCol().where({ groupId: gid, status: 'normal' }).get()
-        const userIds = (members || []).map((m: any) => m.userId).filter(Boolean)
+        const userIds = (members || []).map((m: any) => m._openid || m.openid).filter(Boolean)
 
         // 批量查询今日已打卡用户
         const checkedSet = new Set<string>()
@@ -361,9 +447,9 @@ Component({
         const batchSize = 10
         for (let i = 0; i < userIds.length; i += batchSize) {
           const batch = userIds.slice(i, i + batchSize)
-          const { data: checked } = await checkinsCol().where({ userId: _.in(batch), date: today }).get()
+          const { data: checked } = await checkinsCol().where({ _openid: _.in(batch), date: today } as any).get()
           for (const c of (checked || []) as any[]) {
-            if (c && c.userId) checkedSet.add(c.userId)
+            if (c && (c._openid || c.openid)) checkedSet.add(c._openid || c.openid)
           }
         }
 
@@ -374,10 +460,11 @@ Component({
         // 批量获取用户信息
         for (let i = 0; i < missUserIds.length; i += batchSize) {
           const batch = missUserIds.slice(i, i + batchSize)
-          const { data: users } = await usersCol().where({ openid: _.in(batch) }).get()
+          const { data: users } = await usersCol().where({ _openid: _.in(batch) } as any).get()
           for (const u of (users || []) as any[]) {
-            if (u && u.openid) {
-              userInfoMap[u.openid] = { nickName: u.nickName || '未知' }
+            const uid = u && (u._openid || u.openid)
+            if (uid) {
+              userInfoMap[uid] = { nickName: u.nickName || '未知' }
             }
           }
         }
@@ -385,11 +472,12 @@ Component({
         // 批量获取未打卡成员的打卡状态（连续未打卡天数）
         const missList: any[] = []
         for (const m of members || []) {
-          if (!checkedSet.has(m.userId)) {
-            const missDays = await getMissStreak(m.userId, gid)
-            const wasYesterday = await wasCheckedInYesterday(m.userId)
-            const streak = wasYesterday ? await getStreak(m.userId, gid) : 0
-            const nick = userInfoMap[m.userId] && userInfoMap[m.userId].nickName ? userInfoMap[m.userId].nickName : '未知'
+          const mid = (m as any)._openid || m.openid
+          if (mid && !checkedSet.has(mid)) {
+            const missDays = await getMissStreak(mid)
+            const wasYesterday = await wasCheckedInYesterday(mid)
+            const streak = wasYesterday ? await getStreak(mid) : 0
+            const nick = userInfoMap[mid] && userInfoMap[mid].nickName ? userInfoMap[mid].nickName : '未知'
             missList.push({ nick, missDays, wasYesterday, streak })
           }
         }
@@ -398,7 +486,7 @@ Component({
           wx.showToast({ title: '今日全员已记录' })
           return
         }
-        // 生成文案：昨天记录→显示连续天数+断掉风险；昨天未记录→显示未记录+鼓励
+        // 生成文案：昨天记录→显示连胜天数+断掉风险；昨天未记录→显示未记录+鼓励
         const txt = missList.map(x => {
           if (x.wasYesterday && x.streak > 0) {
             return `@${x.nick} 已经连续运动${x.streak}天，今天还不运动会断掉连胜哦`

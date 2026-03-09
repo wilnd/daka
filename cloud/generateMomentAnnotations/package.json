@@ -1,0 +1,9 @@
+{
+  "name": "generateMomentAnnotations",
+  "version": "1.0.0",
+  "description": "小勤点评：生成周/月/年批注（AI）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~3.0.5-beta.1"
+  }
+}

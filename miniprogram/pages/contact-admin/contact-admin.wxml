@@ -1,4 +1,4 @@
-<navigation-bar title="联系管理员" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+<navigation-bar title="盟主收件箱" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
     <!-- Tab 切换 -->
@@ -8,14 +8,14 @@
         data-tab="suggest"
         bindtap="switchTab"
       >
-        提意见
+        宝贵意见
       </view>
       <view
         class="tab-item {{currentTab === 'wechat' ? 'active' : ''}}"
         data-tab="wechat"
         bindtap="switchTab"
       >
-        加微信
+        联系盟主
       </view>
     </view>
 
@@ -23,7 +23,7 @@
     <view wx:if="{{currentTab === 'suggest'}}" class="suggest-form">
       <view class="form-card">
         <view class="form-title">提交您的意见或建议</view>
-        <view class="form-desc">我们会认真阅读每一条反馈</view>
+        <view class="form-desc">本盟主会认真阅读每一条反馈的</view>
 
         <!-- 意见类型选择 -->
         <view class="type-selector">

@@ -1,0 +1,225 @@
+@import '../../styles/theme.less';
+
+.page {
+  flex: 1;
+  height: 100%;
+  background: @color-bg-page;
+}
+
+.container {
+  padding: @spacing-lg;
+  padding-bottom: 120rpx;
+}
+
+.header-card {
+  background: linear-gradient(135deg, @color-primary 0%, @color-primary-dark 100%);
+  border-radius: @radius-xl;
+  padding: 40rpx;
+  margin-bottom: @spacing-lg;
+  text-align: center;
+  box-shadow: @shadow-primary;
+
+  .ai-avatar-wrap {
+    width: 120rpx;
+    height: 120rpx;
+    margin: 0 auto 20rpx;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ai-avatar {
+    width: 96rpx;
+    height: 96rpx;
+  }
+
+  .ai-name {
+    display: block;
+    font-size: 36rpx;
+    font-weight: @font-weight-bold;
+    color: #fff;
+    margin-bottom: 12rpx;
+  }
+
+  .ai-desc {
+    font-size: @font-size-caption;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.5;
+  }
+}
+
+.generate-bar {
+  background: @color-bg-card;
+  border-radius: @radius-lg;
+  padding: @spacing-md;
+  margin-bottom: @spacing-lg;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+
+  .generate-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12rpx;
+    margin-bottom: 16rpx;
+  }
+
+  .generate-label {
+    font-size: @font-size-caption;
+    color: @color-text-hint;
+  }
+
+  .quota-hint {
+    font-size: 24rpx;
+    color: @color-primary;
+  }
+
+  .quota-none {
+    color: @color-text-hint;
+  }
+
+  .generate-btns {
+    display: flex;
+    gap: 24rpx;
+    margin-bottom: 12rpx;
+
+    .gen-btn {
+      flex: 1;
+      height: 72rpx;
+      line-height: 72rpx;
+      font-size: @font-size-body;
+      color: @color-primary;
+      background: fade(@color-primary, 12%);
+      border-radius: @radius-md;
+      border: none;
+
+      &[disabled] {
+        opacity: 0.6;
+      }
+    }
+  }
+
+  .generate-hint {
+    font-size: 24rpx;
+    color: @color-text-hint;
+    line-height: 1.4;
+  }
+}
+
+.loading-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 0;
+
+  .loading-spinner {
+    width: 48rpx;
+    height: 48rpx;
+    border: 4rpx solid @color-border;
+    border-top-color: @color-primary;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .loading-text {
+    margin-top: 24rpx;
+    font-size: @font-size-caption;
+    color: @color-text-hint;
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-wrap {
+  text-align: center;
+  padding: 80rpx 40rpx;
+
+  .empty-icon {
+    font-size: 100rpx;
+    display: block;
+    margin-bottom: 24rpx;
+  }
+
+  .empty-title {
+    font-size: @font-size-title;
+    font-weight: @font-weight-bold;
+    color: @color-text-title;
+    display: block;
+    margin-bottom: 12rpx;
+  }
+
+  .empty-desc {
+    font-size: @font-size-body;
+    color: @color-text-hint;
+    line-height: 1.6;
+    max-width: 500rpx;
+    margin: 0 auto;
+  }
+}
+
+.section-list {
+  .section {
+    margin-bottom: @spacing-xl;
+
+    .section-title {
+      display: block;
+      font-size: @font-size-title;
+      font-weight: @font-weight-bold;
+      color: @color-text-title;
+      margin-bottom: @spacing-md;
+      padding-left: 8rpx;
+    }
+
+    .card {
+      background: @color-bg-card;
+      border-radius: @radius-lg;
+      padding: 28rpx;
+      margin-bottom: @spacing-md;
+      box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24rpx;
+
+      .card-main {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .card-period {
+        display: block;
+        font-size: @font-size-caption;
+        color: @color-primary;
+        font-weight: @font-weight-medium;
+        margin-bottom: 12rpx;
+      }
+
+      .card-desc {
+        font-size: @font-size-body;
+        color: @color-text-body;
+        line-height: 1.55;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-all;
+      }
+
+      .card-share-btn {
+        flex-shrink: 0;
+        height: 56rpx;
+        line-height: 56rpx;
+        padding: 0 24rpx;
+        font-size: 26rpx;
+        color: @color-primary;
+        background: fade(@color-primary, 12%);
+        border-radius: @radius-md;
+        border: none;
+      }
+    }
+  }
+}

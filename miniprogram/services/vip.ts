@@ -1,7 +1,14 @@
 /**
- * VIP服务
+ * VIP 服务
+ *
+ * 升级体系（单一数据源，避免多处文案/逻辑不一致）：
+ * - 等级：0 普通、1 青铜、2 白银、3 黄金
+ * - 补卡次数/月：普通 2 次，青铜 5 次，白银 10 次，黄金 无限（999）
+ * - 获得方式：管理员审批（VIP 申请）→ 青铜 + N 天；VIP 页购买 → 自选等级 + 时长；任务/目标奖励 vip_days 需在领取时调用 upgradeVip（当前任务领取仅标记 claimed，未发 VIP 天数）
+ * - 展示：补卡文案统一用 getMakeupQuotaDisplay(level)，权益列表用 VipBenefits，数量用 VIP_MAKEUP_QUOTA
  */
 import { usersCol } from './db'
+import { unlockAchievement } from './task'
 
 /** VIP等级枚举 */
 export enum VipLevel {
@@ -27,17 +34,48 @@ export const VipLevelColors: Record<number, string> = {
   [VipLevel.GOLD]: '#FFD700'
 }
 
-/** VIP等级对应的福利 */
+/** 每月补卡次数上限（单一数据源：普通2次，青铜5次，白银10次，黄金视为无限） */
+export const VIP_MAKEUP_QUOTA: Record<number, number> = {
+  [VipLevel.NORMAL]: 2,
+  [VipLevel.BRONZE]: 5,
+  [VipLevel.SILVER]: 10,
+  [VipLevel.GOLD]: 999
+}
+
+/** 每月小勤同学点评生成次数上限（普通5次，青铜20次，白银40次，黄金100次；每月初0点更新） */
+export const VIP_AI_REVIEW_QUOTA: Record<number, number> = {
+  [VipLevel.NORMAL]: 5,
+  [VipLevel.BRONZE]: 20,
+  [VipLevel.SILVER]: 40,
+  [VipLevel.GOLD]: 100
+}
+
+/** 补卡次数展示文案（用于个人页、VIP 页等） */
+export function getMakeupQuotaDisplay(level: number): string {
+  const quota = VIP_MAKEUP_QUOTA[level] != null ? VIP_MAKEUP_QUOTA[level] : 2
+  return quota >= 999 ? '无限' : `${quota}次`
+}
+
+/** 小勤点评次数展示文案（用于个人页、VIP 页等） */
+export function getAiReviewQuotaDisplay(level: number): string {
+  const quota = VIP_AI_REVIEW_QUOTA[level] != null ? VIP_AI_REVIEW_QUOTA[level] : 5
+  return `每月${quota}次`
+}
+
+/** VIP等级对应的福利（与 VIP_MAKEUP_QUOTA、VIP_AI_REVIEW_QUOTA 一致，避免文案与逻辑不符） */
 export const VipBenefits: Record<number, string[]> = {
   [VipLevel.NORMAL]: [
     '基础打卡功能',
-    '查看统计数据'
+    '查看统计数据',
+    '小勤点评每月5次'
   ],
   [VipLevel.BRONZE]: [
     '基础打卡功能',
     '查看统计数据',
     '专属徽章标识',
-    '优先客服支持'
+    '优先客服支持',
+    '每月5次补卡',
+    '小勤点评每月20次'
   ],
   [VipLevel.SILVER]: [
     '基础打卡功能',
@@ -45,7 +83,8 @@ export const VipBenefits: Record<number, string[]> = {
     '专属徽章标识',
     '优先客服支持',
     '高级统计数据',
-    '无限补卡次数'
+    '每月10次补卡',
+    '小勤点评每月40次'
   ],
   [VipLevel.GOLD]: [
     '基础打卡功能',
@@ -53,7 +92,8 @@ export const VipBenefits: Record<number, string[]> = {
     '专属徽章标识',
     '优先客服支持',
     '高级统计数据',
-    '无限补卡次数',
+    '无限补卡',
+    '小勤点评每月100次',
     '专属客服支持',
     '限量礼品兑换'
   ]
@@ -144,6 +184,12 @@ export async function upgradeVip(openid: string, level: VipLevel, days: number):
       }
     })
 
+    // 成就埋点：成为 VIP 时解锁「VIP会员」成就
+    try {
+      await unlockAchievement(openid, 'vip_member')
+    } catch (e) {
+      console.warn('解锁VIP成就失败', e)
+    }
     return true
   } catch (e) {
     console.error('upgradeVip error:', e)
@@ -184,15 +230,16 @@ export async function getMakeupQuotaWithVip(openid: string): Promise<number> {
     return baseQuota
   }
 
-  // 不同VIP等级有不同的补卡加成
-  switch (vipInfo.level) {
-    case VipLevel.BRONZE:
-      return 5 // 青铜VIP额外3次
-    case VipLevel.SILVER:
-      return 10 // 白银VIP额外8次（无限）
-    case VipLevel.GOLD:
-      return 999 // 黄金VIP无限次
-    default:
-      return baseQuota
+  return VIP_MAKEUP_QUOTA[vipInfo.level] != null ? VIP_MAKEUP_QUOTA[vipInfo.level] : baseQuota
+}
+
+/**
+ * 获取VIP对应的小勤点评每月生成次数上限
+ */
+export async function getAiReviewQuotaWithVip(openid: string): Promise<number> {
+  const vipInfo = await getVipInfo(openid)
+  if (vipInfo.level === VipLevel.NORMAL || vipInfo.isExpired) {
+    return VIP_AI_REVIEW_QUOTA[VipLevel.NORMAL]
   }
+  return VIP_AI_REVIEW_QUOTA[vipInfo.level] != null ? VIP_AI_REVIEW_QUOTA[vipInfo.level] : 0
 }

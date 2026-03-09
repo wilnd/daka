@@ -1,5 +1,5 @@
 <navigation-bar title="成长墙" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
-<scroll-view class="page" scroll-y refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="refreshMoments">
+<scroll-view class="page" scroll-y refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="refreshMoments" bindscrolltolower="loadMoreMoments" lower-threshold="120">
   <!-- 群组选择器 -->
   <view class="group-header" wx:if="{{groups && groups.length > 1}}">
     <view class="group-selector">
@@ -34,13 +34,13 @@
           src="{{item.userInfo && item.userInfo.avatarUrl || 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'}}" 
           mode="aspectFill"
           bindtap="onViewUserMoments"
-          data-user-id="{{item.userId}}"
+          data-openid="{{item.openid}}"
           data-nick-name="{{item.userInfo && item.userInfo.nickName}}"
           data-avatar-url="{{item.userInfo && item.userInfo.avatarUrl}}"
         ></image>
         <view class="user-info">
           <text class="nickname">{{item.userInfo && item.userInfo.nickName || '匿名用户'}}</text>
-          <text class="moment-time">{{formatTime(item.createTime)}}</text>
+          <text class="moment-time">发表时间 {{formatPublishTime(item.createTime)}}</text>
         </view>
         <view class="sport-tag" wx:if="{{item.content && item.content.categoryDisplayName}}">
           <text>{{item.content.categoryDisplayName}}</text>

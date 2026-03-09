@@ -671,9 +671,9 @@ function generateFeedback(options) {
     }
   }
 
-  // 成长墙发布
-  if (content.isPublishToMoments) {
-    feedbacks.push('分享到成长墙正能量满满')
+  // 成长墙发布：仅在有自定义评论文案时追加，不再默认加「正能量满满」等句
+  if (content.isPublishToMoments && content.momentsComment && content.momentsComment.trim()) {
+    feedbacks.push(content.momentsComment.trim())
   }
 
   // 连续打卡
@@ -687,7 +687,24 @@ function generateFeedback(options) {
     return isStudy ? '继续保持学习习惯！' : '继续保持运动习惯！'
   }
 
-  return feedbacks.join('，').replace(/。。/g, '。').slice(0, 50) + '！'
+  // 评语最终处理
+  let result = feedbacks.join('，')
+  // 去除重复的句号
+  result = result.replace(/。。+/g, '。')
+  // 截取前50字
+  result = result.slice(0, 50)
+  // 如果末尾是逗号，替换为句号
+  if (result.endsWith('，')) {
+    result = result.slice(0, -1) + '。'
+  }
+  // 确保以感叹号结尾（如果末尾是句号则替换为感叹号）
+  if (result.endsWith('。')) {
+    result = result.slice(0, -1) + '！'
+  } else if (!result.endsWith('！')) {
+    result = result + '！'
+  }
+
+  return result
 }
 
 /**
@@ -698,7 +715,7 @@ async function callLLM(messages) {
     const model = cloud.ai().createModel('hunyuan-exp')
 
     const result = await model.generateText({
-      model: 'hunyuan-vision-1.5-instruct',
+      model: 'hunyuan-turbos-latest',
       messages: messages,
       temperature: 0.3,
       max_tokens: 1000
@@ -727,7 +744,7 @@ async function* callLLMStream(messages) {
 
   const res = await model.streamText({
     data: {
-      model: 'hunyuan-vision-1.5-instruct',
+      model: 'hunyuan-turbos-latest',
       messages: messages,
       temperature: 0.3,
       max_tokens: 1000
@@ -820,12 +837,12 @@ async function getUserStreakDays(openid, groupId) {
       return 0
     }
 
-    // 按日期去重（date 字段为 YYYY-MM-DD）
+    // 按日期去重（date 字段为 YYYY-MM-DD，与客户端本地日期一致，用北京时间）
     const dateSet = new Set(checkins.map(c => c.date).filter(Boolean))
-    const today = getDateStr(now)
-    const yesterday = getDateStr(new Date(now.getTime() - 86400000))
+    const today = getDateStrBeijing(now)
+    const yesterday = getDateStrBeijing(new Date(now.getTime() - 86400000))
 
-    // 从昨天或今天开始往前统计连续天数
+    // 从昨天或今天开始往前统计连胜天数
     let streak = 0
     let startDay = dateSet.has(today) ? today : (dateSet.has(yesterday) ? yesterday : null)
     if (!startDay) return 0
@@ -847,6 +864,38 @@ async function getUserStreakDays(openid, groupId) {
     console.error('获取连续打卡天数失败:', error)
     return 0
   }
+}
+
+/** 成长值加成：VIP 等级对应百分比（与 profile 展示一致：青铜+20%、白银+40%、黄金+60%） */
+const VIP_GROWTH_BONUS_RATE = 0.2
+
+/**
+ * 获取用户有效 VIP 等级（0=普通，1=青铜，2=白银，3=黄金；未开通或已过期返回 0）
+ */
+async function getVipLevel(openid) {
+  if (!openid) return 0
+  try {
+    const { data: users } = await db.collection('users').where({ _openid: openid }).limit(1).get()
+    if (!users || users.length === 0) return 0
+    const u = users[0]
+    const level = u.vipLevel != null ? u.vipLevel : 0
+    if (level <= 0) return 0
+    const expire = u.vipExpireTime ? new Date(u.vipExpireTime) : null
+    if (expire && expire < new Date()) return 0
+    return level
+  } catch (e) {
+    console.warn('getVipLevel 失败:', e)
+    return 0
+  }
+}
+
+/**
+ * 应用 VIP 成长值加成（不封顶）
+ */
+function applyVipGrowthBonus(totalScore, vipLevel) {
+  if (!vipLevel || vipLevel <= 0) return totalScore
+  const rate = 1 + vipLevel * VIP_GROWTH_BONUS_RATE
+  return Math.round(totalScore * rate)
 }
 
 /**
@@ -1102,8 +1151,8 @@ async function calculateStreakInfo(openid, groupId, checkins) {
   let tempStreak = 0
   let prevDate = null
 
-  const today = getDateStr(new Date())
-  const yesterday = getDateStr(new Date(Date.now() - 86400000))
+  const today = getDateStrBeijing(new Date())
+  const yesterday = getYesterdayStrBeijing()
 
   for (const date of sortedDates) {
     if (prevDate === null) {
@@ -1347,46 +1396,68 @@ function calculateScores(activities, content, options = {}) {
 }
 
 exports.main = async (event, context) => {
-  const wxContext = cloud.getWXContext()
-  const openid = wxContext.OPENID
+  try {
+    const wxContext = cloud.getWXContext()
+    const openid = wxContext.OPENID
 
-  // 支持多种操作
-  const { action = 'score', ...params } = event
+    // 支持多种操作
+    const { action = 'score', ...params } = event
 
-  // 路由处理
-  switch (action) {
-    case 'setGoal':
-      // 设置运动目标
-      return await handleSetGoal(openid, params)
+    // 路由处理
+    switch (action) {
+      case 'setGoal':
+        return await handleSetGoal(openid, params)
 
-    case 'getGoal':
-      // 获取运动目标
-      return await handleGetGoal(openid, params)
+      case 'getGoal':
+        return await handleGetGoal(openid, params)
 
-    case 'getStats':
-      // 获取统计报告
-      return await handleGetStats(openid, params)
+      case 'getStats':
+        return await handleGetStats(openid, params)
 
-    case 'getAchievements':
-      // 获取成就列表
-      return await handleGetAchievements(openid, params)
+      case 'getAchievements':
+        return await handleGetAchievements(openid, params)
 
-    case 'checkAchievements':
-      // 检查并解锁成就
-      return await handleCheckAchievements(openid, params)
+      case 'checkAchievements':
+        return await handleCheckAchievements(openid, params)
 
-    case 'getGroupStats':
-      // 获取群组统计
-      return await handleGetGroupStats(openid, params)
+      case 'getGroupStats':
+        return await handleGetGroupStats(openid, params)
 
-    case 'getMyRank':
-      // 获取我的排名
-      return await handleGetMyRank(openid, params)
+      case 'getMyRank':
+        return await handleGetMyRank(openid, params)
 
-    case 'score':
-    default:
-      // 默认：执行打卡评分
-      return await handleScore(openid, params, wxContext)
+      case 'getAllStats':
+        return await handleGetAllStats(openid, params)
+
+      case 'syncCheckinStats':
+        return await handleSyncCheckinStats(openid, params)
+
+      case 'migrateCheckinStats':
+        return await handleMigrateCheckinStats(openid, params)
+
+      case 'migrateCheckinStatsBatch':
+        return await handleMigrateCheckinStatsBatch(openid, params)
+
+      case 'migrateCheckinStatsRunAll':
+        return await handleMigrateCheckinStatsRunAll(openid, params)
+
+      case 'getGroupDetail':
+        return await handleGetGroupDetail(openid, params)
+
+      case 'removeMember':
+        return await handleRemoveMember(openid, params)
+
+      case 'score':
+      default:
+        return await handleScore(openid, params, wxContext)
+    }
+  } catch (err) {
+    console.error('scoreCheckin 云函数异常:', err)
+    return {
+      success: false,
+      error: err && err.message ? err.message : '服务暂时不可用',
+      msg: '操作失败，请稍后重试'
+    }
   }
 }
 
@@ -1401,7 +1472,8 @@ async function handleScore(openid, params, wxContext) {
     isPublishToMoments = true,
     useLLM = true,
     duration = 0,
-    durationUnit = '分钟'
+    durationUnit = '分钟',
+    momentsComment = ''
   } = params
 
   // 将用户输入的时长转换为分钟数
@@ -1419,15 +1491,20 @@ async function handleScore(openid, params, wxContext) {
     photos,
     isPublishToMoments,
     categoryId: params.categoryId || '',
-    subCategoryId: params.subCategoryId || ''
+    subCategoryId: params.subCategoryId || '',
+    momentsComment
   }
 
   const checkinHour = new Date().getHours()
 
-  // 获取用户连续打卡天数
+  // 获取用户连续打卡天数（失败时不影响主流程）
   let streakDays = 0
   if (openid && groupId) {
-    streakDays = await getUserStreakDays(openid, groupId)
+    try {
+      streakDays = await getUserStreakDays(openid, groupId)
+    } catch (e) {
+      console.warn('getUserStreakDays 失败:', e)
+    }
   }
 
   // 初始化识别结果
@@ -1442,6 +1519,8 @@ async function handleScore(openid, params, wxContext) {
   if (!useLLM) {
     const userDurationMinutes = totalMinutes
     const scores = calculateScores([], content, { streakDays, checkinHour, userDurationMinutes })
+    const vipLevel = await getVipLevel(openid)
+    const totalScoreWithVip = applyVipGrowthBonus(scores.totalScore, vipLevel)
 
     const feedback = generateFeedback({
       activities: [],
@@ -1456,7 +1535,7 @@ async function handleScore(openid, params, wxContext) {
     return {
       success: true,
       data: {
-        totalScore: scores.totalScore,
+        totalScore: totalScoreWithVip,
         activityScore: scores.activityScore,
         amountScore: scores.amountScore,
         completenessScore: scores.completenessScore,
@@ -1465,8 +1544,8 @@ async function handleScore(openid, params, wxContext) {
         feedback,
         activities: [],
         summary: '打卡成功',
-        totalMinutes: 0,
-        isValid: false,
+        totalMinutes: userDurationMinutes || scores.totalMinutes || 0,
+        isValid: true,
         sportTypes: [],
         analysisMethod: 'rule'
       }
@@ -1521,6 +1600,8 @@ async function handleScore(openid, params, wxContext) {
   // 4. 计算评分（优先使用用户输入的时长，如果没有则使用AI识别的时长）
   const userDurationMinutes = totalMinutes
   const scores = calculateScores(allActivities, content, { streakDays, checkinHour, userDurationMinutes })
+  const vipLevel = await getVipLevel(openid)
+  const totalScoreWithVip = applyVipGrowthBonus(scores.totalScore, vipLevel)
 
   // 5. 生成评语（AI对文字和图片内容的解析点评）
   const feedback = generateFeedback({
@@ -1536,17 +1617,21 @@ async function handleScore(openid, params, wxContext) {
   // 获取运动类型名称
   const sportTypes = allActivities.map(a => (SPORT_CONFIG[a.type] && SPORT_CONFIG[a.type].name) || a.type || '未知运动')
 
-  // 检查并解锁成就
+  // 检查并解锁成就（失败时不影响主流程）
   let newAchievements = []
   if (openid && groupId) {
-    const achievementResult = await checkAchievements(openid, groupId)
-    newAchievements = achievementResult.new
+    try {
+      const achievementResult = await checkAchievements(openid, groupId)
+      newAchievements = achievementResult.new || []
+    } catch (e) {
+      console.warn('checkAchievements 失败:', e)
+    }
   }
 
   return {
     success: true,
     data: {
-      totalScore: scores.totalScore,
+      totalScore: totalScoreWithVip,
       activityScore: scores.activityScore,
       amountScore: scores.amountScore,
       completenessScore: scores.completenessScore,
@@ -1688,13 +1773,144 @@ async function handleCheckAchievements(openid, params) {
 }
 
 /**
- * 将 Date 对象转为 YYYY-MM-DD 字符串
+ * 将 Date 对象转为 YYYY-MM-DD 字符串（使用本地/服务器时区）
  */
 function getDateStr(date) {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
+}
+
+/**
+ * 将 Date 对象转为 YYYY-MM-DD 字符串（北京时间 UTC+8）
+ * 云函数默认 UTC，小程序端存的是用户本地日期；用此函数保证「今天/昨天」与客户端一致，连胜等逻辑正确。
+ */
+function getDateStrBeijing(date) {
+  const utc = date.getTime()
+  const beijing = new Date(utc + 8 * 3600 * 1000)
+  const y = beijing.getUTCFullYear()
+  const m = String(beijing.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(beijing.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+/** 北京时间的「昨天」YYYY-MM-DD，由「今天」减 1 天得出，避免 24h 偏移在跨日边界出错（如周一凌晨） */
+function getYesterdayStrBeijing() {
+  const today = getDateStrBeijing(new Date())
+  const [y, m, d] = today.split('-').map(Number)
+  const yesterdayDate = new Date(Date.UTC(y, m - 1, d - 1, 12, 0, 0, 0))
+  return getDateStrBeijing(yesterdayDate)
+}
+
+/** 由日期字符串 YYYY-MM-DD 得到前 n 天的日期字符串 */
+function getDateBeforeStr(dateStr, n) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const d0 = new Date(Date.UTC(y, m - 1, d - n, 12, 0, 0, 0))
+  return getDateStrBeijing(d0)
+}
+
+/** 两个 YYYY-MM-DD 之间的天数差（含首尾），即 total_days = (end - start) / 1天 + 1 */
+function daysBetween(startStr, endStr) {
+  const start = new Date(startStr + 'T12:00:00Z').getTime()
+  const end = new Date(endStr + 'T12:00:00Z').getTime()
+  return Math.floor((end - start) / 86400000) + 1
+}
+
+/**
+ * 从打卡统计表读取四类统计（每用户一条，按 _openid 查）
+ * 无记录或字段不全时返回 null，走全量计算
+ */
+async function getStatsFromLatestRecord(openid) {
+  const { data: list } = await db.collection('checkinStats')
+    .where({ _openid: openid })
+    .limit(1)
+    .get()
+  if (!list || list.length === 0) return null
+  const row = list[0]
+  if (row.current_streak === undefined && row.last_check_in_date === undefined) return null
+  const recorded = row.recorded_days != null ? row.recorded_days : 0
+  const slack = row.slack_days != null ? row.slack_days : 0
+  return {
+    streak: row.current_streak != null ? row.current_streak : 0,
+    bestStreak: row.best_streak != null ? row.best_streak : 0,
+    recorded_days: recorded,
+    slack_days: slack,
+    totalDays: recorded
+  }
+}
+
+/**
+ * 打卡/补卡后同步更新打卡统计表（每用户一条，增量更新，幂等）
+ * 先取该用户最新一条打卡的 date 作为「今天」，再根据统计表上一条状态计算并 upsert checkinStats
+ */
+async function updateCheckinStatsForLatestRecord(openid) {
+  const { data: checkinList } = await db.collection('checkins')
+    .where({ _openid: openid })
+    .orderBy('date', 'desc')
+    .orderBy('_id', 'desc')
+    .limit(1)
+    .get()
+  if (!checkinList || checkinList.length === 0) return null
+  const todayStr = checkinList[0].date
+  const yesterdayStr = getDateBeforeStr(todayStr, 1)
+
+  const { data: statsList } = await db.collection('checkinStats')
+    .where({ _openid: openid })
+    .limit(1)
+    .get()
+  const prev = statsList && statsList.length > 0 ? statsList[0] : null
+
+  if (prev && prev.last_check_in_date === todayStr) {
+    return { current_streak: prev.current_streak, best_streak: prev.best_streak }
+  }
+
+  const now = new Date()
+  let current_streak, best_streak, recorded_days, slack_days, first_check_in_date, last_check_in_date
+
+  if (!prev || prev.last_check_in_date == null) {
+    current_streak = 1
+    best_streak = 1
+    recorded_days = 1
+    first_check_in_date = todayStr
+    last_check_in_date = todayStr
+    slack_days = 0
+  } else {
+    last_check_in_date = todayStr
+    first_check_in_date = prev.first_check_in_date || prev.last_check_in_date
+    if (prev.last_check_in_date === yesterdayStr) {
+      current_streak = (prev.current_streak || 0) + 1
+    } else {
+      current_streak = 1
+    }
+    best_streak = Math.max(prev.best_streak || 0, current_streak)
+    recorded_days = (prev.recorded_days || 0) + 1
+    const total_days = daysBetween(first_check_in_date, todayStr)
+    slack_days = Math.max(0, total_days - recorded_days)
+  }
+
+  const payload = {
+    current_streak,
+    last_check_in_date,
+    best_streak,
+    recorded_days,
+    slack_days,
+    first_check_in_date,
+    updateTime: now
+  }
+
+  if (prev && prev._id) {
+    await db.collection('checkinStats').doc(prev._id).update({ data: payload })
+  } else {
+    await db.collection('checkinStats').add({
+      data: {
+        _openid: openid,
+        ...payload,
+        createTime: now
+      }
+    })
+  }
+  return payload
 }
 
 /**
@@ -1706,7 +1922,7 @@ async function getGroupStats(groupId, period = 'week') {
     let startDateStr = null  // null 表示不限制起始日期（总榜）
 
     if (period === 'day') {
-      startDateStr = getDateStr(now)
+      startDateStr = getDateStrBeijing(now)
     } else if (period === 'week') {
       const weekStart = new Date(now)
       const dayOfWeek = now.getDay() || 7
@@ -1717,9 +1933,7 @@ async function getGroupStats(groupId, period = 'week') {
       monthStart.setDate(1)
       startDateStr = getDateStr(monthStart)
     }
-    // period === 'all' 时，startDateStr 保持 null，不限制起始日期
 
-    // 获取群组所有成员
     const { data: members } = await db.collection('members')
       .where({
         groupId: groupId,
@@ -1731,20 +1945,17 @@ async function getGroupStats(groupId, period = 'week') {
       return { success: false, error: '群组成员为空' }
     }
 
-    // 获取群组成员信息
-    const userIds = members.map(m => m.userId).filter(Boolean)
+    // 获取群组成员 openid（兼容字段：openid / userId / _openid）
+    const userIds = members.map(m => m.openid || m.userId || m._openid).filter(Boolean)
     const userInfoMap = await getUsersInfoMap(userIds)
 
-    // 构建查询条件：使用 date 字段（YYYY-MM-DD）而非 createTime，以正确包含补卡天数
     const queryCondition = {
-      userId: _.in(userIds),
-      groupId: groupId
+      _openid: _.in(userIds)
     }
     if (startDateStr) {
       queryCondition.date = _.gte(startDateStr)
     }
 
-    // 获取所有成员的打卡记录（按群组过滤）
     const { data: checkins } = await db.collection('checkins')
       .where(queryCondition)
       .get()
@@ -1752,11 +1963,11 @@ async function getGroupStats(groupId, period = 'week') {
     // 计算每个成员的统计数据
     const userStatsMap = {}
 
-    for (const userId of userIds) {
-      userStatsMap[userId] = {
-        userId,
-        nickName: userInfoMap[userId]?.nickName || '未知',
-        avatarUrl: userInfoMap[userId]?.avatarUrl || '',
+    for (const openid of userIds) {
+      userStatsMap[openid] = {
+        openid,
+        nickName: userInfoMap[openid]?.nickName || '未知',
+        avatarUrl: userInfoMap[openid]?.avatarUrl || '',
         totalMinutes: 0,
         totalScore: 0,
         checkinDays: new Set(),
@@ -1767,7 +1978,7 @@ async function getGroupStats(groupId, period = 'week') {
 
     // 统计打卡数据
     for (const checkin of checkins || []) {
-      const stats = userStatsMap[checkin.userId]
+      const stats = userStatsMap[checkin._openid]
       if (!stats) continue
 
       // score 字段是嵌套对象，需要从 checkin.score 中获取
@@ -1807,6 +2018,10 @@ async function getGroupStats(groupId, period = 'week') {
       rank: index + 1
     }))
 
+    const byMinutes = addRank(sortedByMinutes)
+    const byDays = addRank(sortedByDays)
+    const byScore = addRank(sortedByScore)
+
     return {
       success: true,
       data: {
@@ -1814,14 +2029,13 @@ async function getGroupStats(groupId, period = 'week') {
         memberCount: members.length,
         groupAvg,
         leaderboard: {
-          byMinutes: addRank(sortedByMinutes),
-          byDays: addRank(sortedByDays),
-          byScore: addRank(sortedByScore)
+          byMinutes,
+          byDays,
+          byScore
         }
       }
     }
   } catch (error) {
-    console.error('获取群组统计失败:', error)
     return { success: false, error: error.message }
   }
 }
@@ -1834,14 +2048,13 @@ async function getUsersInfoMap(userIds) {
 
   try {
     const { data: users } = await db.collection('users')
-      .where({
-        openid: _.in(userIds)
-      })
+      .where({ _openid: _.in(userIds) })
       .get()
 
     const map = {}
     for (const user of users || []) {
-      map[user.openid] = user
+      const key = user._openid || user.openid
+      if (key) map[key] = user
     }
     return map
   } catch (error) {
@@ -1863,11 +2076,11 @@ async function getMyGroupRank(openid, groupId, period = 'week') {
 
     const { leaderboard, groupAvg } = result.data
 
-    // 找到我的各项排名
+    // 找到我的各项排名（兼容 openid / _openid）
     const myRank = {
-      minutes: leaderboard.byMinutes.find(u => u.userId === openid),
-      days: leaderboard.byDays.find(u => u.userId === openid),
-      score: leaderboard.byScore.find(u => u.userId === openid)
+      minutes: leaderboard.byMinutes.find(u => (u._openid || u.openid) === openid),
+      days: leaderboard.byDays.find(u => (u._openid || u.openid) === openid),
+      score: leaderboard.byScore.find(u => (u._openid || u.openid) === openid)
     }
 
     // 计算超越比例
@@ -1905,12 +2118,344 @@ async function getMyGroupRank(openid, groupId, period = 'week') {
  */
 async function handleGetGroupStats(openid, params) {
   const { groupId = '', period = 'week' } = params
+  if (!groupId) return { success: false, error: '缺少群组ID' }
+  return await getGroupStats(groupId, period)
+}
 
-  if (!groupId) {
-    return { success: false, error: '缺少群组ID' }
+/**
+ * 处理获取所有群组的汇总统计（不区分群组）
+ */
+async function handleGetAllStats(openid, params) {
+  const { period = 'week' } = params
+
+  if (!openid) {
+    return { success: false, error: '未获取到用户信息' }
   }
 
-  return await getGroupStats(groupId, period)
+  try {
+    const now = new Date()
+    let startDateStr = null
+
+    if (period === 'day') {
+      startDateStr = getDateStrBeijing(now)
+    } else if (period === 'week') {
+      const weekStart = new Date(now)
+      const dayOfWeek = now.getDay() || 7
+      weekStart.setDate(now.getDate() - dayOfWeek + 1)
+      startDateStr = getDateStr(weekStart)
+    } else if (period === 'month') {
+      const monthStart = new Date(now)
+      monthStart.setDate(1)
+      startDateStr = getDateStr(monthStart)
+    }
+    // period === 'all' 时，startDateStr 保持 null，不限制起始日期
+
+    // 查询用户所有打卡记录（不区分群组），使用 _openid 字段
+    const queryCondition = {
+      _openid: openid
+    }
+    if (startDateStr) {
+      queryCondition.date = _.gte(startDateStr)
+    }
+
+    const { data: checkins } = await db.collection('checkins')
+      .where(queryCondition)
+      .get()
+
+    // 计算统计数据
+    let totalMinutes = 0
+    let totalScore = 0
+    const daysSet = new Set()
+
+    for (const checkin of checkins || []) {
+      totalMinutes += (checkin.score?.totalMinutes ?? checkin.totalMinutes) || 0
+      totalScore += (checkin.score?.totalScore ?? checkin.totalScore) || 0
+      daysSet.add(checkin.date)
+    }
+
+    const totalCheckins = checkins?.length || 0
+    let totalDays = daysSet.size
+    let streak = 0
+    let bestStreak = 0
+    let missStreak = 0
+
+    const cached = await getStatsFromLatestRecord(openid)
+    if (cached) {
+      streak = cached.streak
+      bestStreak = cached.bestStreak
+      missStreak = cached.slack_days
+      if (period === 'all') totalDays = cached.recorded_days
+      else totalDays = daysSet.size
+    } else {
+      const streakResult = await calculateStreakInfoForUser(openid)
+      streak = streakResult.streak
+      bestStreak = streakResult.bestStreak
+      if (period === 'all') {
+        const { data: allCheckins } = await db.collection('checkins').where({ _openid: openid }).get()
+        const allDaysSet = new Set()
+        for (const c of allCheckins || []) { if (c.date) allDaysSet.add(c.date) }
+        totalDays = allDaysSet.size
+      } else {
+        totalDays = daysSet.size
+      }
+      const { data: users } = await db.collection('users').where({ _openid: openid }).limit(1).get()
+      if (users && users.length > 0 && users[0].createTime) {
+        const createTime = new Date(users[0].createTime)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        createTime.setHours(0, 0, 0, 0)
+        const totalDaysSinceJoin = Math.floor((today.getTime() - createTime.getTime()) / 86400000) + 1
+        missStreak = Math.max(0, totalDaysSinceJoin - totalDays)
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        period,
+        totalCheckins,
+        totalMinutes,
+        totalScore,
+        avgScore: totalCheckins > 0 ? Math.round(totalScore / totalCheckins) : 0,
+        totalDays,
+        streak,
+        bestStreak,
+        missStreak
+      }
+    }
+  } catch (error) {
+    console.error('获取全量统计失败:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/**
+ * 为用户计算连胜信息（不区分群组）
+ */
+async function calculateStreakInfoForUser(openid) {
+  try {
+    // 获取打卡记录（云函数默认最多 100 条，显式 limit 1000 保证足够连胜天数）
+    const { data: checkins } = await db.collection('checkins')
+      .where({ _openid: openid })
+      .orderBy('date', 'desc')
+      .limit(1000)
+      .get()
+
+    if (!checkins || checkins.length === 0) {
+      return { streak: 0, bestStreak: 0 }
+    }
+
+    // 按日期去重
+    const dateSet = new Set()
+    for (const checkin of checkins) {
+      if (checkin.date) {
+        dateSet.add(checkin.date)
+      }
+    }
+
+    // 排序日期
+    const sortedDates = Array.from(dateSet).sort((a, b) => b > a ? 1 : -1)
+
+    let currentStreak = 0
+    let bestStreak = 0
+    let tempStreak = 0
+    let prevDate = null
+
+    const today = getDateStrBeijing(new Date())
+    const yesterday = getYesterdayStrBeijing()
+
+    for (const date of sortedDates) {
+      if (prevDate === null) {
+        tempStreak = 1
+        if (date === today || date === yesterday) {
+          currentStreak = 1
+        }
+      } else {
+        const diffDays = (new Date(prevDate) - new Date(date)) / 86400000
+        if (diffDays === 1) {
+          tempStreak++
+          if (currentStreak > 0) {
+            currentStreak++
+          }
+        } else {
+          bestStreak = Math.max(bestStreak, tempStreak)
+          tempStreak = 1
+          if (currentStreak > 0) {
+            currentStreak = 0
+          }
+        }
+      }
+      prevDate = date
+    }
+
+    bestStreak = Math.max(bestStreak, tempStreak, currentStreak)
+
+    return { streak: currentStreak, bestStreak }
+  } catch (error) {
+    console.error('计算连胜失败:', error)
+    return { streak: 0, bestStreak: 0 }
+  }
+}
+
+/**
+ * 历史数据迁移：根据用户全部打卡记录计算并写入打卡统计表 checkinStats（每用户一条）
+ * 与全量遍历结果一致，用于首次上线或老用户回填
+ */
+async function migrateUserCheckinStats(openid) {
+  const LIMIT = 1000
+  const { data: checkins } = await db.collection('checkins')
+    .where({ _openid: openid })
+    .orderBy('date', 'desc')
+    .limit(LIMIT)
+    .get()
+  if (!checkins || checkins.length === 0) return
+  const dateSet = new Set()
+  for (const c of checkins) { if (c.date) dateSet.add(c.date) }
+  const sortedDatesDesc = Array.from(dateSet).sort((a, b) => (b > a ? 1 : -1))
+  const first_check_in_date = sortedDatesDesc[sortedDatesDesc.length - 1]
+  const last_date = sortedDatesDesc[0]
+  const recorded_days = sortedDatesDesc.length
+  const yesterdayLast = getDateBeforeStr(last_date, 1)
+  let current_streak = 0
+  let best_streak = 0
+  let temp_streak = 0
+  let prevDate = null
+  for (const date of sortedDatesDesc) {
+    if (prevDate === null) {
+      temp_streak = 1
+      if (date === last_date || date === yesterdayLast) current_streak = 1
+    } else {
+      const diffDays = (new Date(prevDate) - new Date(date)) / 86400000
+      if (diffDays === 1) {
+        temp_streak++
+        if (current_streak > 0) current_streak++
+      } else {
+        best_streak = Math.max(best_streak, temp_streak)
+        temp_streak = 1
+        if (current_streak > 0) current_streak = 0
+      }
+    }
+    prevDate = date
+  }
+  best_streak = Math.max(best_streak, temp_streak, current_streak)
+  const total_days = daysBetween(first_check_in_date, last_date)
+  const slack_days = Math.max(0, total_days - recorded_days)
+  const now = new Date()
+  const payload = {
+    current_streak,
+    last_check_in_date: last_date,
+    best_streak,
+    recorded_days,
+    slack_days,
+    first_check_in_date,
+    updateTime: now
+  }
+  const { data: existing } = await db.collection('checkinStats')
+    .where({ _openid: openid })
+    .limit(1)
+    .get()
+  if (existing && existing.length > 0) {
+    await db.collection('checkinStats').doc(existing[0]._id).update({ data: payload })
+  } else {
+    await db.collection('checkinStats').add({
+      data: {
+        _openid: openid,
+        ...payload,
+        createTime: now
+      }
+    })
+  }
+}
+
+/**
+ * 打卡/补卡后同步更新最新一条记录的四类统计（当前连胜、最佳连胜、有记录天数、摸鱼天数）
+ */
+async function handleSyncCheckinStats(openid, params) {
+  if (!openid) {
+    return { success: false, error: '未获取到用户信息' }
+  }
+  try {
+    const payload = await updateCheckinStatsForLatestRecord(openid)
+    const streak = payload && (payload.current_streak != null) ? payload.current_streak : undefined
+    return { success: true, streak }
+  } catch (e) {
+    console.error('syncCheckinStats 失败:', e)
+    return { success: false, error: e && e.message ? e.message : '同步失败' }
+  }
+}
+
+/**
+ * 历史数据迁移：为指定 openid 回填打卡统计表 checkinStats（可与定时任务或后台批量调用）
+ */
+async function handleMigrateCheckinStats(openid, params) {
+  const targetOpenid = params.openid || openid
+  if (!targetOpenid) return { success: false, error: '缺少 openid' }
+  try {
+    await migrateUserCheckinStats(targetOpenid)
+    return { success: true, migrated: targetOpenid }
+  } catch (e) {
+    console.error('migrateCheckinStats 失败:', e)
+    return { success: false, error: e && e.message ? e.message : '迁移失败' }
+  }
+}
+
+/**
+ * 批量迁移：从 checkins 表取一批记录，去重 openid 后逐个回填 checkinStats
+ * 参数：skip（默认 0）、limit（默认 100，单次最多 100）
+ * 返回：processed 本批迁移用户数，nextSkip 下次传入的 skip，done 是否已无更多数据
+ */
+async function handleMigrateCheckinStatsBatch(openid, params) {
+  const skip = Math.max(0, parseInt(params.skip, 10) || 0)
+  const limit = Math.min(100, Math.max(1, parseInt(params.limit, 10) || 100))
+  try {
+    const { data: batch } = await db.collection('checkins')
+      .orderBy('_id', 'asc')
+      .skip(skip)
+      .limit(limit)
+      .get()
+    if (!batch || batch.length === 0) {
+      return { success: true, processed: 0, nextSkip: skip, done: true }
+    }
+    const openids = [...new Set(batch.map(c => c._openid || c.openid).filter(Boolean))]
+    for (const uid of openids) {
+      try {
+        await migrateUserCheckinStats(uid)
+      } catch (e) {
+        console.error('migrateUserCheckinStats 单用户失败:', uid, e)
+      }
+    }
+    const done = batch.length < limit
+    return {
+      success: true,
+      processed: openids.length,
+      nextSkip: skip + limit,
+      done
+    }
+  } catch (e) {
+    console.error('migrateCheckinStatsBatch 失败:', e)
+    return { success: false, error: e && e.message ? e.message : '批量迁移失败' }
+  }
+}
+
+/**
+ * 一键迁移：循环执行 migrateCheckinStatsBatch 直到无更多数据或达到最大轮数（避免超时）
+ * 参数：maxRounds（默认 50，即最多约 5000 条打卡记录）
+ */
+async function handleMigrateCheckinStatsRunAll(openid, params) {
+  const maxRounds = Math.min(100, Math.max(1, parseInt(params.maxRounds, 10) || 50))
+  let totalProcessed = 0
+  let skip = 0
+  const limit = 100
+  for (let round = 0; round < maxRounds; round++) {
+    const res = await handleMigrateCheckinStatsBatch(openid, { skip, limit })
+    if (!res.success) return res
+    totalProcessed += res.processed || 0
+    if (res.done) {
+      return { success: true, totalProcessed, rounds: round + 1, done: true }
+    }
+    skip = res.nextSkip || (skip + limit)
+  }
+  return { success: true, totalProcessed, rounds: maxRounds, done: false, nextSkip: skip }
 }
 
 /**
@@ -1928,4 +2473,123 @@ async function handleGetMyRank(openid, params) {
   }
 
   return await getMyGroupRank(openid, groupId, period)
+}
+
+/**
+ * 获取小组详情（组织 + 成员列表，服务端查库绕过客户端权限）
+ * 用于小组详情页，解决客户端 members 查询因权限返回空的问题
+ */
+async function handleGetGroupDetail(openid, params) {
+  const { groupId } = params
+  if (!groupId) return { success: false, error: '缺少 groupId' }
+
+  try {
+    const groupRes = await db.collection('groups').doc(groupId).get()
+    const group = groupRes.data
+    if (!group) return { success: false, error: '组织不存在' }
+
+    const { data: members } = await db.collection('members')
+      .where({ groupId, status: 'normal' })
+      .orderBy('joinTime', 'asc')
+      .get()
+
+    if (!members || !Array.isArray(members)) {
+      return { success: true, data: { group, members: [], isAdmin: false, isCreator: false, inviteEnabled: group.inviteEnabled !== false } }
+    }
+
+    const userIds = members.map(m => m.openid || m._openid).filter(Boolean)
+    const userInfoMap = await getUsersInfoMap(userIds)
+
+    const today = getDateStrBeijing(new Date())
+    const { data: todayCheckins } = await db.collection('checkins')
+      .where({ _openid: _.in(userIds), date: today })
+      .get()
+    const checkedIds = new Set((todayCheckins || []).map(c => c._openid))
+
+    const d = new Date()
+    const currentMonth = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2)
+    const monthReg = db.RegExp({ regexp: '^' + currentMonth, options: '' })
+    const monthCheckins = []
+    let skip = 0
+    const limit = 100
+    while (true) {
+      const { data: chunk } = await db.collection('checkins')
+        .where({ _openid: _.in(userIds), date: monthReg })
+        .orderBy('date', 'asc')
+        .skip(skip)
+        .limit(limit)
+        .get()
+      monthCheckins.push(...(chunk || []))
+      if (!chunk || chunk.length < limit) break
+      skip += limit
+    }
+    const checkinCountMap = {}
+    for (const c of monthCheckins) {
+      if (c._openid) checkinCountMap[c._openid] = (checkinCountMap[c._openid] || 0) + 1
+    }
+
+    const isAdmin = members.some(m => (m.openid || m._openid) === openid && m.role === 'admin')
+    const isCreator = group.creatorId === openid
+
+    const membersWithUser = members.map(m => {
+      const uid = m.openid || m._openid
+      const u = userInfoMap[uid]
+      return {
+        _id: m._id,
+        openid: uid,
+        role: m.role,
+        joinTime: m.joinTime,
+        nickName: (u && u.nickName) ? u.nickName : '未知',
+        avatarUrl: (u && u.avatarUrl) ? u.avatarUrl : '',
+        checked: checkedIds.has(uid),
+        checkinDays: checkinCountMap[uid] || 0,
+        isSelf: uid === openid
+      }
+    })
+
+    const rankMembers = membersWithUser.slice().sort((a, b) => b.checkinDays - a.checkinDays)
+
+    return {
+      success: true,
+      data: {
+        group,
+        members: membersWithUser,
+        rankMembers,
+        isAdmin,
+        isCreator,
+        inviteEnabled: group.inviteEnabled !== false
+      }
+    }
+  } catch (error) {
+    console.error('getGroupDetail error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/**
+ * 移除组织成员（仅组长可操作，云函数端写库绕过客户端 members 写权限限制）
+ */
+async function handleRemoveMember(openid, params) {
+  const { memberId } = params
+  if (!memberId) return { ok: false, msg: '缺少成员ID' }
+
+  try {
+    const memberRes = await db.collection('members').doc(memberId).get()
+    const member = memberRes.data
+    if (!member) return { ok: false, msg: '成员不存在' }
+    if (member.openid === openid || member._openid === openid) return { ok: false, msg: '不能移除自己' }
+
+    const { data: adminList } = await db.collection('members')
+      .where({ groupId: member.groupId, _openid: openid, role: 'admin', status: 'normal' })
+      .get()
+    if (!adminList || adminList.length === 0) return { ok: false, msg: '只有组长才能移除成员' }
+
+    await db.collection('members').doc(memberId).update({
+      data: { status: 'removed', updateTime: new Date() }
+    })
+    return { ok: true }
+  } catch (error) {
+    console.error('removeMember error:', error)
+    return { ok: false, msg: error.message || '移除失败' }
+  }
 }

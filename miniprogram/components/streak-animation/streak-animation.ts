@@ -107,6 +107,16 @@ Component({
             { min: 3,   name: '生活新芽', icon: '🌱', color: '#FFB300' },
             { min: 0,   name: '好生活启程', icon: '🎯', color: '#FFEE00' },
           ]
+        },
+        work: {
+          badges: [
+            { min: 100, name: '职场传奇', icon: '👑', color: '#FFD700' },
+            { min: 30,  name: '工作大师', icon: '💼', color: '#FF6B00' },
+            { min: 14,  name: '职场达人', icon: '📊', color: '#FF4500' },
+            { min: 7,   name: '工作之星', icon: '🌟', color: '#FF8C00' },
+            { min: 3,   name: '职场新芽', icon: '🌱', color: '#FFB300' },
+            { min: 0,   name: '职场出发', icon: '💼', color: '#FFEE00' },
+          ]
         }
       }
       const cat = config[categoryId] || config['sports']

@@ -5,35 +5,62 @@
     <!-- 记录类别 -->
     <view class="form-item">
       <view class="category-header">
-        <text class="label">今天搞了啥</text>
-        <text class="clear-btn" bindtap="onClearTag" wx:if="{{selectedTag}}">清除</text>
+        <text class="label">为成为更好的自己做的努力</text>
+        <text class="clear-btn" bindtap="onClearTag" wx:if="{{selectedTag || selectedCategoryId}}">清除</text>
       </view>
       <!-- 已选择的标签展示 -->
       <view class="selected-tag" wx:if="{{selectedTag}}">
-        <text class="tag-text">{{selectedTag ? categories[categoryIndex].name + ' · ' + subCategories[subCategoryIndex].name : ''}}</text>
+        <text class="tag-text">{{customCategoryDisplay || (selectedTag ? categories[categoryIndex].name + ' · ' + subCategories[subCategoryIndex].name : '')}}</text>
       </view>
-      <!-- Tags/胶囊选择器 -->
-      <view class="category-tags">
+
+      <!-- 主类别标签（运动、学习、生活、工作） -->
+      <view class="category-main-tags">
         <view 
-          wx:for="{{categoryGroups}}" 
-          wx:key="*this"
-          class="category-group"
+          wx:for="{{categories}}" 
+          wx:key="id"
+          class="main-tag-item {{selectedCategoryId === item.id ? 'active' : ''}}"
+          bindtap="onSelectCategory"
+          data-categoryid="{{item.id}}"
         >
-          <view class="group-title">{{item.category.name}}</view>
-          <view class="tags-wrap">
-            <view 
-              wx:for="{{item.subCategories}}" 
-              wx:for-item="sub" 
-              wx:key="id"
-              wx:for-index="subIdx"
-              class="tag-item {{selectedTag === item.category.id + '_' + sub.id ? 'active' : ''}}"
-              bindtap="onSelectTag"
-              data-categoryid="{{item.category.id}}"
-              data-subcategoryid="{{sub.id}}"
-            >
-              {{sub.name}}
-            </view>
+          {{item.name}}
+        </view>
+      </view>
+
+      <!-- 子类型标签（选中主类别后显示） -->
+      <view class="sub-tags-wrapper" wx:if="{{selectedCategoryId && !showCustomSubInput}}">
+        <view class="sub-tags">
+          <view 
+            wx:for="{{categories[categoryIndex].subCategories}}" 
+            wx:key="id"
+            wx:for-index="subIdx"
+            class="sub-tag-item {{selectedTag === selectedCategoryId + '_' + item.id ? 'active' : ''}}"
+            bindtap="onSubCategoryTap"
+            data-categoryid="{{selectedCategoryId}}"
+            data-subcategoryid="{{item.id}}"
+            data-subcategoryname="{{item.name}}"
+          >
+            {{item.name}}
           </view>
+        </view>
+      </view>
+
+      <!-- 自定义输入框（点击"其他"后显示） -->
+      <view class="custom-input-wrapper" wx:if="{{showCustomSubInput}}">
+        <view class="custom-input-header">
+          <text class="custom-input-label">{{customOtherLabel}}</text>
+          <text class="custom-input-tip">请输入自定义内容</text>
+        </view>
+        <input 
+          class="custom-input"
+          placeholder="请输入具体内容"
+          value="{{customCategoryName}}"
+          bindinput="onCustomCategoryInput"
+          focus="{{showCustomSubInput}}"
+          maxlength="20"
+        />
+        <view class="custom-input-actions">
+          <view class="cancel-btn" bindtap="onCancelCustomInput">取消</view>
+          <view class="confirm-btn" bindtap="onConfirmCustomInput">确定</view>
         </view>
       </view>
     </view>
@@ -42,13 +69,13 @@
     <view class="form-item" wx:if="{{categoryIndex >= 0}}">
       <view class="label-row">
         <text class="label">坚持了多久</text>
-        <text class="label-tip">输入时长可获得 +X 成长值</text>
+        <text class="label-tip">必填，大于 0 可获得成长值</text>
       </view>
       <view class="duration-input">
         <input 
           type="number"
           class="duration-field"
-          placeholder="打算坚持多久？"
+          placeholder="坚持了多久？"
           value="{{duration}}"
           bindinput="onDurationInput"
         />
@@ -69,11 +96,11 @@
     <view class="form-item">
       <view class="label-row">
         <text class="label">想说的话</text>
-        <text class="label-tip">填写内容可额外获得 +X 成长值</text>
+        <text class="label-tip">填写内容可额外获得成长值</text>
       </view>
       <textarea 
         class="content-input"
-        placeholder="今天感觉如何？有什么想记录的？" 
+        placeholder="人类的记忆会褪色，但记录会永远发光"
         maxlength="500"
         bindinput="onTextInput"
         value="{{text}}"
@@ -84,8 +111,8 @@
     <!-- 照片上传 -->
     <view class="form-item">
       <view class="label-row">
-        <text class="label">晒一张照片</text>
-        <text class="label-tip">上传照片可额外获得 +X 成长值</text>
+        <text class="label">用相片定格瞬间</text>
+        <text class="label-tip">上传照片可额外获得成长值</text>
       </view>
       <view class="photos-grid">
         <view 
@@ -107,7 +134,7 @@
     <view class="form-item switch-item">
       <view class="switch-left">
         <text class="label">晒到成长墙</text>
-        <text class="desc">让大家都看到你的努力</text>
+        <text class="desc">让大家都看到你的努力（发表记录必须选择记录类别并填写时长）</text>
       </view>
       <switch
         checked="{{isPublishToMoments}}"
@@ -131,6 +158,19 @@
         </view>
       </picker>
     </view>
+
+    <!-- 自定义朋友圈评论 -->
+    <view class="form-item" wx:if="{{isPublishToMoments}}">
+      <text class="label">评论文案</text>
+      <input
+        class="comment-input"
+        placeholder="自定义评论内容，不填则使用默认"
+        placeholder-class="placeholder"
+        value="{{momentsComment}}"
+        bindinput="onMomentsCommentInput"
+        maxlength="50"
+      />
+    </view>
   </view>
 
   <!-- 提交按钮 -->
@@ -149,15 +189,17 @@
 <streak-animation 
   visible="{{showStreakAnimation}}" 
   streak="{{currentStreak}}"
-  categoryId="{{checkinResult.categoryId}}"
+  categoryId="{{checkinResult ? checkinResult.categoryId : 'sports'}}"
   bind:complete="onStreakAnimationComplete"
   bind:skip="onSkipShare"
 />
 
-<!-- 分享海报 -->
-<share-poster 
-  visible="{{showSharePoster}}" 
+<!-- 分享海报（传入 currentStreak 与特效一致，避免海报显示 0 天） -->
+<share-poster
+  visible="{{showSharePoster}}"
   checkinData="{{checkinResult}}"
+  isSunday="{{isSunday}}"
+  currentStreak="{{currentStreak}}"
   bind:close="onClosePoster"
   bind:skip="onSkipShare"
 />

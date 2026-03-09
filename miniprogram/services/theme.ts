@@ -2,7 +2,7 @@
  * 动态主题服务
  * 根据记录状态和时间动态调整主题颜色
  */
-import { checkinsCol } from './db'
+import { db, checkinsCol } from './db'
 
 /** 主题类型 */
 export type ThemeType = 'checked' | 'normal' | 'warning' | 'danger' | 'frozen'
@@ -154,9 +154,9 @@ export function calculateTheme(checkedToday: boolean, checkedYesterday: boolean)
 }
 
 /**
- * 获取用户昨日记录状态
+ * 获取用户昨日记录状态（兼容 openid / _openid）
  */
-export async function getYesterdayCheckin(userId: string): Promise<boolean> {
+export async function getYesterdayCheckin(openid: string): Promise<boolean> {
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   const year = yesterday.getFullYear()
@@ -164,8 +164,9 @@ export async function getYesterdayCheckin(userId: string): Promise<boolean> {
   const day = String(yesterday.getDate()).padStart(2, '0')
   const yesterdayStr = `${year}-${month}-${day}`
 
+  const _ = db.command
   const { total } = await checkinsCol()
-    .where({ userId, date: yesterdayStr })
+    .where(_.or([{ openid, date: yesterdayStr }, { _openid: openid, date: yesterdayStr }]) as any)
     .count()
 
   return total > 0
@@ -174,22 +175,23 @@ export async function getYesterdayCheckin(userId: string): Promise<boolean> {
 /**
  * 获取用户当前主题（需要查询数据库）
  */
-export async function getUserTheme(userId: string): Promise<ThemeConfig> {
+export async function getUserTheme(openid: string): Promise<ThemeConfig> {
   const today = new Date()
   const year = today.getFullYear()
   const month = String(today.getMonth() + 1).padStart(2, '0')
   const day = String(today.getDate()).padStart(2, '0')
   const todayStr = `${year}-${month}-${day}`
 
-  // 查询今日记录
+  // 查询今日记录（兼容 openid / _openid）
+  const _ = db.command
   const { total: todayTotal } = await checkinsCol()
-    .where({ userId, date: todayStr })
+    .where(_.or([{ openid, date: todayStr }, { _openid: openid, date: todayStr }]) as any)
     .count()
 
   const checkedToday = todayTotal > 0
 
   // 查询昨日记录
-  const checkedYesterday = await getYesterdayCheckin(userId)
+  const checkedYesterday = await getYesterdayCheckin(openid)
 
   return calculateTheme(checkedToday, checkedYesterday)
 }

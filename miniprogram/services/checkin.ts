@@ -2,10 +2,13 @@
  * 记录服务
  */
 import { db, checkinsCol, makeupQuotaCol, momentsCol, momentCommentsCol, getTodayStr, getCurrentMonth, getServerMonth } from './db'
+import { syncGoalProgressAfterCheckin } from './goal'
+import { syncTaskAndAchievementsAfterCheckin } from './task'
+import { computeCheckinScore } from './scoreLocal'
 
 export interface Checkin {
   _id: string
-  userId: string
+  openid: string
   groupId?: string
   date: string
   isMakeup: boolean
@@ -34,6 +37,8 @@ export interface CheckinContent {
   duration?: number
   /** 时长单位：分钟/小时 */
   durationUnit?: string
+  /** 自定义朋友圈评论（可选，不填时使用默认评语） */
+  momentsComment?: string
 }
 
 /** 评分结果 */
@@ -52,13 +57,20 @@ export interface ScoreResult {
   feedback: string
   /** 内容标签 */
   tags?: string[]
+  /** 总时长（分钟），本地评分时使用 */
+  totalMinutes?: number
+}
+
+/** 按用户查询打卡表（统一使用 _openid） */
+function checkinUserWhere(openid: string, dateCond: any) {
+  return { _openid: openid, ...dateCond }
 }
 
 /** 获取用户今日记录（含内容） */
-export async function getTodayCheckin(userId: string): Promise<Checkin | null> {
+export async function getTodayCheckin(openid: string): Promise<Checkin | null> {
   const today = getTodayStr()
   const { data } = await checkinsCol()
-    .where({ userId, date: today })
+    .where(checkinUserWhere(openid, { date: today }) as any)
     .orderBy('createTime', 'desc')
     .limit(1)
     .get()
@@ -67,47 +79,55 @@ export async function getTodayCheckin(userId: string): Promise<Checkin | null> {
 
 /** 每日记录（支持同一天多次记录，每次记录都会创建新记录） */
 export async function doCheckinWithContent(
-  userId: string,
+  openid: string,
   content?: CheckinContent,
   groupId?: string
-): Promise<{ ok: boolean; msg?: string; score?: ScoreResult }> {
+): Promise<{ ok: boolean; msg?: string; score?: ScoreResult; streak?: number }> {
   const today = getTodayStr()
+
+  // 提交打卡必须填运动类型和时长（时长大于 0）
+  if (content) {
+    if (!content.categoryId || !content.subCategoryId) {
+      return { ok: false, msg: '请选择运动类型' }
+    }
+    const duration = content.duration != null ? content.duration : 0
+    if (!duration || duration <= 0) {
+      return { ok: false, msg: '请填写时长（大于 0）' }
+    }
+  }
 
   // 支持多次记录，不再检查是否已记录
   // 每次记录都会创建新记录
 
-  // 如果有内容，先调用评分云函数
+  // 评分与评语完全在本地计算，不调用云函数、不走 AI
   let score: ScoreResult | undefined
   if (content && (content.text || (content.photos && content.photos.length > 0) || (content.duration && content.duration > 0))) {
-    try {
-      const scoreRes = await wx.cloud.callFunction({
-        name: 'scoreCheckin',
-        data: {
-          text: content.text,
-          photos: content.photos,
-          isPublishToMoments: content.isPublishToMoments,
-          categoryId: content.categoryId,
-          subCategoryId: content.subCategoryId,
-          duration: content.duration,
-          durationUnit: content.durationUnit
-        }
-      })
-      if (scoreRes.result && scoreRes.result.success) {
-        score = scoreRes.result.data
-      }
-    } catch (e) {
-      console.warn('评分失败，使用默认分', e)
+    const local = computeCheckinScore(content, { streakDays: 0, vipLevel: 0 })
+    score = {
+      totalScore: local.totalScore,
+      photoScore: 0,
+      textScore: 0,
+      contentScore: local.completenessScore,
+      publishScore: local.bonusScore,
+      feedback: local.feedback,
+      tags: [],
+      totalMinutes: local.totalMinutes
     }
   }
 
   const now = new Date()
   const momentsGroupId = (content && content.momentsGroupId) || ''
+  const hasContent = !!(content && (content.text || (content.photos && content.photos.length > 0) || (content.duration && content.duration > 0)))
+  const isPublishToMoments = !!(content && content.isPublishToMoments && hasContent)
+
+  const tAdd0 = Date.now()
   const { _id: checkinId } = await checkinsCol().add({
     data: {
-      userId,
+      openid,
       groupId,
       date: today,
       isMakeup: false,
+      isPublishToMoments,
       createTime: now,
       content: content || null,
       score: score ? {
@@ -117,18 +137,76 @@ export async function doCheckinWithContent(
       } : null
     }
   })
+  console.log('[checkin.service] checkinsCol.add 耗时 ms=', Date.now() - tAdd0)
 
-  // 如果需要发布到成长墙，自动发布
+  // 打卡成功后同步更新四类统计（当前连胜、最佳连胜、有记录天数、摸鱼天数），便于首页/统计直读；并带回 streak 供恭喜页使用，避免再请求 getStreak
+  let streakFromSync: number | undefined
+  try {
+    const tSync0 = Date.now()
+    const syncRes = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: { action: 'syncCheckinStats' }
+    }) as any
+    console.log('[checkin.service] syncCheckinStats 耗时 ms=', Date.now() - tSync0)
+    if (syncRes.result && syncRes.result.success && syncRes.result.streak != null) {
+      streakFromSync = syncRes.result.streak
+    }
+  } catch (e) {
+    console.warn('同步打卡统计失败，不影响打卡成功', e)
+  }
+
+  // 打卡成功后同步日常任务进度并解锁成就（任务中心「日常任务」「成就徽章」）
+  try {
+    const tTask0 = Date.now()
+    await syncTaskAndAchievementsAfterCheckin(openid, {
+      hasPhoto: !!(content && content.photos && content.photos.length > 0)
+    })
+    console.log('[checkin.service] syncTaskAndAchievementsAfterCheckin 耗时 ms=', Date.now() - tTask0)
+  } catch (e) {
+    console.warn('同步任务与成就失败，不影响打卡成功', e)
+  }
+
+  // 打卡成功后同步更新自律计划进度
+  if (content && content.categoryId) {
+    try {
+      const tGoal0 = Date.now()
+      await syncGoalProgressAfterCheckin(openid, content.categoryId, content.subCategoryId)
+      console.log('[checkin.service] syncGoalProgressAfterCheckin 耗时 ms=', Date.now() - tGoal0)
+    } catch (e) {
+      console.warn('同步自律计划进度失败', e)
+    }
+  }
+
+  // 如果需要发布到成长墙，自动发布（isPublishToMoments 已写入 checkin 记录）
   // momentsGroupId 表示成长墙可见范围：'' 表示所有群组可见，指定 groupId 表示仅指定群组可见
-  if (content && content.isPublishToMoments && (content.text || (content.photos && content.photos.length > 0) || (content.duration && content.duration > 0))) {
+  if (isPublishToMoments) {
+    const tMoments0 = Date.now()
     // 使用 momentsGroupId，如果未指定则为空字符串（表示全局可见）
     const momentsGroupId = content.momentsGroupId || ''
     try {
+      // 日批注：当日数据统计（不走 AI），用于总结当条动态的当日统计
+      let dailyAnnotation = ''
+      try {
+        const countRes = await momentsCol().where({ _openid: openid, date: today }).count()
+        const totalToday = (countRes.total || 0) + 1 // 本条为第 totalToday 条
+        const parts = [`当日第${totalToday}条`, `共${totalToday}条`]
+        if (content.duration && content.duration > 0) {
+          parts.push(`${content.duration}分钟`)
+        }
+        if (score && score.totalScore != null) {
+          parts.push(`评分${Math.round(score.totalScore)}`)
+        }
+        dailyAnnotation = parts.join(' · ')
+      } catch (_) {
+        dailyAnnotation = '当日动态'
+      }
+
       const momentsRes = await momentsCol().add({
         data: {
-          userId,
+          openid,
           groupId: momentsGroupId, // 可能是空字符串（全局可见）或指定群组（仅该群组可见）
           checkinId,
+          date: today,
           content: {
             photos: content.photos || [],
             text: content.text || '',
@@ -141,6 +219,7 @@ export async function doCheckinWithContent(
             aiFeedback: (score && score.feedback) || '',
             tags: (score && score.tags) || []
           },
+          dailyAnnotation,
           likeCount: 0,
           commentCount: 0,
           createTime: now
@@ -154,7 +233,7 @@ export async function doCheckinWithContent(
           await momentCommentsCol().add({
             data: {
               momentId,
-              userId,
+              openid,
               content: score.feedback,
               isAIFeedback: true,
               createTime: now
@@ -168,49 +247,52 @@ export async function doCheckinWithContent(
           console.warn('添加AI评论失败', e)
         }
       }
+      console.log('[checkin.service] 发布成长墙 耗时 ms=', Date.now() - tMoments0)
     } catch (e) {
       console.warn('发布成长墙失败', e)
     }
   }
 
-  return { ok: true, score }
+  return { ok: true, score, streak: streakFromSync }
 }
 
 /** 更新今日记录内容（可同步更新/创建/删除成长墙动态） */
 export async function updateTodayCheckinWithContent(
-  userId: string,
+  openid: string,
   content: CheckinContent,
   groupId?: string
 ): Promise<{ ok: boolean; msg?: string; score?: ScoreResult }> {
-  const existing = await getTodayCheckin(userId)
+  const existing = await getTodayCheckin(openid)
   if (!existing || !existing._id) return { ok: false, msg: '今日还未记录，无法更新' }
 
   if (!content || (!content.text && (!content.photos || content.photos.length === 0))) {
     return { ok: false, msg: '请输入文字或上传照片' }
   }
 
-  // 重新评分（与新增记录保持一致）
+  // 重新评分（与新增记录一致，本地计算不调云函数）
   let score: ScoreResult | undefined
-  try {
-    const scoreRes = await wx.cloud.callFunction({
-      name: 'scoreCheckin',
-      data: {
-        text: content.text,
-        photos: content.photos,
-        isPublishToMoments: content.isPublishToMoments
-      }
-    })
-    if (scoreRes.result && scoreRes.result.success) score = scoreRes.result.data
-  } catch (e) {
-    console.warn('评分失败，使用默认分', e)
+  const local = computeCheckinScore(content, { streakDays: 0, vipLevel: 0 })
+  score = {
+    totalScore: local.totalScore,
+    photoScore: 0,
+    textScore: 0,
+    contentScore: local.completenessScore,
+    publishScore: local.bonusScore,
+    feedback: local.feedback,
+    tags: [],
+    totalMinutes: local.totalMinutes
   }
 
   const now = new Date()
+  const hasContent = !!(content.text || (content.photos && content.photos.length > 0))
+  const isPublishToMoments = !!content.isPublishToMoments && hasContent
+
   await checkinsCol().doc(existing._id).update({
     data: {
       groupId,
       content,
       score: score || null,
+      isPublishToMoments,
       updateTime: now
     } as any
   })
@@ -218,25 +300,27 @@ export async function updateTodayCheckinWithContent(
   // 同步成长墙：按 checkinId 关联
   try {
     const { data: momentList } = await momentsCol()
-      .where({ checkinId: existing._id, userId })
+      .where({ checkinId: existing._id, _openid: openid })
       .limit(1)
       .get()
     const moment = momentList && momentList[0]
 
-    const hasContent = !!(content.text || (content.photos && content.photos.length > 0))
-    const shouldPublish = !!content.isPublishToMoments && hasContent
-
-    if (shouldPublish) {
+    if (isPublishToMoments) {
       const momentContent = {
         photos: content.photos || [],
         text: content.text || '',
         categoryId: content.categoryId || '',
         subCategoryId: content.subCategoryId || '',
+        duration: content.duration || 0,
+        durationUnit: content.durationUnit || '',
         score: (score && score.totalScore),
+        totalMinutes: (score && score.totalMinutes) || 0,
+        aiFeedback: (score && score.feedback) || '',
         tags: (score && score.tags) || []
       }
       // 使用 momentsGroupId，如果未指定则为空字符串（表示全局可见）
       const momentsGroupId = content.momentsGroupId || ''
+      const momentDate = (existing as any).date || getTodayStr()
 
       if (moment && moment._id) {
         await momentsCol().doc((moment as any)._id).update({
@@ -247,12 +331,24 @@ export async function updateTodayCheckinWithContent(
           } as any
         })
       } else {
+        // 日批注：当日数据统计（不走 AI）
+        let dailyAnnotation = '当日动态'
+        try {
+          const countRes = await momentsCol().where({ _openid: openid, date: momentDate }).count()
+          const totalToday = (countRes.total || 0) + 1
+          const parts = [`当日第${totalToday}条`, `共${totalToday}条`]
+          if (content.duration && content.duration > 0) parts.push(`${content.duration}分钟`)
+          if (score && score.totalScore != null) parts.push(`评分${Math.round(score.totalScore)}`)
+          dailyAnnotation = parts.join(' · ')
+        } catch (_) {}
         await momentsCol().add({
           data: {
-            userId,
-            groupId: '', // 空字符串表示全局动态
+            openid,
+            groupId: momentsGroupId || '',
             checkinId: existing._id,
+            date: momentDate,
             content: momentContent,
+            dailyAnnotation,
             likeCount: 0,
             commentCount: 0,
             createTime: now
@@ -272,7 +368,7 @@ export async function updateTodayCheckinWithContent(
 
 /** 补卡：仅可补今天往前 3 天（不含今天），每月有次数限制（含VIP加成） */
 export async function doMakeup(
-  userId: string,
+  openid: string,
   date: string
 ): Promise<{ ok: boolean; msg?: string }> {
   const today = getTodayStr()
@@ -283,14 +379,14 @@ export async function doMakeup(
 
   const { data: existing } = await checkinsCol()
     // 补卡与群组无关：同一用户同一天只能补一次
-    .where({ userId, date })
+    .where(checkinUserWhere(openid, { date }) as any)
     .get()
   if (existing.length > 0) return { ok: false, msg: '该日期已打卡' }
 
   // 使用服务器时间获取当前月份，避免客户端时间被篡改
   const month = await getServerMonth()
   const { data: quotaList } = await makeupQuotaCol()
-    .where({ userId, month })
+    .where({ _openid: openid, month })
     .get()
   const used = quotaList.length > 0 ? (quotaList[0] as any).usedCount : 0
 
@@ -298,7 +394,7 @@ export async function doMakeup(
   let maxQuota = 2
   try {
     const { getMakeupQuotaWithVip } = await import('./vip')
-    maxQuota = await getMakeupQuotaWithVip(userId)
+    maxQuota = await getMakeupQuotaWithVip(openid)
   } catch (e) {
     // 使用默认值
   }
@@ -318,19 +414,30 @@ export async function doMakeup(
     })
   } else {
     await makeupQuotaCol().add({
-      data: { userId, month, usedCount: 1, createTime: now, updateTime: now }
+      data: { openid, month, usedCount: 1, createTime: now, updateTime: now }
     })
   }
 
   await checkinsCol().add({
-    data: { userId, date, isMakeup: true, createTime: now }
+    data: { openid, date, isMakeup: true, isPublishToMoments: false, createTime: now }
   })
+
+  try {
+    await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: { action: 'syncCheckinStats' }
+    })
+  } catch (e) {
+    console.warn('同步补卡统计失败，不影响补卡成功', e)
+  }
   return { ok: true }
 }
 
-/** 获取某月打卡记录（与群组无关，按用户查询） */
+const GET_PAGE_SIZE = 20 // 小程序端单次 get 最多 20 条，用游标分页拉取整月（避免 skip 导致 500）
+
+/** 获取某月打卡记录（与群组无关，按用户查询）；游标分页以突破 20 条限制；失败时退回单页避免 500 导致页面白屏 */
 export async function getCheckinsByMonth(
-  userId: string,
+  openid: string,
   _groupId: string, // 保留参数兼容性，但实际不使用
   yearMonth: string
 ): Promise<Checkin[]> {
@@ -341,37 +448,74 @@ export async function getCheckinsByMonth(
   const end = `${yearMonth}-${pad(lastDay)}`
 
   const _ = db.command
-  const { data } = await checkinsCol()
-    .where({
-      userId,
-      date: _.and(_.gte(start), _.lte(end))
-    })
-    .orderBy('date', 'asc')
-    .get()
+  const baseCond = _.and(
+    _.or([{ openid }, { _openid: openid }]),
+    { date: _.and(_.gte(start), _.lte(end)) }
+  ) as any
 
-  return (data || []) as Checkin[]
+  const all: Checkin[] = []
+  let lastDate: string | null = null
+  let lastId: string | null = null
+
+  try {
+    while (true) {
+      const cursorCond =
+        lastDate === null && lastId === null
+          ? baseCond
+          : (_.and(
+              baseCond,
+              _.or([
+                { date: _.gt(lastDate!) },
+                { date: lastDate!, _id: _.gt(lastId!) }
+              ])
+            ) as any)
+
+      const { data } = await checkinsCol()
+        .where(cursorCond)
+        .orderBy('date', 'asc')
+        .orderBy('_id', 'asc')
+        .limit(GET_PAGE_SIZE)
+        .get()
+      const list = (data || []) as Checkin[]
+      if (list.length === 0) break
+      const last = list[list.length - 1]
+      lastDate = last.date
+      lastId = last._id
+      all.push(...list)
+      if (list.length < GET_PAGE_SIZE) break
+    }
+    return all
+  } catch (e) {
+    console.warn('getCheckinsByMonth paginated failed, fallback to first page', e)
+    const { data } = await checkinsCol()
+      .where(baseCond)
+      .orderBy('date', 'asc')
+      .limit(GET_PAGE_SIZE)
+      .get()
+    return (data || []) as Checkin[]
+  }
 }
 
-/** 今日是否已打卡 */
-export async function isCheckedToday(userId: string, groupId: string): Promise<boolean> {
+/** 今日是否已打卡（不区分群组） */
+export async function isCheckedToday(openid: string, _groupId?: string): Promise<boolean> {
   const today = getTodayStr()
   const { total } = await checkinsCol()
-    .where({ userId, date: today })
+    .where(checkinUserWhere(openid, { date: today }) as any)
     .count()
   return total > 0
 }
 
 /** 获取今日剩余补卡次数（含VIP加成） */
-export async function getMakeupRemain(userId: string): Promise<number> {
+export async function getMakeupRemain(openid: string): Promise<number> {
   const month = await getServerMonth()
-  const { data } = await makeupQuotaCol().where({ userId, month }).get()
+  const { data } = await makeupQuotaCol().where({ _openid: openid, month }).get()
   const used = data.length > 0 ? (data[0] as any).usedCount : 0
   // 基础2次 + VIP加成
   const baseQuota = 2
   // 动态导入避免循环依赖
   try {
     const { getMakeupQuotaWithVip } = await import('./vip')
-    const vipQuota = await getMakeupQuotaWithVip(userId)
+    const vipQuota = await getMakeupQuotaWithVip(openid)
     return Math.max(0, vipQuota - used)
   } catch (e) {
     return Math.max(0, baseQuota - used)
@@ -380,12 +524,12 @@ export async function getMakeupRemain(userId: string): Promise<number> {
 
 /** 获取打卡记录列表 */
 export async function getCheckinRecords(
-  userId: string,
+  openid: string,
   groupId: string,
   limit = 50
 ): Promise<Checkin[]> {
   const { data } = await checkinsCol()
-    .where({ userId })
+    .where({ _openid: openid })
     .orderBy('date', 'desc')
     .limit(limit)
     .get()
@@ -394,11 +538,11 @@ export async function getCheckinRecords(
 
 /** 获取打卡记录详情（含组织名称） */
 export async function getCheckinRecordsWithGroup(
-  userId: string,
+  openid: string,
   limit = 50
 ): Promise<(Checkin & { groupName?: string })[]> {
   const { data } = await checkinsCol()
-    .where({ userId })
+    .where({ _openid: openid })
     .orderBy('date', 'desc')
     .limit(limit)
     .get()

@@ -51,7 +51,7 @@ function setCachedMoments(moments: any[], groupId: string): void {
 
 interface MomentItem {
   _id: string
-  userId: string
+  openid: string
   groupId: string
   content: {
     photos?: string[]
@@ -227,7 +227,7 @@ Page({
           action: 'getMoments',
           groupId: currentGroupId,
           limit: 20,
-          userId: openid
+          openid: openid
         }
       })
 
@@ -405,7 +405,7 @@ Page({
           groupId: currentGroupId,
           limit: 20,
           lastId,
-          userId: openid
+          openid: openid
         }
       })
 
@@ -618,7 +618,7 @@ Page({
         data: {
           action,
           momentId,
-          userId: openid
+          openid: openid
         }
       })
 
@@ -704,7 +704,7 @@ Page({
           action: 'comment',
           momentId,
           content: content.trim(),
-          userId: openid
+          openid: openid
         }
       })
 
@@ -771,15 +771,15 @@ Page({
 
   // 查看用户成长墙
   onViewUserMoments(e: any) {
-    const { userId, nickName, avatarUrl } = e.currentTarget.dataset
-    if (!userId) {
+    const { openid, nickName, avatarUrl } = e.currentTarget.dataset
+    if (!openid) {
       wx.showToast({ title: '无法查看', icon: 'none' })
       return
     }
 
     // 编码参数
     const params = [
-      `userId=${encodeURIComponent(userId)}`,
+      `openid=${encodeURIComponent(openid)}`,
       `nickName=${encodeURIComponent(nickName || '')}`,
       `avatarUrl=${encodeURIComponent(avatarUrl || '')}`
     ].join('&')
@@ -789,7 +789,7 @@ Page({
     })
   },
 
-  // 格式化时间
+  // 格式化时间（相对时间）
   formatTime(date: Date | string | number) {
     const d = new Date(date)
     const now = new Date()
@@ -804,5 +804,27 @@ Page({
     if (days < 7) return `${days}天前`
 
     return `${d.getMonth() + 1}-${d.getDate()}`
+  },
+
+  // 发表时间：显示具体日期时间
+  formatPublishTime(date: Date | string | number) {
+    if (!date) return ''
+    const d = new Date(date)
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const yesterday = new Date(today.getTime() - 86400000)
+    const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const month = d.getMonth() + 1
+    const day = d.getDate()
+    const h = d.getHours()
+    const m = d.getMinutes()
+    const timeStr = `${h < 10 ? '0' + h : h}:${m < 10 ? '0' + m : m}`
+    if (dDay.getTime() === today.getTime()) {
+      return `今天 ${timeStr}`
+    }
+    if (dDay.getTime() === yesterday.getTime()) {
+      return `昨天 ${timeStr}`
+    }
+    return `${month}月${day}日 ${timeStr}`
   }
 })

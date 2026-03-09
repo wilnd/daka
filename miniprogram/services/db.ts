@@ -7,10 +7,12 @@ export const usersCol = () => db.collection('users')
 export const groupsCol = () => db.collection('groups')
 export const membersCol = () => db.collection('members')
 export const checkinsCol = () => db.collection('checkins')
+export const checkinStatsCol = () => db.collection('checkinStats')  // 打卡统计，每用户一条
 export const makeupQuotaCol = () => db.collection('makeupQuota')
 export const momentsCol = () => db.collection('moments')
 export const momentLikesCol = () => db.collection('momentLikes')
 export const momentCommentsCol = () => db.collection('momentComments')
+export const momentAnnotationsCol = () => db.collection('momentAnnotations')
 export const userTasksCol = () => db.collection('userTasks')  // 用户任务进度
 export const goalsCol = () => db.collection('goals')          // 用户目标
 export const goalRecordsCol = () => db.collection('goalRecords')  // 目标记录

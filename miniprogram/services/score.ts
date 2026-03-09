@@ -319,16 +319,33 @@ function generateFeedback(
     }
   }
 
-  // 成长墙评语
-  if (content.isPublishToMoments) {
-    feedbacks.push('分享到成长墙正能量满满')
+  // 成长墙：仅在有自定义评论文案时追加，不再默认加「正能量满满」等句
+  if (content.isPublishToMoments && content.momentsComment && content.momentsComment.trim()) {
+    feedbacks.push(content.momentsComment.trim())
   }
 
   if (feedbacks.length === 0) {
     return '继续保持运动习惯！'
   }
 
-  return feedbacks.join('，').replace('。。', '。') + '！'
+  // 评语最终处理
+  let result = feedbacks.join('，')
+  // 去除重复的句号
+  result = result.replace(/。。+/g, '。')
+  // 截取前50字
+  result = result.slice(0, 50)
+  // 如果末尾是逗号，替换为句号
+  if (result.endsWith('，')) {
+    result = result.slice(0, -1) + '。'
+  }
+  // 确保以感叹号结尾（如果末尾是句号则替换为感叹号）
+  if (result.endsWith('。')) {
+    result = result.slice(0, -1) + '！'
+  } else if (!result.endsWith('！')) {
+    result = result + '！'
+  }
+
+  return result
 }
 
 /**
@@ -638,7 +655,7 @@ export async function callGetAchievements(groupId: string): Promise<{ success: b
  * 群组成员统计数据
  */
 export interface GroupMemberStats {
-  userId: string
+  openid: string
   nickName: string
   avatarUrl: string
   totalMinutes: number
@@ -707,15 +724,19 @@ export async function callGetGroupStats(groupId: string, period: 'all' | 'day' |
       }
     })
 
-    if (res.result && res.result.success) {
+    const result = res.result as any
+    const hasResult = result != null
+    const success = hasResult && result.success === true
+    const hasData = hasResult && result.data != null
+
+    if (hasResult && success && hasData) {
       return {
         success: true,
-        stats: res.result.data
+        stats: result.data
       }
     }
     return { success: false }
   } catch (e) {
-    console.warn('获取群组统计失败', e)
     return { success: false }
   }
 }
@@ -743,6 +764,46 @@ export async function callGetMyRank(groupId: string, period: 'all' | 'day' | 'we
     return { success: false }
   } catch (e) {
     console.warn('获取我的排名失败', e)
+    return { success: false }
+  }
+}
+
+/**
+ * 所有群组汇总统计数据
+ */
+export interface AllStats {
+  period: string
+  totalCheckins: number
+  totalMinutes: number
+  totalScore: number
+  avgScore: number
+  totalDays: number
+  streak: number
+  bestStreak: number
+}
+
+/**
+ * 获取所有群组的汇总统计（不区分群组）
+ */
+export async function callGetAllStats(period: 'all' | 'day' | 'week' | 'month' = 'week'): Promise<{ success: boolean; stats?: AllStats }> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: {
+        action: 'getAllStats',
+        period
+      }
+    })
+
+    if (res.result && res.result.success) {
+      return {
+        success: true,
+        stats: res.result.data
+      }
+    }
+    return { success: false }
+  } catch (e) {
+    console.warn('获取全量统计失败', e)
     return { success: false }
   }
 }

@@ -1,7 +1,6 @@
 // group-detail.ts
-import { getGroupById, getGroupMembers, removeMember, quitGroup, transferAdmin, updateInviteCode, updateGroup, dissolveGroup } from '../../services/group'
+import { callGetGroupDetail, removeMember, quitGroup, transferAdmin, updateInviteCode, updateGroup, dissolveGroup } from '../../services/group'
 import { getOpenid } from '../../services/auth'
-import { usersCol, checkinsCol, getTodayStr, getCurrentMonth } from '../../services/db'
 
 const app = getApp() as IAppOption
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
@@ -28,7 +27,7 @@ async function convertCloudUrl(fileId: string): Promise<string> {
   return defaultAvatar  // 转换失败返回默认头像
 }
 
-Component({
+Page({
   data: {
     groupId: '',
     group: {} as any,
@@ -47,73 +46,29 @@ Component({
     confirmContent: '',
     confirmActionType: '',
     defaultAvatar,
-    // 弹窗辅助变量
     selectedMemberNickName: '',
     selectedMemberAvatarUrl: '',
     canTransferAdmin: false,
     canRemoveMember: false,
     isSelfMember: false,
-    // 邀请码编辑
     editInviteCode: '',
-    // 邀请开关
     inviteEnabled: true,
-    // 动态主题色
     themeColor: '#1ABC9C',
   },
-  lifetimes: {
-    attached() {
-      // 页面加载时调用 onLoad（使用 nextTick 确保路由参数已注入）
-      wx.nextTick(() => {
-        this.onLoadInternal()
-      })
-    },
+  onLoad(options: Record<string, string | undefined>) {
+    const id = (options && (options.id || options.groupId)) || app.globalData.currentGroupId || ''
+    if (!id) {
+      wx.showToast({ title: '参数错误', icon: 'none' })
+      this.setData({ loading: false })
+      return
+    }
+    this.setData({ groupId: id, loading: true })
+    this.load()
   },
-  pageLifetimes: {
-    show() {
-      // 同步主题色
-      this.setData({ themeColor: '#1ABC9C' })
-      // 页面显示时刷新数据（可选）
-    },
+  onShow() {
+    this.setData({ themeColor: '#1ABC9C' })
   },
-  methods: {
-    onLoadInternal() {
-      // 从页面 options 中获取 groupId
-      // 优先使用 this.options，其次使用 getCurrentPages() 获取当前页面参数
-      let id = ''
-
-      // 1. 组件化页面场景：this.options 中可能带有路由参数
-      const selfAny = this as any
-      const selfOptions = selfAny.options || {}
-      if (selfOptions) {
-        id = selfOptions.id || selfOptions.groupId || ''
-      }
-
-      // 2. 兜底：从当前页面栈中读取
-      if (!id) {
-        const pages = getCurrentPages()
-        const cur = pages[pages.length - 1] as any
-        const pageOptions = (cur && cur.options) ? cur.options : {}
-        id = pageOptions.id || pageOptions.groupId || ''
-        console.log('group-detail attached, this.options:', selfOptions, 'page options:', pageOptions, 'id:', id)
-      } else {
-        console.log('group-detail attached, this.options:', selfOptions, 'id:', id)
-      }
-
-      // 3. 再兜底：使用全局当前组织 ID
-      if (!id && app.globalData.currentGroupId) {
-        id = app.globalData.currentGroupId
-      }
-
-      if (!id) {
-        wx.showToast({ title: '参数错误', icon: 'none' })
-        this.setData({ loading: false })
-        return
-      }
-
-      this.setData({ groupId: id, loading: true })
-      this.load()
-    },
-    async ensureOpenid() {
+  async ensureOpenid() {
       let openid = app.globalData.openid || wx.getStorageSync('openid')
       if (openid && !app.globalData.openid) {
         app.globalData.openid = openid
@@ -139,112 +94,46 @@ Component({
         return
       }
       try {
-        const db = wx.cloud.database()
-        const _ = db.command
-
-        const group = await getGroupById(groupId)
-        if (!group) { wx.showToast({ title: '组织不存在', icon: 'none' }); wx.navigateBack(); return }
-        const members = await getGroupMembers(groupId)
-        if (!Array.isArray(members)) {
-          wx.showToast({ title: '数据错误', icon: 'none' })
+        const result = await callGetGroupDetail(groupId)
+        if (!result.success || !result.data) {
+          if (result.error === '组织不存在') {
+            wx.showToast({ title: '组织不存在', icon: 'none' })
+            wx.navigateBack()
+          } else {
+            wx.showToast({ title: result.error || '加载失败', icon: 'none' })
+          }
+          this.setData({ loading: false })
           return
         }
-        const userIds = members.map((m: any) => m.userId).filter(Boolean)
-        const isAdmin = members.some((m: any) => m.userId === openid && m.role === 'admin')
-        // 判断当前用户是否是群主（创建者）
-        const isCreator = (group as any).creatorId === openid
-        
-        const today = getTodayStr()
-        const checkedIds = new Set<string>()
-        const batchSize = 10
-        for (let i = 0; i < userIds.length; i += batchSize) {
-          const batch = userIds.slice(i, i + batchSize)
-          const { data: todayCheckins } = await checkinsCol()
-            .where({ userId: _.in(batch), date: today })
-            .get()
-          for (const c of (todayCheckins || []) as any[]) {
-            if (c && c.userId) checkedIds.add(c.userId)
+        const { group, members: membersFromCloud, rankMembers: rankFromCloud, isAdmin, isCreator, inviteEnabled } = result.data
+        // 云存储头像转临时链接（客户端才能调 getTempFileURL）
+        const membersWithAvatar = await Promise.all((membersFromCloud || []).map(async (m: any) => {
+          let avatarUrl = m.avatarUrl || defaultAvatar
+          if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
+            avatarUrl = defaultAvatar
+          } else if (avatarUrl.startsWith('cloud://')) {
+            avatarUrl = await convertCloudUrl(avatarUrl)
           }
-        }
-
-        let membersWithUser: any[] = []
-        if (userIds.length > 0) {
-          const users: any[] = []
-          try {
-            for (let i = 0; i < userIds.length; i += batchSize) {
-              const batch = userIds.slice(i, i + batchSize)
-              const { data } = await usersCol()
-                .where({ openid: _.in(batch) })
-                .get()
-              users.push(...((data || []) as any[]))
-            }
-          } catch (e) {
-            console.error('query users error:', e)
+          return { ...m, avatarUrl }
+        }))
+        const rankMembers = await Promise.all((rankFromCloud || []).map(async (m: any) => {
+          let avatarUrl = m.avatarUrl || defaultAvatar
+          if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
+            avatarUrl = defaultAvatar
+          } else if (avatarUrl.startsWith('cloud://')) {
+            avatarUrl = await convertCloudUrl(avatarUrl)
           }
-          const userMap = new Map(users.map((u: any) => [u.openid, u]))
-          membersWithUser = await Promise.all(members.map(async (m: any) => {
-            const u = userMap.get(m.userId)
-            let avatarUrl = (u && u.avatarUrl) || defaultAvatar
-            // 如果不是有效的网络头像，使用默认头像
-            if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
-              avatarUrl = defaultAvatar
-            } else if (avatarUrl.startsWith('cloud://')) {
-              // 转换云存储 URL 为临时 HTTP URL
-              avatarUrl = await convertCloudUrl(avatarUrl)
-            }
-            return {
-              ...m,
-              _id: m._id,
-              nickName: (u && u.nickName) || '未知',
-              avatarUrl,
-              checked: checkedIds.has(m.userId),
-              isSelf: m.userId === openid
-            }
-          }))
-        }
-
-        // 记录排行 - 统计本月记录天数
-        const currentMonth = getCurrentMonth()
-        const monthDateRegExp = db.RegExp({
-          regexp: `^${currentMonth}`,
-          options: ''
-        })
-        const monthCheckins: any[] = []
-        const limit = 100
-        for (let i = 0; i < userIds.length; i += batchSize) {
-          const batch = userIds.slice(i, i + batchSize)
-          let skip = 0
-          while (true) {
-            const { data } = await checkinsCol()
-              .where({ userId: _.in(batch), date: monthDateRegExp })
-              .orderBy('date', 'asc')
-              .skip(skip)
-              .limit(limit)
-              .get()
-            monthCheckins.push(...(data || []))
-            if (!data || data.length < limit) break
-            skip += limit
-          }
-        }
-        const checkinCountMap = new Map<string, number>()
-        ;(monthCheckins || []).forEach((c: any) => {
-          const count = checkinCountMap.get(c.userId) || 0
-          checkinCountMap.set(c.userId, count + 1)
-        })
-        const rankMembers = membersWithUser.map(m => ({
-          ...m,
-          checkinDays: checkinCountMap.get(m.userId) || 0
-        })).sort((a, b) => b.checkinDays - a.checkinDays)
-
+          return { ...m, avatarUrl }
+        }))
         this.setData({
           group: group as any,
-          members: membersWithUser,
-          todayMembers: membersWithUser,
+          members: membersWithAvatar,
+          todayMembers: membersWithAvatar,
           rankMembers,
           loading: false,
           isAdmin,
           isCreator,
-          inviteEnabled: (group as any).inviteEnabled !== false
+          inviteEnabled: inviteEnabled !== false
         })
       } catch (e: any) {
         console.error('load error:', e)
@@ -391,9 +280,9 @@ Component({
     onViewMoments() {
       const { selectedMember } = this.data
       if (!selectedMember) return
-      const { userId, nickName, avatarUrl } = selectedMember
+      const { openid, nickName, avatarUrl } = selectedMember
       const params = [
-        `userId=${encodeURIComponent(userId)}`,
+        `openid=${encodeURIComponent(openid)}`,
         `nickName=${encodeURIComponent(nickName || '')}`,
         `avatarUrl=${encodeURIComponent(avatarUrl || '')}`
       ].join('&')
@@ -425,7 +314,7 @@ Component({
             break
           case 'quitGroup':
             const members = this.data.members as any[]
-            const myMember = members.find((m: any) => m.userId === openid)
+            const myMember = members.find((m: any) => m.openid === openid)
             if (myMember) {
               result = await quitGroup(myMember._id, openid)
             } else {
@@ -455,34 +344,37 @@ Component({
         wx.showToast({ title: '操作失败', icon: 'none' })
       }
     },
-    // 分享给好友
+    // 分享给好友（带上邀请人 openid，用于邀请业务埋点）
     onShareAppMessage() {
       const { group, inviteEnabled } = this.data
+      const openid = app.globalData.openid
       if (!inviteEnabled || !group.inviteCode) {
         return {
           title: '快来加入我的组织吧',
           path: '/pages/group/group'
         }
       }
+      const query = openid ? `inviteCode=${group.inviteCode}&inviterOpenid=${openid}` : `inviteCode=${group.inviteCode}`
       return {
         title: `${group.name || '组织'} 邀请码：${group.inviteCode}，点击即可加入！`,
-        path: `/pages/group/group?inviteCode=${group.inviteCode}`,
+        path: `/pages/group/group?${query}`,
         imageUrl: ''
       }
     },
-    // 分享到朋友圈
+    // 分享到朋友圈（带上邀请人 openid，用于邀请业务埋点）
     onShareTimeline() {
       const { group, inviteEnabled } = this.data
+      const openid = app.globalData.openid
       if (!inviteEnabled || !group.inviteCode) {
         return {
           title: group.name ? `${group.name} - 邀请你加入` : '快来加入组织吧',
           query: ''
         }
       }
+      const query = openid ? `inviteCode=${group.inviteCode}&inviterOpenid=${openid}` : `inviteCode=${group.inviteCode}`
       return {
         title: `${group.name || '组织'} 邀请码：${group.inviteCode}，点击即可加入！`,
-        query: `inviteCode=${group.inviteCode}`
+        query
       }
     },
-  },
 })

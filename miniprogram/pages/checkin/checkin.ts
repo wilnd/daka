@@ -1,10 +1,10 @@
 // checkin.ts
 import { doCheckinWithContent, getTodayCheckin, CheckinContent } from '../../services/checkin'
 import { getOpenid, getOrCreateUser } from '../../services/auth'
-import { getStreak } from '../../services/stats'
 import { getMyGroups } from '../../services/group'
 import { getCategories, getSubCategories, Category, SubCategory } from '../../services/category'
 import { getCachedGroups, setCachedGroups, defaultAvatar } from '../../services/utils'
+import { getAllStats } from '../../services/stats'
 
 const app = getApp() as IAppOption
 
@@ -21,6 +21,8 @@ interface DefaultCheckinData {
   isPublishToMoments: boolean
   momentsGroupId: string
   momentsGroupIndex: number
+  // 自定义朋友圈评论
+  momentsComment: string
 }
 
 /** 从本地缓存获取打卡默认值 */
@@ -55,6 +57,16 @@ Page({
     categoryGroups: [] as { category: Category; subCategories: SubCategory[] }[],
     // 当前选中的标签（categoryId_subCategoryId 格式）
     selectedTag: '',
+    // 当前选中的主类别ID（用于控制子类型展示）
+    selectedCategoryId: '',
+    // 是否显示自定义输入框
+    showCustomSubInput: false,
+    // 自定义输入的标签（显示"大类名 · 其他"）
+    customOtherLabel: '',
+    // 自定义类别名称
+    customCategoryName: '',
+    // 自定义类别的显示名称
+    customCategoryDisplay: '',
     // 时长输入
     duration: '',
     durationUnits: ['分钟', '小时'],
@@ -64,6 +76,8 @@ Page({
     momentsGroupId: '',
     momentsGroupName: '',
     momentsGroupIndex: 0,
+    // 自定义朋友圈评论
+    momentsComment: '',
     // 组合后的可见范围选项（包含"所有群组"和实际群组）
     momentsGroupRange: [] as any[],
     // 用户的群组列表
@@ -73,6 +87,7 @@ Page({
     showStreakAnimation: false,
     currentStreak: 0,
     showSharePoster: false,
+    isSunday: false,
     checkinResult: null as any,
     // 动态主题色
     themeColor: '#1ABC9C',
@@ -86,7 +101,9 @@ Page({
     const mode = options.mode === 'edit' ? 'edit' : 'create'
     const groupId = options.groupId || ''
     const groupName = options.groupName ? decodeURIComponent(options.groupName) : ''
-    this.setData({ mode, groupId, groupName })
+    // 判断是否为周日
+    const isSunday = new Date().getDay() === 0
+    this.setData({ mode, groupId, groupName, isSunday })
     this.init()
   },
 
@@ -184,23 +201,9 @@ Page({
       // 从记录内容中读取成长墙可见范围
       const momentsGroupId = (content as any).momentsGroupId || ''
 
-      // 根据 momentsGroupId 查找群组名称和索引
-      // 使用 momentsGroupRange，第一个是"所有群组"
-      let momentsGroupName = ''
-      let momentsGroupIndex = 0
-      if (momentsGroupId) {
-        const momentsGroupRange = this.data.momentsGroupRange
-        const rangeIndex = momentsGroupRange.findIndex((g: any) => g._id === momentsGroupId)
-        if (rangeIndex > 0) {  // > 0 因为第0个是"所有群组"
-          momentsGroupIndex = rangeIndex
-          momentsGroupName = momentsGroupRange[rangeIndex].name || ''
-        }
-      }
-
-      // 回显上次的类别选择（根据ID找到对应的索引）
+      // 只回显上次的类别选择，其他字段清空或保持默认
       const categoryId = content.categoryId || ''
       const subCategoryId = content.subCategoryId || ''
-      // 构建选中标签的标识
       const selectedTag = categoryId && subCategoryId ? `${categoryId}_${subCategoryId}` : ''
 
       const categories = this.data.categories
@@ -209,17 +212,21 @@ Page({
       const subCategoryIndex = subCategories.findIndex(s => s.id === subCategoryId)
 
       this.setData({
-        mode: 'create',  // 始终使用创建模式，支持多次记录
+        mode: 'create',
+        selectedCategoryId: categoryId,
         categoryIndex: categoryIndex >= 0 ? categoryIndex : -1,
         subCategoryIndex: subCategoryIndex >= 0 ? subCategoryIndex : -1,
         subCategories,
-        selectedTag,  // 回显上次选择的标签
-        text: content.text || '',
-        photos: content.photos || [],
-        isPublishToMoments: content.isPublishToMoments !== false,
-        momentsGroupId,
-        momentsGroupName,
-        momentsGroupIndex
+        selectedTag,
+        text: '',
+        photos: [],
+        duration: '',
+        durationUnitIndex: 0,
+        isPublishToMoments: true,
+        momentsGroupId: '',
+        momentsGroupName: '',
+        momentsGroupIndex: 0,
+        momentsComment: ''
       })
     } catch (e) {
       console.error('加载今日记录失败', e)
@@ -227,7 +234,7 @@ Page({
     }
   },
 
-  // 加载上次保存的默认值
+  // 加载上次保存的默认值（仅恢复类别选择，其他保持默认）
   loadDefaultCheckin() {
     const defaultData = getDefaultCheckin()
     if (!defaultData) {
@@ -240,35 +247,48 @@ Page({
     const categoryId = categoryIndex >= 0 && categories[categoryIndex] ? categories[categoryIndex].id : ''
     const subCategories = categoryId ? getSubCategories(categoryId) : []
     const subCategoryIndex = defaultData.subCategoryIndex >= 0 ? defaultData.subCategoryIndex : -1
-
-    // 根据 momentsGroupId 查找群组名称和索引
-    let momentsGroupName = ''
-    let momentsGroupIndex = defaultData.momentsGroupIndex || 0
-    if (defaultData.momentsGroupId && this.data.momentsGroupRange) {
-      const rangeIndex = this.data.momentsGroupRange.findIndex((g: any) => g._id === defaultData.momentsGroupId)
-      if (rangeIndex > 0) {
-        momentsGroupIndex = rangeIndex
-        momentsGroupName = this.data.momentsGroupRange[rangeIndex] && this.data.momentsGroupRange[rangeIndex].name ? this.data.momentsGroupRange[rangeIndex].name : ''
-      }
-    }
+    const selectedTag = defaultData.selectedTag || ''
+    // 若是自定义子类（other/custom），恢复时没有名称，用「大类 · 其他」占位
+    const isCustomSub = selectedTag.indexOf('custom_') !== -1 || selectedTag.indexOf('other_') !== -1
+    const customCategoryDisplay = isCustomSub && categoryIndex >= 0 ? `${categories[categoryIndex].name} · 其他` : ''
 
     this.setData({
       mode: 'create',
-      selectedTag: defaultData.selectedTag || '',
+      selectedTag,
+      selectedCategoryId: categoryId,
       categoryIndex,
       subCategoryIndex,
       subCategories,
-      duration: defaultData.duration || '',
-      durationUnitIndex: defaultData.durationUnitIndex || 0,
-      isPublishToMoments: defaultData.isPublishToMoments !== false,
-      momentsGroupId: defaultData.momentsGroupId || '',
-      momentsGroupName,
-      momentsGroupIndex
+      customCategoryDisplay,
+      duration: '',
+      durationUnitIndex: 0,
+      isPublishToMoments: true,
+      momentsGroupId: '',
+      momentsGroupName: '',
+      momentsGroupIndex: 0,
+      momentsComment: ''
     })
   },
 
   onTextInput(e: any) {
     this.setData({ text: e.detail.value })
+  },
+
+  // 自定义朋友圈评论输入
+  onMomentsCommentInput(e: any) {
+    this.setData({ momentsComment: e.detail.value })
+  },
+
+  // 小类别点击处理
+  onSubCategoryTap(e: any) {
+    const { categoryid, subcategoryid, subcategoryname } = e.currentTarget.dataset
+    // 用 subcategoryid 是否包含 'other_' 来判断
+    const isOther = subcategoryid && subcategoryid.indexOf('other_') === 0
+    if (isOther) {
+      this.onSelectOther(e)
+    } else {
+      this.onSelectTag(e)
+    }
   },
 
   // 选择标签（Tags/胶囊选择模式）
@@ -286,7 +306,60 @@ Page({
       selectedTag,
       categoryIndex,
       subCategoryIndex,
-      subCategories
+      subCategories,
+      showCustomSubInput: false
+    })
+  },
+
+  // 点击"其他"选项，显示自定义输入框
+  onSelectOther(e: any) {
+    const { categoryid, subcategoryid, subcategoryname } = e.currentTarget.dataset
+    const categories = this.data.categories
+    const categoryIndex = categories.findIndex(c => c.id === categoryid)
+    const categoryName = categoryIndex >= 0 ? categories[categoryIndex].name : ''
+
+    this.setData({
+      showCustomSubInput: true,
+      customOtherLabel: `${categoryName} · ${subcategoryname}`,
+      customCategoryName: '',
+      selectedCategoryId: categoryid,
+      categoryIndex
+    })
+  },
+
+  // 取消自定义输入
+  onCancelCustomInput() {
+    this.setData({
+      showCustomSubInput: false,
+      customCategoryName: ''
+    })
+  },
+
+  // 确认自定义输入
+  onConfirmCustomInput() {
+    const { customCategoryName, selectedCategoryId, categoryIndex, categories } = this.data
+
+    if (!customCategoryName || !customCategoryName.trim()) {
+      wx.showToast({ title: '请输入自定义内容', icon: 'none' })
+      return
+    }
+
+    // 生成唯一的 subCategoryId
+    const customSubId = `custom_${Date.now()}`
+    const selectedTag = `${selectedCategoryId}_${customSubId}`
+
+    // 更新选中状态
+    const subCategories = categoryIndex >= 0 ? categories[categoryIndex].subCategories : []
+    const categoryName = categoryIndex >= 0 ? categories[categoryIndex].name : ''
+
+    this.setData({
+      selectedTag,
+      categoryIndex,
+      subCategoryIndex: -1,  // 自定义类别没有索引
+      subCategories,
+      customCategoryName: customCategoryName.trim(),
+      customCategoryDisplay: `${categoryName} · ${customCategoryName.trim()}`,
+      showCustomSubInput: false
     })
   },
 
@@ -294,12 +367,43 @@ Page({
   onClearTag() {
     this.setData({
       selectedTag: '',
+      selectedCategoryId: '',
       categoryIndex: -1,
-      subCategoryIndex: -1
+      subCategoryIndex: -1,
+      showCustomSubInput: false,
+      customCategoryName: '',
+      customCategoryDisplay: ''
     })
   },
 
-  onCategoryChange(e: any) {
+  // 选择主类别（显示子类型）
+  onSelectCategory(e: any) {
+    const { categoryid } = e.currentTarget.dataset
+    const categories = this.data.categories
+    const categoryIndex = categories.findIndex(c => c.id === categoryid)
+
+    // 切换：如果点击已选中的主类别，则收起子类型
+    if (this.data.selectedCategoryId === categoryid) {
+      this.setData({
+        selectedCategoryId: '',
+        categoryIndex: -1
+      })
+      return
+    }
+    // 选中新的主类别，显示子类型
+    this.setData({
+      selectedCategoryId: categoryid,
+      categoryIndex
+    })
+  },
+
+  // 自定义类别输入
+  onCustomCategoryInput(e: any) {
+    this.setData({ customCategoryName: e.detail.value })
+  },
+
+  // 选择子类型标签
+  onSelectSubCategory(e: any) {
     const index = e.detail.value
     const categories = this.data.categories
     const selectedCategory = categories[index]
@@ -393,7 +497,7 @@ Page({
 
   // 提交记录
   async onSubmit() {
-    const { text, photos, selectedTag, isPublishToMoments, submitting, groupId } = this.data
+    const { text, photos, selectedTag, selectedCategoryId, customCategoryName, isPublishToMoments, submitting, groupId } = this.data
     const openid = app.globalData.openid
 
     if (!openid) {
@@ -401,13 +505,29 @@ Page({
       return
     }
 
-    // 使用Tags选择模式：验证 selectedTag
+    // 验证运动类型（记录类别）必选
     if (!selectedTag) {
-      wx.showToast({ title: '请选择记录类别', icon: 'none' })
+      wx.showToast({ title: '请选择运动类型', icon: 'none' })
       return
     }
 
     const [categoryId, subCategoryId] = selectedTag.split('_')
+
+    // 自定义类别需要验证名称
+    if (categoryId === 'custom') {
+      if (!customCategoryName || !customCategoryName.trim()) {
+        wx.showToast({ title: '请输入自定义内容', icon: 'none' })
+        return
+      }
+    }
+
+    // 时长必填且大于 0
+    const durationStr = (this.data.duration || '').trim()
+    const durationNum = durationStr ? parseFloat(durationStr) : 0
+    if (!durationStr || isNaN(durationNum) || durationNum <= 0) {
+      wx.showToast({ title: '请填写时长（大于 0）', icon: 'none' })
+      return
+    }
 
     if (!text && photos.length === 0) {
       wx.showToast({ title: '请输入文字或上传照片', icon: 'none' })
@@ -418,6 +538,8 @@ Page({
 
     this.setData({ submitting: true })
     wx.showLoading({ title: '记录中...' })
+    const t0 = Date.now()
+    console.log('[checkin] 开始提交 t0=', t0)
 
     try {
       const cloudPhotos: string[] = []
@@ -431,6 +553,7 @@ Page({
 
       // 上传照片到云存储
       if (localPhotos.length > 0) {
+        const tUpload0 = Date.now()
         for (const photo of localPhotos) {
           const cloudPath = `checkins/${openid}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.jpg`
           const uploadRes = await wx.cloud.uploadFile({
@@ -439,6 +562,7 @@ Page({
           })
           uploadedPhotos.push(uploadRes.fileID)
         }
+        console.log('[checkin] 照片上传耗时 ms=', Date.now() - tUpload0)
       }
 
       const content: CheckinContent = {
@@ -449,12 +573,17 @@ Page({
         subCategoryId,
         momentsGroupId: this.data.momentsGroupId,
         duration: this.data.duration ? parseFloat(this.data.duration) : 0,
-        durationUnit: this.data.durationUnits[this.data.durationUnitIndex]
+        durationUnit: this.data.durationUnits[this.data.durationUnitIndex],
+        momentsComment: (this.data.momentsComment && this.data.momentsComment.trim()) || ''
       }
 
+      const tBeforeDo = Date.now()
       const result = await doCheckinWithContent(openid, content, groupId)
+      console.log('[checkin] doCheckinWithContent 耗时 ms=', Date.now() - tBeforeDo, 'result.ok=', result.ok)
 
       if (result.ok) {
+        wx.hideLoading()
+        const tAfterDo = Date.now()
         wx.showToast({
           title: isPublishToMoments ? '记录成功，已发布到成长墙' : '记录成功',
           icon: 'none'
@@ -474,42 +603,56 @@ Page({
           durationUnitIndex: this.data.durationUnitIndex,
           isPublishToMoments: this.data.isPublishToMoments,
           momentsGroupId: this.data.momentsGroupId,
-          momentsGroupIndex: this.data.momentsGroupIndex
+          momentsGroupIndex: this.data.momentsGroupIndex,
+          momentsComment: this.data.momentsComment
         }
         setDefaultCheckin(defaultData)
 
-        // 显示连胜动画和分享海报
-        // 获取当前连胜（记录后的连胜）
+        // 显示连胜动画和分享海报：从 getAllStats 取连胜（与首页统计一致）；静态导入避免动态 import 失败
         let currentStreak = 1
+        const tStreak0 = Date.now()
         try {
-          const openid = app.globalData.openid
-          if (openid) {
-            currentStreak = await getStreak(openid, groupId) || 1
-          }
+          const allStatsData = await getAllStats(openid)
+          const streakFromStats = (allStatsData && allStatsData.streak) || 0
+          currentStreak = streakFromStats >= 1 ? streakFromStats : 1
+          console.log('[checkin] getAllStats 耗时 ms=', Date.now() - tStreak0, 'streak=', currentStreak)
         } catch (e) {
-          console.warn('获取连胜失败', e)
+          console.warn('[checkin] 获取连胜失败', e)
         }
 
-        // 保存记录结果用于生成海报
+        // 保存记录结果用于生成海报（含类型、子类型名称供海报展示）
+        const cat = getCategories().find(c => c.id === categoryId)
+        const categoryName = (cat && cat.name) || ''
+        const subCats = categoryId ? getSubCategories(categoryId) : []
+        const subCat = subCats.find(s => s.id === subCategoryId)
+        const subCategoryName = (categoryId === 'custom' && customCategoryName)
+          ? customCategoryName.trim()
+          : ((subCat && subCat.name) || '')
         const checkinResult = {
           text: text.trim(),
           categoryId,
           subCategoryId,
+          categoryName,
+          subCategoryName,
           groupId,
           photos: uploadedPhotos
         }
+        const tSetData0 = Date.now()
         this.setData({ 
           currentStreak, 
           checkinResult,
           showStreakAnimation: true,
           // 临时保存 categoryId 用于动画显示
-          themeColor: categoryId === 'sports' ? '#FF4500' : categoryId === 'study' ? '#4169E1' : '#32CD32'
+          themeColor: categoryId === 'sports' ? '#FF4500' : categoryId === 'study' ? '#4169E1' : categoryId === 'work' ? '#9B59B6' : '#32CD32'
         })
+        console.log('[checkin] setData(恭喜页) 耗时 ms=', Date.now() - tSetData0, '总耗时 ms=', Date.now() - t0)
       } else {
+        wx.hideLoading()
         wx.showToast({ title: result.msg || '记录失败', icon: 'none' })
       }
     } catch (e) {
       console.error('记录失败', e)
+      wx.hideLoading()
       wx.showToast({ title: '记录失败，请稍后重试', icon: 'none' })
     } finally {
       this.setData({ submitting: false })

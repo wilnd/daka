@@ -202,6 +202,27 @@
   margin-bottom: @spacing-lg;
   box-shadow: @shadow-sm;
   
+  // 群组选择器
+  .group-selector {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: @spacing-sm @spacing-md;
+    margin-bottom: @spacing-md;
+    background: @color-bg-page;
+    border-radius: @radius-md;
+    
+    .group-selector-text {
+      font-size: @font-size-body;
+      color: @color-text-body;
+    }
+    
+    .group-selector-arrow {
+      font-size: 36rpx;
+      color: @color-text-hint;
+    }
+  }
+  
   .user-main {
     display: flex;
     align-items: center;
@@ -251,101 +272,12 @@
         margin-top: 4rpx;
         display: block;
       }
-      
-      .user-meta {
-        display: flex;
-        align-items: center;
-        margin-top: @spacing-xs;
-        
-        .meta-item {
-          font-size: 24rpx;
-          color: @color-text-body;
-        }
-        
-        .meta-divider {
-          font-size: 24rpx;
-          color: @color-text-hint;
-          margin: 0 @spacing-xs;
-        }
-      }
     }
     
     .arrow-right {
       font-size: 40rpx;
       color: @color-text-hint;
       font-weight: 300;
-    }
-  }
-}
-
-// ========== 数据统计卡片 ==========
-.stats-card {
-  background: @color-white;
-  border-radius: @radius-xl;
-  padding: @spacing-lg;
-  margin-bottom: @spacing-lg;
-  box-shadow: @shadow-sm;
-  
-  .stats-header {
-    margin-bottom: @spacing-md;
-    
-    .stats-title {
-      font-size: @font-size-body;
-      font-weight: @font-weight-medium;
-      color: @color-text-title;
-    }
-  }
-  
-  .stats-grid {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    
-    .stat-item {
-      flex: 1;
-      text-align: center;
-      
-      .stat-value-wrap {
-        display: flex;
-        align-items: baseline;
-        justify-content: center;
-        margin-bottom: @spacing-xs;
-        
-        .stat-value {
-          font-size: 48rpx;
-          font-weight: @font-weight-bold;
-          color: @color-text-title;
-        }
-        
-        .stat-unit {
-          font-size: @font-size-caption;
-          color: @color-text-hint;
-          margin-left: 4rpx;
-        }
-        
-        &.primary {
-          .stat-value {
-            color: @color-primary;
-          }
-        }
-        
-        &.warn {
-          .stat-value {
-            color: @color-secondary;
-          }
-        }
-      }
-      
-      .stat-label {
-        font-size: @font-size-caption;
-        color: @color-text-hint;
-      }
-    }
-    
-    .stat-divider {
-      width: 1rpx;
-      height: 60rpx;
-      background: @color-border-light;
     }
   }
 }

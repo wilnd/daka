@@ -14,7 +14,8 @@
       
       <canvas 
         wx:if="{{!posterUrl}}"
-        canvas-id="poster-canvas" 
+        type="2d"
+        id="poster-canvas"
         class="poster-canvas"
         style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
       ></canvas>
@@ -38,16 +39,14 @@
         bindtap="onShareToFriends"
         wx:if="{{posterUrl}}"
       >
-        <text class="btn-icon">📷</text>
-        保存到相册
+        保存图片
       </button>
       <button 
         class="action-btn timeline-btn"
         open-type="share"
         bindtap="onShareTimeline"
       >
-        <text class="btn-icon">📤</text>
-        分享给朋友
+        分享好友
       </button>
     </view>
 

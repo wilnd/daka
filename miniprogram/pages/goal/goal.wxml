@@ -4,7 +4,7 @@
     <!-- 当前进行中的目标 -->
     <view class="section" wx:if="{{activeGoals.length > 0}}">
       <view class="section-header">
-        <text class="section-title">进行中的目标</text>
+        <text class="section-title">进行中的自律计划</text>
         <text class="view-all" bindtap="goToAllGoals">查看全部 ></text>
       </view>
       <view class="goal-list">
@@ -56,15 +56,17 @@
       </view>
     </view>
 
+    <!-- 分隔线 -->
+    <view class="divider" wx:if="{{activeGoals.length > 0}}"></view>
+
     <!-- 创建新目标 -->
-    <view class="section">
+    <view class="section create-section">
       <view class="section-header">
-        <text class="section-title">立个Flag</text>
+        <text class="section-title">制定自律计划</text>
       </view>
 
       <!-- 目标模式选择 -->
       <view class="form-group">
-        <text class="form-label">打算怎么玩</text>
         <view class="mode-selector">
           <view
             class="mode-btn {{goalMode === 'periodic' ? 'active' : ''}}"
@@ -81,15 +83,14 @@
             bindtap="onGoalModeChange"
           >
             <text class="mode-icon">📅</text>
-            <text class="mode-text">时间点目标</text>
-            <text class="mode-desc">在某个时间点前完成</text>
+            <text class="mode-text">里程碑目标</text>
+            <text class="mode-desc">在某个时间前完成</text>
           </view>
         </view>
       </view>
 
       <!-- 周期选择 -->
       <view class="form-group" wx:if="{{goalMode === 'periodic'}}">
-        <text class="form-label">多久来一次</text>
         <view class="period-selector">
           <view class="period-btn {{selectedPeriod === 'daily' ? 'active' : ''}}" data-period="daily" bindtap="onPeriodChange">每日</view>
           <view class="period-btn {{selectedPeriod === 'weekly' ? 'active' : ''}}" data-period="weekly" bindtap="onPeriodChange">每周</view>
@@ -99,7 +100,7 @@
 
       <!-- 目标类型选择 -->
       <view class="form-group">
-        <text class="form-label">什么类型的Flag</text>
+        <text class="form-label">类型</text>
         <view class="type-selector">
           <view
             class="type-btn {{selectedType === 'sports' ? 'active' : ''}}"
@@ -116,6 +117,11 @@
             data-type="life"
             bindtap="onTypeChange"
           >生活类</view>
+          <view
+            class="type-btn {{selectedType === 'work' ? 'active' : ''}}"
+            data-type="work"
+            bindtap="onTypeChange"
+          >工作类</view>
         </view>
       </view>
 
@@ -135,7 +141,7 @@
 
       <!-- 目标值 -->
       <view class="form-group">
-        <text class="form-label">打算完成几次</text>
+        <text class="form-label">频率</text>
         <view class="target-input">
           <slider
             min="1"
@@ -145,7 +151,8 @@
             bindchange="onTargetChange"
             activeColor="#1ABC9C"
           />
-          <text class="target-value">{{targetValue}}次</text>
+          <text class="target-value" wx:if="{{goalMode === 'periodic'}}">{{selectedPeriod === 'daily' ? '每天' : selectedPeriod === 'weekly' ? '每周' : '每月'}}{{targetValue}}次</text>
+          <text class="target-value" wx:else>{{targetValue}}次</text>
         </view>
       </view>
 
@@ -172,7 +179,7 @@
             </view>
           </view>
         </block>
-        <!-- 时间点目标：截止日期选择 -->
+        <!-- 里程碑目标：截止日期选择 -->
         <block wx:if="{{goalMode === 'deadline'}}">
           <text class="form-label">截止日期</text>
           <view class="date-picker deadline-picker">
@@ -208,7 +215,7 @@
 
       <!-- 自定义奖励 - 输入框显示 -->
       <view class="form-group">
-        <text class="form-label">完成了有啥好处（可选）</text>
+        <text class="form-label">达成奖励（可选 自我激励/亲朋好友奖励）</text>
         <view class="tag-input-container {{rewardInputFocused ? 'focused' : ''}}">
           <view class="tag-input-wrapper">
             <view class="tag-input-tags" wx:if="{{rewardInputTags.length > 0}}">
@@ -275,7 +282,7 @@
 
       <!-- 自定义惩罚 - 输入框显示 -->
       <view class="form-group">
-        <text class="form-label">没完成咋整（可选）</text>
+        <text class="form-label">未达成惩罚（可选 自我惩罚/亲朋好友惩罚）</text>
         <view class="tag-input-container {{penaltyInputFocused ? 'focused' : ''}}">
           <view class="tag-input-wrapper">
             <view class="tag-input-tags" wx:if="{{penaltyInputTags.length > 0}}">
@@ -341,7 +348,7 @@
       </view>
 
       <!-- 预览按钮 -->
-      <button class="btn-primary" bindtap="onPreview">预览并立Flag</button>
+      <button class="btn-primary" bindtap="onPreview">预览并创建自律计划</button>
     </view>
 
     <!-- 提示 -->
@@ -387,7 +394,7 @@
       <scroll-view scroll-y class="member-list">
         <block wx:if="{{confirmorGroupMembers.length > 0}}">
           <view class="member-item" wx:for="{{confirmorGroupMembers}}" wx:key="_id" bindtap="onSelectConfirmorMember" data-member="{{item}}">
-            <image class="member-avatar" src="{{item.avatarUrl || '/assets/default-avatar.png'}}" mode="aspectFill"></image>
+            <image class="member-avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
             <text class="member-name">{{item.nickName || '未知用户'}}</text>
           </view>
         </block>
@@ -448,7 +455,7 @@
       </view>
       <view class="preview-item">
         <text class="preview-label">目标类型</text>
-        <text class="preview-value">{{previewGoal.goalMode === 'periodic' ? '周期目标' : '时间点目标'}}</text>
+        <text class="preview-value">{{previewGoal.goalMode === 'periodic' ? '周期目标' : '里程碑目标'}}</text>
       </view>
       <view class="preview-item" wx:if="{{previewGoal.goalMode === 'periodic'}}">
         <text class="preview-label">周期</text>
@@ -458,9 +465,13 @@
         <text class="preview-label">截止日期</text>
         <text class="preview-value">{{previewGoal.deadlineDate}}</text>
       </view>
-      <view class="preview-item">
+      <view class="preview-item" wx:if="{{previewGoal.goalMode === 'periodic'}}">
         <text class="preview-label">目标值</text>
-        <text class="preview-value">{{previewGoal.target}}{{previewGoal.type === 'duration' ? '分钟' : '次'}}</text>
+        <text class="preview-value">{{previewGoal.period === 'daily' ? '每天' : previewGoal.period === 'weekly' ? '每周' : '每月'}}{{previewGoal.target}}次</text>
+      </view>
+      <view class="preview-item" wx:if="{{previewGoal.goalMode === 'deadline'}}">
+        <text class="preview-label">目标值</text>
+        <text class="preview-value">{{previewGoal.target}}次</text>
       </view>
       <view class="preview-item" wx:if="{{previewGoal.category}}">
         <text class="preview-label">分类</text>

@@ -140,6 +140,7 @@
         <view class="level-features">
           <view class="feature-item disabled">基础打卡</view>
           <view class="feature-item disabled">查看统计</view>
+          <view class="feature-item disabled">小勤点评 5次/月</view>
         </view>
       </view>
       
@@ -152,7 +153,8 @@
         </view>
         <view class="level-features">
           <view class="feature-item">专属徽章</view>
-          <view class="feature-item">4次补卡/月</view>
+          <view class="feature-item">5次补卡/月</view>
+          <view class="feature-item">小勤点评 20次/月</view>
           <view class="feature-item">优先客服</view>
         </view>
       </view>
@@ -165,7 +167,8 @@
         </view>
         <view class="level-features">
           <view class="feature-item">专属徽章</view>
-          <view class="feature-item">8次补卡/月</view>
+          <view class="feature-item">10次补卡/月</view>
+          <view class="feature-item">小勤点评 40次/月</view>
           <view class="feature-item">优先客服</view>
           <view class="feature-item">高级统计</view>
         </view>
@@ -180,6 +183,7 @@
         <view class="level-features">
           <view class="feature-item">全部特权</view>
           <view class="feature-item">无限补卡</view>
+          <view class="feature-item">小勤点评 100次/月</view>
           <view class="feature-item">专属客服</view>
           <view class="feature-item">限量礼品</view>
         </view>

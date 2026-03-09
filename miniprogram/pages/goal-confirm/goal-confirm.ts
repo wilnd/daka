@@ -1,6 +1,6 @@
 // goal-confirm.ts - 确认目标页面
 import { Goal, getGoalByConfirmCode, confirmGoalByCode, GoalStatus } from '../../services/goal'
-import { generateConfirmCode, generateUUID } from '../../services/utils'
+import { generateConfirmCode } from '../../services/utils'
 
 const app = getApp() as IAppOption
 
@@ -25,13 +25,9 @@ Page({
   onLoad(options: any) {
     this.setData({ themeColor: '#1ABC9C' })
 
-    // 获取或生成用户ID
-    let userId = wx.getStorageSync('userId')
-    if (!userId) {
-      userId = generateUUID()
-      wx.setStorageSync('userId', userId)
-    }
-    this.setData({ myUserId: userId })
+    // 获取用户 openid
+    const openid = (app.globalData && app.globalData.openid) || ''
+    this.setData({ myUserId: openid })
 
     // 如果有确认码参数，直接加载
     if (options.code) {

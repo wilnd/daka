@@ -47,7 +47,7 @@ async function convertCloudUrls(fileIds: string[]): Promise<string[]> {
 
 interface MomentItem {
   _id: string
-  userId: string
+  openid: string
   groupId: string
   content: {
     photos?: string[]
@@ -71,7 +71,7 @@ interface UserInfo {
 
 Page({
   data: {
-    userId: '',
+    openid: '',
     userInfo: null as UserInfo | null,
     defaultAvatar,
     moments: [] as MomentItem[],
@@ -88,7 +88,7 @@ Page({
     this.setData({
       themeColor: '#1ABC9C'
     })
-    const userId = options.userId || ''
+    const openid = options.openid || ''
     const nickName = options.nickName || ''
     let avatarUrl = (options.avatarUrl || defaultAvatar)
 
@@ -100,16 +100,16 @@ Page({
       avatarUrl = defaultAvatar
     }
 
-    if (userId) {
+    if (openid) {
       this.setData({
-        userId,
+        openid,
         userInfo: {
           _id: '',
           nickName,
           avatarUrl
         }
       })
-      this.loadUserInfo(userId)
+      this.loadUserInfo(openid)
       this.loadMoments()
     } else {
       wx.showToast({ title: '参数错误', icon: 'none' })
@@ -124,7 +124,7 @@ Page({
     this.setData({
       themeColor: '#1ABC9C'
     })
-    if (this.data.userId) {
+    if (this.data.openid) {
       this.loadMoments()
     }
   },
@@ -137,13 +137,13 @@ Page({
     this.loadMoreMoments()
   },
 
-  async loadUserInfo(userId: string) {
+  async loadUserInfo(openid: string) {
     try {
       const res = await wx.cloud.callFunction({
         name: 'moments',
         data: {
           action: 'getUserInfo',
-          userId
+          _openid: openid
         }
       })
 
@@ -167,8 +167,8 @@ Page({
   },
 
   async loadMoments() {
-    const { userId, loading, noMore } = this.data
-    if (!userId) return
+    const { openid, loading, noMore } = this.data
+    if (!openid) return
     if (loading || noMore) return
 
     this.setData({ loading: true })
@@ -178,7 +178,7 @@ Page({
         name: 'moments',
         data: {
           action: 'getUserMoments',
-          userId,
+          _openid: openid,
           limit: 20
         }
       })
@@ -236,8 +236,8 @@ Page({
   },
 
   async loadMoreMoments() {
-    const { moments, loadingMore, noMore, userId } = this.data
-    if (loadingMore || noMore || moments.length === 0 || !userId) return
+    const { moments, loadingMore, noMore, openid } = this.data
+    if (loadingMore || noMore || moments.length === 0 || !openid) return
 
     this.setData({ loadingMore: true })
 
@@ -247,7 +247,7 @@ Page({
         name: 'moments',
         data: {
           action: 'getUserMoments',
-          userId,
+          _openid: openid,
           limit: 20,
           lastId
         }
@@ -318,5 +318,27 @@ Page({
     if (days < 7) return `${days}天前`
 
     return `${d.getMonth() + 1}-${d.getDate()}`
+  },
+
+  // 发表时间：显示具体日期时间
+  formatPublishTime(date: Date | string | number) {
+    if (!date) return ''
+    const d = new Date(date)
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const yesterday = new Date(today.getTime() - 86400000)
+    const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const month = d.getMonth() + 1
+    const day = d.getDate()
+    const h = d.getHours()
+    const m = d.getMinutes()
+    const timeStr = `${h < 10 ? '0' + h : h}:${m < 10 ? '0' + m : m}`
+    if (dDay.getTime() === today.getTime()) {
+      return `今天 ${timeStr}`
+    }
+    if (dDay.getTime() === yesterday.getTime()) {
+      return `昨天 ${timeStr}`
+    }
+    return `${month}月${day}日 ${timeStr}`
   }
 })

@@ -1,7 +1,7 @@
 /**
  * 登录授权服务
  */
-import { usersCol } from './db'
+import { usersCol, checkinStatsCol } from './db'
 
 export interface UserInfo {
   openid: string
@@ -33,7 +33,7 @@ export async function getOpenid(): Promise<string> {
 /** 获取或创建用户 */
 export async function getOrCreateUser(openid: string, nickName: string, avatarUrl: string): Promise<UserRecord> {
   const col = usersCol()
-  const { data: list } = await col.where({ openid }).get()
+  const { data: list } = await col.where({ _openid: openid } as any).get()
   const now = new Date()
   if (list.length > 0) {
     const existingUser = list[0] as UserRecord
@@ -42,8 +42,8 @@ export async function getOrCreateUser(openid: string, nickName: string, avatarUr
     })
     return { ...existingUser, nickName, avatarUrl, updateTime: now }
   }
-  // 兼容历史数据：旧 users 记录可能只有 _openid，没有 openid 字段
-  const { data: legacy } = await col.where({ _openid: openid } as any).limit(1).get()
+  // 兼容历史数据：旧 users 记录可能只有 openid 字段
+  const { data: legacy } = await col.where({ openid } as any).limit(1).get()
   if (legacy.length > 0) {
     const legacyUser = legacy[0] as UserRecord
     await col.doc(legacyUser._id).update({
@@ -54,17 +54,32 @@ export async function getOrCreateUser(openid: string, nickName: string, avatarUr
   const { _id } = await col.add({
     data: { openid, nickName, avatarUrl, createTime: now, updateTime: now }
   })
+  try {
+    await checkinStatsCol().add({
+      data: {
+        _openid: openid,
+        current_streak: 0,
+        best_streak: 0,
+        recorded_days: 0,
+        slack_days: 0,
+        createTime: now,
+        updateTime: now
+      }
+    })
+  } catch (e) {
+    console.warn('创建打卡统计记录失败，不影响注册', e)
+  }
   return { _id, openid, nickName, avatarUrl }
 }
 
 /** 更新用户信息 */
 export async function updateUserInfo(openid: string, nickName: string, avatarUrl: string): Promise<UserRecord> {
   const col = usersCol()
-  const { data: list } = await col.where({ openid }).get()
+  const { data: list } = await col.where({ _openid: openid } as any).get()
   const now = new Date()
   if (list.length === 0) {
-    // 兼容历史数据：旧 users 记录可能只有 _openid，没有 openid 字段
-    const { data: legacy } = await col.where({ _openid: openid } as any).limit(1).get()
+    // 兼容历史数据：旧 users 记录可能只有 openid 字段
+    const { data: legacy } = await col.where({ openid } as any).limit(1).get()
     if (legacy.length > 0) {
       const legacyUser = legacy[0] as UserRecord
       await col.doc(legacyUser._id).update({
@@ -75,6 +90,21 @@ export async function updateUserInfo(openid: string, nickName: string, avatarUrl
     const { _id } = await col.add({
       data: { openid, nickName, avatarUrl, createTime: now, updateTime: now }
     })
+    try {
+      await checkinStatsCol().add({
+        data: {
+          _openid: openid,
+          current_streak: 0,
+          best_streak: 0,
+          recorded_days: 0,
+          slack_days: 0,
+          createTime: now,
+          updateTime: now
+        }
+      })
+    } catch (e) {
+      console.warn('创建打卡统计记录失败，不影响注册', e)
+    }
     return { _id, openid, nickName, avatarUrl }
   }
   const existingUser = list[0] as UserRecord
@@ -87,7 +117,7 @@ export async function updateUserInfo(openid: string, nickName: string, avatarUrl
 /** 更新备注名（仅自己可见） */
 export async function updateRemarkName(openid: string, remarkName: string): Promise<UserRecord | null> {
   const col = usersCol()
-  const { data: list } = await col.where({ openid }).get()
+  const { data: list } = await col.where({ _openid: openid } as any).get()
   const now = new Date()
   if (list.length > 0) {
     const existingUser = list[0] as UserRecord
@@ -96,8 +126,8 @@ export async function updateRemarkName(openid: string, remarkName: string): Prom
     })
     return { ...existingUser, remarkName, updateTime: now }
   }
-  // 兼容历史数据：旧 users 记录可能只有 _openid，没有 openid 字段
-  const { data: legacy } = await col.where({ _openid: openid } as any).limit(1).get()
+  // 兼容历史数据：旧 users 记录可能只有 openid 字段
+  const { data: legacy } = await col.where({ openid } as any).limit(1).get()
   if (legacy.length > 0) {
     const legacyUser = legacy[0] as UserRecord
     await col.doc(legacyUser._id).update({

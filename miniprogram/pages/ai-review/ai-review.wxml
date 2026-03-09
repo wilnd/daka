@@ -1,0 +1,67 @@
+<navigation-bar title="小勤同学点评" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <view class="container">
+    <view class="header-card">
+      <view class="ai-avatar-wrap">
+        <image class="ai-avatar" src="https://img.icons8.com/fluency/96/bot.png" mode="aspectFit"></image>
+      </view>
+      <text class="ai-name">小勤同学 (AI)</text>
+      <text class="ai-desc">根据你的成长动态提供AI建议（如有数据）～</text>
+    </view>
+
+    <view class="generate-bar">
+      <view class="generate-row">
+        <text class="generate-label">生成点评</text>
+        <text wx:if="{{aiReviewQuota === 0}}" class="quota-hint quota-none">开通VIP可使用</text>
+        <text wx:else class="quota-hint">本月剩余 {{aiReviewRemaining}}/{{aiReviewQuota}} 次</text>
+      </view>
+      <view class="generate-btns">
+        <button class="gen-btn" data-action="weekly" bindtap="onGenerate" disabled="{{generating || aiReviewQuota === 0}}">上周</button>
+        <button class="gen-btn" data-action="monthly" bindtap="onGenerate" disabled="{{generating || aiReviewQuota === 0}}">上月</button>
+        <button class="gen-btn" data-action="yearly" bindtap="onGenerate" disabled="{{generating || aiReviewQuota === 0}}">去年</button>
+      </view>
+      <text class="generate-hint">本周对上周总结 · 本月对上月点评 · 本年对上一年点评</text>
+    </view>
+
+    <view wx:if="{{loading}}" class="loading-wrap">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">加载点评中...</text>
+    </view>
+
+    <view wx:elif="{{!annotations || annotations.length === 0}}" class="empty-wrap">
+      <text class="empty-icon">📝</text>
+      <text class="empty-title">暂无点评记录</text>
+      <text class="empty-desc">点击上方「上周 / 上月 / 去年」生成小勤的点评，生成后可在此查看历史记录</text>
+    </view>
+
+    <view wx:else class="section-list">
+      <view wx:if="{{yearlyList && yearlyList.length > 0}}" class="section">
+        <text class="section-title">📅 年批注</text>
+        <view wx:for="{{yearlyList || []}}" wx:key="listKey" class="card" data-type="{{item.type}}" data-period="{{item.period}}" data-id="{{item._id}}" bindtap="onCardTap">
+          <view class="card-main">
+            <text class="card-period">{{item.period}} 年</text>
+            <text class="card-desc">{{item.contentShort || item.content}}</text>
+          </view>
+        </view>
+      </view>
+      <view wx:if="{{monthlyList && monthlyList.length > 0}}" class="section">
+        <text class="section-title">📆 月批注</text>
+        <view wx:for="{{monthlyList || []}}" wx:key="listKey" class="card" data-type="{{item.type}}" data-period="{{item.period}}" data-id="{{item._id}}" bindtap="onCardTap">
+          <view class="card-main">
+            <text class="card-period">{{item.period}}</text>
+            <text class="card-desc">{{item.contentShort || item.content}}</text>
+          </view>
+        </view>
+      </view>
+      <view wx:if="{{weeklyList && weeklyList.length > 0}}" class="section">
+        <text class="section-title">📌 周批注</text>
+        <view wx:for="{{weeklyList || []}}" wx:key="listKey" class="card" data-type="{{item.type}}" data-period="{{item.period}}" data-id="{{item._id}}" bindtap="onCardTap">
+          <view class="card-main">
+            <text class="card-period">{{item.weekDisplay || item.period}}</text>
+            <text class="card-desc">{{item.contentShort || item.content}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</scroll-view>
