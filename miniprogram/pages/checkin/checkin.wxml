@@ -158,19 +158,6 @@
         </view>
       </picker>
     </view>
-
-    <!-- 自定义朋友圈评论 -->
-    <view class="form-item" wx:if="{{isPublishToMoments}}">
-      <text class="label">评论文案</text>
-      <input
-        class="comment-input"
-        placeholder="自定义评论内容，不填则使用默认"
-        placeholder-class="placeholder"
-        value="{{momentsComment}}"
-        bindinput="onMomentsCommentInput"
-        maxlength="50"
-      />
-    </view>
   </view>
 
   <!-- 提交按钮 -->

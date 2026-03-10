@@ -68,39 +68,6 @@
         <text class="section-title">制定自律计划</text>
       </view>
 
-      <!-- 目标模式选择 -->
-      <view class="form-group">
-        <view class="mode-selector">
-          <view
-            class="mode-btn {{goalMode === 'periodic' ? 'active' : ''}}"
-            data-mode="periodic"
-            bindtap="onGoalModeChange"
-          >
-            <text class="mode-icon">🔄</text>
-            <text class="mode-text">周期目标</text>
-            <text class="mode-desc">按日/周/月循环计算</text>
-          </view>
-          <view
-            class="mode-btn {{goalMode === 'deadline' ? 'active' : ''}}"
-            data-mode="deadline"
-            bindtap="onGoalModeChange"
-          >
-            <text class="mode-icon">📅</text>
-            <text class="mode-text">里程碑目标</text>
-            <text class="mode-desc">在某个时间前完成</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 周期选择 -->
-      <view class="form-group" wx:if="{{goalMode === 'periodic'}}">
-        <view class="period-selector">
-          <view class="period-btn {{selectedPeriod === 'daily' ? 'active' : ''}}" data-period="daily" bindtap="onPeriodChange">每日</view>
-          <view class="period-btn {{selectedPeriod === 'weekly' ? 'active' : ''}}" data-period="weekly" bindtap="onPeriodChange">每周</view>
-          <view class="period-btn {{selectedPeriod === 'monthly' ? 'active' : ''}}" data-period="monthly" bindtap="onPeriodChange">每月</view>
-        </view>
-      </view>
-
       <!-- 目标类型选择 -->
       <view class="form-group">
         <text class="form-label">类型</text>
@@ -130,13 +97,13 @@
 
       <!-- 计划描述：具体自律什么 -->
       <view class="form-group">
-        <text class="form-label">具体自律什么</text>
+        <text class="form-label">计划描述</text>
         <input
           class="desc-input"
-          placeholder="填写具体内容，最多10字"
+          placeholder="填写具体内容，最多20字"
           value="{{goalDescription}}"
           bindinput="onGoalDescriptionInput"
-          maxlength="10"
+          maxlength="20"
         />
         <text class="form-hint">选填，在列表中显示</text>
       </view>
@@ -167,44 +134,19 @@
             bindchange="onTargetChange"
             activeColor="#1ABC9C"
           />
-          <text class="target-value" wx:if="{{goalMode === 'periodic'}}">{{selectedPeriod === 'daily' ? '每天' : selectedPeriod === 'weekly' ? '每周' : '每月'}}{{targetValue}}次</text>
-          <text class="target-value" wx:else>{{targetValue}}次</text>
+          <text class="target-value">{{targetValue}}次</text>
         </view>
       </view>
 
-      <!-- 时间设置 -->
+      <!-- 时间设置：截止日期 -->
       <view class="form-group">
-        <!-- 周期目标：自定义时间开关 -->
-        <block wx:if="{{goalMode === 'periodic'}}">
-          <view class="form-label-row">
-            <text class="form-label">自定义时间</text>
-            <switch checked="{{useCustomDate}}" bindchange="onToggleCustomDate" color="#1ABC9C" />
-          </view>
-          <view class="date-range" wx:if="{{useCustomDate}}">
-            <view class="date-picker">
-              <text class="date-label">开始日期</text>
-              <picker mode="date" value="{{startDate}}" start="2020-01-01" end="2030-12-31" bindchange="onStartDateChange">
-                <view class="picker-value">{{startDate}}</view>
-              </picker>
-            </view>
-            <view class="date-picker">
-              <text class="date-label">结束日期</text>
-              <picker mode="date" value="{{endDate}}" start="2020-01-01" end="2030-12-31" bindchange="onEndDateChange">
-                <view class="picker-value">{{endDate}}</view>
-              </picker>
-            </view>
-          </view>
-        </block>
-        <!-- 里程碑目标：截止日期选择 -->
-        <block wx:if="{{goalMode === 'deadline'}}">
-          <text class="form-label">截止日期</text>
-          <view class="date-picker deadline-picker">
-            <picker mode="date" value="{{deadlineDate}}" start="2020-01-01" end="2030-12-31" bindchange="onDeadlineChange">
-              <view class="picker-value">{{deadlineDate}}</view>
-            </picker>
-          </view>
-          <text class="form-hint">Flag将在截止日期当天23:59结算</text>
-        </block>
+        <text class="form-label">截止日期</text>
+        <view class="date-picker deadline-picker">
+          <picker mode="date" value="{{deadlineDate}}" start="2020-01-01" end="2030-12-31" bindchange="onDeadlineChange">
+            <view class="picker-value">{{deadlineDate}}</view>
+          </picker>
+        </view>
+        <text class="form-hint">Flag将在截止日期当天23:59结算</text>
       </view>
 
       <!-- 确认人设置 -->
@@ -370,9 +312,7 @@
     <!-- 提示 -->
     <view class="tips">
       <text class="tips-title">💡 小提示</text>
-      <text class="tips-text">• 每日Flag在当天23:59结算</text>
-      <text class="tips-text">• 每周Flag在周日23:59结算</text>
-      <text class="tips-text">• 每月Flag在月末最后一天23:59结算</text>
+      <text class="tips-text">• Flag将在截止日期当天23:59结算</text>
       <text class="tips-text">• 达成Flag可领取奖励，没完成就要执行惩罚啦</text>
       <text class="tips-text">• 找人盯着你的话，需要他确认才算完成哦</text>
     </view>
@@ -475,32 +415,16 @@
         <text class="preview-value">{{previewGoal.description}}</text>
       </view>
       <view class="preview-item">
-        <text class="preview-label">目标类型</text>
-        <text class="preview-value">{{previewGoal.goalMode === 'periodic' ? '周期目标' : '里程碑目标'}}</text>
-      </view>
-      <view class="preview-item" wx:if="{{previewGoal.goalMode === 'periodic'}}">
-        <text class="preview-label">周期</text>
-        <text class="preview-value">{{previewGoal.period === 'daily' ? '每日' : previewGoal.period === 'weekly' ? '每周' : '每月'}}</text>
-      </view>
-      <view class="preview-item" wx:if="{{previewGoal.goalMode === 'deadline'}}">
         <text class="preview-label">截止日期</text>
         <text class="preview-value">{{previewGoal.deadlineDate}}</text>
       </view>
-      <view class="preview-item" wx:if="{{previewGoal.goalMode === 'periodic'}}">
-        <text class="preview-label">目标值</text>
-        <text class="preview-value">{{previewGoal.period === 'daily' ? '每天' : previewGoal.period === 'weekly' ? '每周' : '每月'}}{{previewGoal.target}}次</text>
-      </view>
-      <view class="preview-item" wx:if="{{previewGoal.goalMode === 'deadline'}}">
+      <view class="preview-item">
         <text class="preview-label">目标值</text>
         <text class="preview-value">{{previewGoal.target}}次</text>
       </view>
       <view class="preview-item" wx:if="{{previewGoal.category}}">
         <text class="preview-label">分类</text>
         <text class="preview-value">{{previewGoal.category}}</text>
-      </view>
-      <view class="preview-item" wx:if="{{previewGoal.goalMode === 'periodic'}}">
-        <text class="preview-label">时间范围</text>
-        <text class="preview-value">{{previewGoal.startDate}} ~ {{previewGoal.endDate}}</text>
       </view>
       <view class="preview-item" wx:if="{{previewGoal.confirmor}}">
         <text class="preview-label">确认人</text>

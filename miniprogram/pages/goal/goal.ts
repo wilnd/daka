@@ -46,9 +46,9 @@ Page({
     defaultAvatar,
     activeGoals: [] as any[],
     today: getTodayStr(),
-    // 目标模式：periodic-周期目标，deadline-时间点目标
-    goalMode: 'periodic' as 'periodic' | 'deadline',
-    // 选中的目标类型
+    // 仅支持里程碑目标（截止日期前完成）
+    goalMode: 'deadline' as 'periodic' | 'deadline',
+    // 选中的目标类型；创建时用 daily 配置取标题/描述，实际为截止日期目标
     selectedPeriod: 'daily' as GoalPeriod,
     selectedType: 'checkin' as GoalType,
     targetValue: 1,
@@ -198,17 +198,6 @@ Page({
     } catch (e) {
       console.error('加载目标失败', e)
     }
-  },
-
-  // 切换目标模式（周期目标/时间点目标）
-  onGoalModeChange(e: any) {
-    const mode = e.currentTarget.dataset.mode as 'periodic' | 'deadline'
-    this.setData({
-      goalMode: mode,
-      // 切换到时间点目标时，设置默认截止日期为一个月后
-      // 切换模式时重置日期
-      ...this.getDefaultDateRange()
-    })
   },
 
   // 获取默认日期范围（今天 + 1个月）
@@ -1058,19 +1047,15 @@ Page({
   // 预览目标
   onPreview() {
     const {
-      goalMode,
       selectedPeriod,
       selectedType,
       targetValue,
       selectedReward,
       selectedPenalty,
-      startDate,
-      endDate,
       confirmorName,
       confirmCode,
       rewardInputTags,
       penaltyInputTags,
-      useCustomDate,
       deadlineDate,
       needCategory,
       selectedCategoryName,
@@ -1087,15 +1072,8 @@ Page({
       confirmCode
     } : undefined
 
-    // 根据模式显示不同的时间信息
-    let timeRangeText = ''
-    if (goalMode === 'periodic') {
-      // 周期目标 - 显示自动计算
-      timeRangeText = useCustomDate ? `${startDate} ~ ${endDate}` : '自动计算'
-    } else {
-      // 时间点目标 - 显示截止日期
-      timeRangeText = `截止至 ${deadlineDate}`
-    }
+    // 里程碑目标：显示截止日期
+    const timeRangeText = `截止至 ${deadlineDate}`
 
     // 构建分类显示文本（新的目标类型本身就是分类）
     let categoryText = selectedCategoryName || ''
@@ -1132,10 +1110,8 @@ Page({
         penalty: penaltyToShow,
         customRewardTags: rewardInputTags,
         customPenaltyTags: penaltyInputTags,
-        startDate: useCustomDate ? startDate : '自动计算',
-        endDate: useCustomDate ? endDate : '自动计算',
         deadlineDate: deadlineDate,
-        goalMode: goalMode,
+        goalMode: 'deadline',
         timeRangeText: timeRangeText,
         confirmor,
         category: categoryText
@@ -1154,19 +1130,15 @@ Page({
     if (!openid) return
 
     const {
-      goalMode,
       selectedType,
       selectedPeriod,
       targetValue,
       selectedReward,
       selectedPenalty,
-      startDate,
-      endDate,
       confirmorName,
       confirmCode,
       rewardInputTags,
       penaltyInputTags,
-      useCustomDate,
       deadlineDate,
       needCategory,
       selectedCategoryId,
@@ -1204,21 +1176,9 @@ Page({
         subCategoryName: selectedSubCategoryName || undefined
       } : undefined
 
-      // 根据模式设置日期
-      let customStartDate: string | undefined
-      let customEndDate: string | undefined
-
-      if (goalMode === 'periodic') {
-        // 周期目标 - 如果启用自定义日期则使用，否则不传（自动计算）
-        if (useCustomDate) {
-          customStartDate = startDate
-          customEndDate = endDate
-        }
-      } else {
-        // 时间点目标 - 开始日期为今天，截止日期为设置的日期
-        customStartDate = getTodayStr()
-        customEndDate = deadlineDate
-      }
+      // 里程碑目标：开始日期为今天，截止日期为设置的日期
+      const customStartDate = getTodayStr()
+      const customEndDate = deadlineDate
 
       const result = await createGoal(
         openid,
@@ -1248,7 +1208,6 @@ Page({
           rewardInputTags: [],
           penaltyInputTags: [],
           useCustomDate: false,
-          goalMode: 'periodic',
           deadlineDate: this.getDefaultDeadlineDate(),
           goalDescription: '',
           // 重置分类

@@ -30,7 +30,8 @@ async function generateInviteCode() {
       code += INVITE_CODE_CHARS[Math.floor(Math.random() * INVITE_CODE_CHARS.length)]
     }
     const res = await db.collection('users').where({ inviteCode: code }).count()
-    const total = (res && (typeof res.total === 'number' ? res.total : (res.data && res.data.total))) ?? 0
+    const totalVal = res && (typeof res.total === 'number' ? res.total : (res.data && res.data.total))
+    const total = (totalVal !== undefined && totalVal !== null) ? totalVal : 0
     if (total === 0) return code
   }
   return Date.now().toString(36).toUpperCase().slice(-INVITE_CODE_LEN)

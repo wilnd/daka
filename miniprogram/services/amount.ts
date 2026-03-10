@@ -1,8 +1,8 @@
 /**
  * 金额统一使用 Decimal（等价于 BigDecimal），避免浮点精度问题。
- * 依赖 decimal.js，构建前请：npm install && 微信开发者工具 -> 构建 npm
+ * 使用本地 decimal 实现，无需 npm 构建。
  */
-import Decimal from 'decimal.js'
+import Decimal from './decimal'
 
 export type Amount = string
 

@@ -20,6 +20,37 @@ interface DurationOption {
   tag?: string
 }
 
+/** 各等级 RMB 续费价：月价 青铜5/白银15/黄金30，90天与一年性价比更高 */
+const LEVEL_DURATION_PRICES: Record<number, { days: number; price: Amount; originalPrice?: Amount; tag?: string }[]> = {
+  1: [
+    { days: 30, price: '5' },
+    { days: 90, price: '12', originalPrice: '15', tag: '省3元' },
+    { days: 365, price: '45', originalPrice: '60', tag: '特惠' }
+  ],
+  2: [
+    { days: 30, price: '15' },
+    { days: 90, price: '40', originalPrice: '45', tag: '省5元' },
+    { days: 365, price: '120', originalPrice: '180', tag: '特惠' }
+  ],
+  3: [
+    { days: 30, price: '30' },
+    { days: 90, price: '80', originalPrice: '90', tag: '省10元' },
+    { days: 365, price: '240', originalPrice: '360', tag: '特惠' }
+  ]
+}
+
+function getDurationOptionsForLevel(level: number): DurationOption[] {
+  const raw = LEVEL_DURATION_PRICES[level] || LEVEL_DURATION_PRICES[1]
+  return raw.map(r => ({
+    days: r.days,
+    price: r.price,
+    originalPrice: r.originalPrice,
+    priceDisplay: formatYuan(r.price),
+    originalPriceDisplay: r.originalPrice ? formatYuan(r.originalPrice) : undefined,
+    tag: r.tag
+  })) as DurationOption[]
+}
+
 Page({
   data: {
     themeColor: '#1ABC9C',
@@ -55,9 +86,9 @@ Page({
     selectedLevel: 1,
     selectedDuration: 30,
     /** 当前选中套餐金额（BigDecimal 字符串） */
-    currentPrice: '9' as Amount,
-    /** 当前金额展示用（¥9.00） */
-    currentPriceDisplay: formatYuan('9'),
+    currentPrice: '5' as Amount,
+    /** 当前金额展示用（¥5.00） */
+    currentPriceDisplay: formatYuan('5'),
     canUpgrade: false,
     isUpgrading: false,
     // 等级选项
@@ -67,22 +98,15 @@ Page({
       { level: 2, name: '白银VIP' },
       { level: 3, name: '黄金VIP' }
     ] as LevelOption[],
-    // 时长选项（金额一律用 string/BigDecimal）
-    durationOptions: [
-      { days: 30, price: '9', originalPrice: '18', priceDisplay: formatYuan('9'), originalPriceDisplay: formatYuan('18'), tag: '首月' },
-      { days: 90, price: '25', originalPrice: '50', priceDisplay: formatYuan('25'), originalPriceDisplay: formatYuan('50') },
-      { days: 365, price: '99', originalPrice: '199', priceDisplay: formatYuan('99'), originalPriceDisplay: formatYuan('199'), tag: '特惠' }
-    ] as DurationOption[],
+    // 时长选项（按等级不同价格，默认青铜档）
+    durationOptions: getDurationOptionsForLevel(1),
     // 积分兑换
     referralPoints: 0,
-    /** 积分兑换选项：每档位每天所需积分 青铜50/白银80/黄金120 */
+    /** 积分兑换选项：仅 7 天套餐，青铜5积分/白银10积分/黄金15积分 */
     pointsExchangeOptions: [
-      { level: 1, levelName: '青铜VIP', days: 7, points: 350 },
-      { level: 1, levelName: '青铜VIP', days: 30, points: 1500 },
-      { level: 2, levelName: '白银VIP', days: 7, points: 560 },
-      { level: 2, levelName: '白银VIP', days: 30, points: 2400 },
-      { level: 3, levelName: '黄金VIP', days: 7, points: 840 },
-      { level: 3, levelName: '黄金VIP', days: 30, points: 3600 }
+      { level: 1, levelName: '青铜VIP', days: 7, points: 5 },
+      { level: 2, levelName: '白银VIP', days: 7, points: 10 },
+      { level: 3, levelName: '黄金VIP', days: 7, points: 15 }
     ] as { level: 1 | 2 | 3; levelName: string; days: number; points: number }[],
     isExchanging: false
   },
@@ -191,7 +215,15 @@ Page({
   },
 
   showUpgradeOptions() {
-    this.setData({ showUpgradeModal: true })
+    const level = this.data.selectedLevel
+    const opts = getDurationOptionsForLevel(level > 0 ? level : 1)
+    const current = opts.find(o => o.days === this.data.selectedDuration) || opts[0]
+    this.setData({
+      showUpgradeModal: true,
+      durationOptions: opts,
+      currentPrice: current.price,
+      currentPriceDisplay: formatYuan(current.price)
+    })
   },
 
   closeUpgradeModal() {
@@ -199,11 +231,15 @@ Page({
   },
 
   selectLevel(e: any) {
-    const level = e.currentTarget.dataset.level
-    const canUpgrade = level > 0 && this.data.selectedDuration > 0
-    this.setData({ 
+    const level = Number(e.currentTarget.dataset.level)
+    const opts = getDurationOptionsForLevel(level > 0 ? level : 1)
+    const current = opts.find(o => o.days === this.data.selectedDuration) || opts[0]
+    this.setData({
       selectedLevel: level,
-      canUpgrade
+      durationOptions: opts,
+      currentPrice: current.price,
+      currentPriceDisplay: formatYuan(current.price),
+      canUpgrade: level > 0 && this.data.selectedDuration > 0
     })
   },
 

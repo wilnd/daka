@@ -177,13 +177,14 @@
         <view class="level-badge">推荐</view>
         <view class="level-header">
           <text class="level-name">青铜VIP</text>
-          <text class="level-price">¥9/月</text>
+          <text class="level-price">¥5/月</text>
         </view>
         <view class="level-features">
           <view class="feature-item">专属徽章</view>
           <view class="feature-item">5次补卡/月</view>
           <view class="feature-item">小勤点评 20次/月</view>
           <view class="feature-item">优先客服</view>
+          <view class="feature-item same">支持积分兑换</view>
         </view>
       </view>
       
@@ -191,7 +192,7 @@
       <view class="level-card silver">
         <view class="level-header">
           <text class="level-name">白银VIP</text>
-          <text class="level-price">¥19/月</text>
+          <text class="level-price">¥15/月</text>
         </view>
         <view class="level-features">
           <view class="feature-item">专属徽章</view>
@@ -199,6 +200,7 @@
           <view class="feature-item">小勤点评 40次/月</view>
           <view class="feature-item">优先客服</view>
           <view class="feature-item">高级统计</view>
+          <view class="feature-item same">支持积分兑换</view>
         </view>
       </view>
       
@@ -206,7 +208,7 @@
       <view class="level-card gold">
         <view class="level-header">
           <text class="level-name">黄金VIP</text>
-          <text class="level-price">¥39/月</text>
+          <text class="level-price">¥30/月</text>
         </view>
         <view class="level-features">
           <view class="feature-item">全部特权</view>
@@ -214,6 +216,7 @@
           <view class="feature-item">小勤点评 100次/月</view>
           <view class="feature-item">专属客服</view>
           <view class="feature-item">限量礼品</view>
+          <view class="feature-item same">支持积分兑换</view>
         </view>
       </view>
     </view>

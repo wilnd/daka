@@ -1,0 +1,9 @@
+{
+  "name": "resetAiReviewQuota",
+  "version": "1.0.0",
+  "description": "每月1号0点重置小勤点评次数",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~3.0.5-beta.1"
+  }
+}

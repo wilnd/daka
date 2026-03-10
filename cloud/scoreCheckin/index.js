@@ -320,7 +320,7 @@ function recognizeSportFromText(text) {
             unit: unit,
             note: `通过关键词"${keyword}"识别`
           }],
-          summary: `进行了${SPORT_CONFIG[sportType]?.name || '运动'}`,
+          summary: `进行了${(SPORT_CONFIG[sportType] && SPORT_CONFIG[sportType].name) || '运动'}`,
           isValid: true
         }
       }
@@ -898,8 +898,8 @@ function applyVipGrowthBonus(totalScore, vipLevel) {
   return Math.round(totalScore * rate)
 }
 
-/** 积分兑换 VIP：每档位每天所需积分（青铜/白银/黄金） */
-const POINTS_PER_VIP_DAY = { 1: 50, 2: 80, 3: 120 }
+/** 积分兑换 VIP：仅支持 7 天套餐，固定积分（青铜5/白银10/黄金15） */
+const POINTS_FOR_7_DAYS = { 1: 5, 2: 10, 3: 15 }
 
 /**
  * 获取用户积分余额（邀请奖励积分，用于兑换 VIP）
@@ -923,10 +923,10 @@ async function handleExchangePointsForVip(openid, params) {
   const { level, days } = params || {}
   if (!openid) return { success: false, msg: '未获取到用户信息' }
   const vipLevel = Math.max(1, Math.min(3, parseInt(level, 10)))
-  const vipDays = Math.max(1, Math.min(365, parseInt(days, 10)))
-  const rate = POINTS_PER_VIP_DAY[vipLevel]
-  if (!rate) return { success: false, msg: '无效的VIP档位' }
-  const cost = rate * vipDays
+  const vipDays = parseInt(days, 10)
+  if (vipDays !== 7) return { success: false, msg: '积分兑换仅支持 7 天套餐' }
+  const cost = POINTS_FOR_7_DAYS[vipLevel]
+  if (cost == null) return { success: false, msg: '无效的VIP档位' }
 
   try {
     const { data: users } = await db.collection('users').where({ _openid: openid }).limit(1).get()
@@ -1090,7 +1090,7 @@ async function calculateGoalProgress(openid, groupId, goal) {
     const checkinDays = new Set()
 
     for (const checkin of weekCheckins || []) {
-      totalMinutes += (checkin.score?.totalMinutes ?? checkin.totalMinutes) || 0
+      totalMinutes += ((checkin.score && checkin.score.totalMinutes != null ? checkin.score.totalMinutes : checkin.totalMinutes) || 0)
       // 使用 date 字段（补卡的实际日期），而非 createTime
       checkinDays.add(checkin.date)
     }
@@ -1179,14 +1179,14 @@ async function getUserStats(openid, groupId, period = 'week') {
     const daysSet = new Set()
 
     for (const checkin of checkins) {
-      totalMinutes += (checkin.score?.totalMinutes ?? checkin.totalMinutes) || 0
-      totalScore += (checkin.score?.totalScore ?? checkin.totalScore) || 0
+      totalMinutes += ((checkin.score && checkin.score.totalMinutes != null ? checkin.score.totalMinutes : checkin.totalMinutes) || 0)
+      totalScore += ((checkin.score && checkin.score.totalScore != null ? checkin.score.totalScore : checkin.totalScore) || 0)
 
       // 使用 date 字段（补卡的实际日期），而非 createTime
       daysSet.add(checkin.date)
 
       // 统计运动类型
-      const sportTypes = checkin.sportTypes || checkin.content?.sportTypes || checkin.score?.sportTypes || []
+      const sportTypes = checkin.sportTypes || (checkin.content && checkin.content.sportTypes) || (checkin.score && checkin.score.sportTypes) || []
       for (const sport of sportTypes) {
         sportsCount[sport] = (sportsCount[sport] || 0) + 1
       }
@@ -1342,7 +1342,7 @@ async function checkAchievements(openid, groupId) {
     const { streak } = await calculateStreakInfo(openid, groupId, checkins)
 
     for (const checkin of checkins) {
-      totalMinutes += (checkin.score?.totalMinutes ?? checkin.totalMinutes) || 0
+      totalMinutes += ((checkin.score && checkin.score.totalMinutes != null ? checkin.score.totalMinutes : checkin.totalMinutes) || 0)
       if (checkin.completenessScore >= 90) {
         perfectCount++
       }
@@ -2062,8 +2062,8 @@ async function getGroupStats(groupId, period = 'week') {
     for (const openid of userIds) {
       userStatsMap[openid] = {
         openid,
-        nickName: userInfoMap[openid]?.nickName || '未知',
-        avatarUrl: userInfoMap[openid]?.avatarUrl || '',
+        nickName: (userInfoMap[openid] && userInfoMap[openid].nickName) || '未知',
+        avatarUrl: (userInfoMap[openid] && userInfoMap[openid].avatarUrl) || '',
         totalMinutes: 0,
         totalScore: 0,
         checkinDays: new Set(),
@@ -2078,8 +2078,8 @@ async function getGroupStats(groupId, period = 'week') {
       if (!stats) continue
 
       // score 字段是嵌套对象，需要从 checkin.score 中获取
-      const checkinMinutes = (checkin.score?.totalMinutes ?? checkin.totalMinutes) || 0
-      const checkinScore = (checkin.score?.totalScore ?? checkin.totalScore) || 0
+      const checkinMinutes = (checkin.score && checkin.score.totalMinutes != null ? checkin.score.totalMinutes : checkin.totalMinutes) || 0
+      const checkinScore = (checkin.score && checkin.score.totalScore != null ? checkin.score.totalScore : checkin.totalScore) || 0
 
       stats.totalMinutes += checkinMinutes
       stats.totalScore += checkinScore
@@ -2264,12 +2264,12 @@ async function handleGetAllStats(openid, params) {
     const daysSet = new Set()
 
     for (const checkin of checkins || []) {
-      totalMinutes += (checkin.score?.totalMinutes ?? checkin.totalMinutes) || 0
-      totalScore += (checkin.score?.totalScore ?? checkin.totalScore) || 0
+      totalMinutes += ((checkin.score && checkin.score.totalMinutes != null ? checkin.score.totalMinutes : checkin.totalMinutes) || 0)
+      totalScore += ((checkin.score && checkin.score.totalScore != null ? checkin.score.totalScore : checkin.totalScore) || 0)
       daysSet.add(checkin.date)
     }
 
-    const totalCheckins = checkins?.length || 0
+    const totalCheckins = (checkins && checkins.length) || 0
     let totalDays = daysSet.size
     let streak = 0
     let bestStreak = 0

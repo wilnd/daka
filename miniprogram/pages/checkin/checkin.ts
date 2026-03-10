@@ -21,8 +21,6 @@ interface DefaultCheckinData {
   isPublishToMoments: boolean
   momentsGroupId: string
   momentsGroupIndex: number
-  // 自定义朋友圈评论
-  momentsComment: string
 }
 
 /** 从本地缓存获取打卡默认值 */
@@ -76,8 +74,6 @@ Page({
     momentsGroupId: '',
     momentsGroupName: '',
     momentsGroupIndex: 0,
-    // 自定义朋友圈评论
-    momentsComment: '',
     // 组合后的可见范围选项（包含"所有群组"和实际群组）
     momentsGroupRange: [] as any[],
     // 用户的群组列表
@@ -231,8 +227,7 @@ Page({
         isPublishToMoments: true,
         momentsGroupId: '',
         momentsGroupName: '',
-        momentsGroupIndex: 0,
-        momentsComment: ''
+        momentsGroupIndex: 0
       })
     } catch (e) {
       console.error('加载今日记录失败', e)
@@ -271,18 +266,12 @@ Page({
       isPublishToMoments: true,
       momentsGroupId: '',
       momentsGroupName: '',
-      momentsGroupIndex: 0,
-      momentsComment: ''
+      momentsGroupIndex: 0
     })
   },
 
   onTextInput(e: any) {
     this.setData({ text: e.detail.value })
-  },
-
-  // 自定义朋友圈评论输入
-  onMomentsCommentInput(e: any) {
-    this.setData({ momentsComment: e.detail.value })
   },
 
   // 小类别点击处理
@@ -392,14 +381,27 @@ Page({
     if (this.data.selectedCategoryId === categoryid) {
       this.setData({
         selectedCategoryId: '',
-        categoryIndex: -1
+        categoryIndex: -1,
+        subCategories: [],
+        selectedTag: '',
+        subCategoryIndex: -1,
+        showCustomSubInput: false,
+        customCategoryDisplay: '',
+        customCategoryName: ''
       })
       return
     }
-    // 选中新的主类别，显示子类型
+    // 选中新的主类别：刷新小类列表并清空之前的小类选择
+    const subCategories = getSubCategories(categoryid)
     this.setData({
       selectedCategoryId: categoryid,
-      categoryIndex
+      categoryIndex,
+      subCategories,
+      selectedTag: '',
+      subCategoryIndex: -1,
+      showCustomSubInput: false,
+      customCategoryDisplay: '',
+      customCategoryName: ''
     })
   },
 
@@ -576,7 +578,6 @@ Page({
         momentsGroupId: this.data.momentsGroupId,
         duration: this.data.duration ? parseFloat(this.data.duration) : 0,
         durationUnit: this.data.durationUnits[this.data.durationUnitIndex],
-        momentsComment: (this.data.momentsComment && this.data.momentsComment.trim()) || ''
       }
 
       const tBeforeDo = Date.now()
@@ -614,8 +615,7 @@ Page({
           durationUnitIndex: this.data.durationUnitIndex,
           isPublishToMoments: this.data.isPublishToMoments,
           momentsGroupId: this.data.momentsGroupId,
-          momentsGroupIndex: this.data.momentsGroupIndex,
-          momentsComment: this.data.momentsComment
+          momentsGroupIndex: this.data.momentsGroupIndex
         }
         setDefaultCheckin(defaultData)
 

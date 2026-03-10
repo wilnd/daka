@@ -175,12 +175,18 @@ export async function upgradeVip(openid: string, level: VipLevel, days: number):
       newExpireTime = new Date(currentExpireTime.getTime() + days * 24 * 60 * 60 * 1000)
     }
 
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const aiReviewQuotaMonth = `${y}-${m}`
+
     await usersCol().where({ _openid: openid }).update({
       data: {
         vipLevel: level,
         vipStartTime: isCurrentlyExpired ? now : user.vipStartTime,
         vipExpireTime: newExpireTime,
-        totalVipDays: (user.totalVipDays || 0) + days
+        totalVipDays: (user.totalVipDays || 0) + days,
+        aiReviewUsedThisMonth: 0,
+        aiReviewQuotaMonth
       }
     })
 

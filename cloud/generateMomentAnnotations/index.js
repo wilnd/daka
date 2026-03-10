@@ -376,26 +376,39 @@ async function generateYearlyReview(monthlyItems) {
 /** 各档位 VIP 每月小勤点评生成次数上限（与 miniprogram/services/vip.ts 一致；每月初0点更新） */
 const VIP_AI_REVIEW_QUOTA = { 0: 5, 1: 20, 2: 40, 3: 100 }
 
-/** 本月起止时间（服务器时区，用于统计本月已生成条数） */
-function getCurrentMonthRange() {
+/** 当前月 YYYY-MM（与 resetAiReviewQuota、users.aiReviewQuotaMonth 一致） */
+function getCurrentMonthStr() {
   const d = new Date()
   const y = d.getFullYear()
-  const m = d.getMonth()
-  const start = new Date(y, m, 1, 0, 0, 0, 0)
-  const end = new Date(y, m + 1, 0, 23, 59, 59, 999)
-  return { start, end }
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}`
 }
 
-/** 获取用户本月已生成点评条数（按 createTime 在本月的记录数） */
-async function getUsedAiReviewCountThisMonth(openid) {
-  const { start, end } = getCurrentMonthRange()
-  const { total } = await db.collection('momentAnnotations')
-    .where({
-      _openid: openid,
-      createTime: _.gte(start).and(_.lte(end))
-    })
-    .count()
-  return total
+/** 获取用户本月已使用小勤点评次数（来自 users.aiReviewUsedThisMonth，每月初由定时任务重置） */
+async function getUsedAiReviewCountThisMonth(openid, user) {
+  const monthStr = getCurrentMonthStr()
+  const usersRes = await db.collection('users').where({ _openid: openid }).limit(1).get()
+  const u = user || (usersRes.data && usersRes.data[0])
+  if (!u) return 0
+  if (u.aiReviewQuotaMonth === monthStr && u.aiReviewUsedThisMonth != null) {
+    return u.aiReviewUsedThisMonth
+  }
+  return 0
+}
+
+/** 点评生成成功后：将用户本月已用次数 +1 并写回 users */
+async function incrementUserAiReviewUsed(openid) {
+  const monthStr = getCurrentMonthStr()
+  const { data: users } = await db.collection('users').where({ _openid: openid }).limit(1).get()
+  if (!users || users.length === 0) return
+  const u = users[0]
+  const current = (u.aiReviewQuotaMonth === monthStr && u.aiReviewUsedThisMonth != null) ? u.aiReviewUsedThisMonth : 0
+  await db.collection('users').doc(u._id).update({
+    data: {
+      aiReviewUsedThisMonth: current + 1,
+      aiReviewQuotaMonth: monthStr
+    }
+  })
 }
 
 /** 获取用户 VIP 等级对应的点评次数上限（未开通或已过期视为 0） */
@@ -445,11 +458,15 @@ exports.main = async (event, context) => {
     return { success: false, msg: '请传入 action：weekly | monthly | yearly | getQuota' }
   }
 
-  // 仅查询本月点评次数配额与已用（用于点评页展示剩余次数）
+  // 仅查询本月点评次数配额与已用（用于点评页展示剩余次数；已用来自 users.aiReviewUsedThisMonth）
   if (action === 'getQuota') {
     const [quota, used] = await Promise.all([getAiReviewQuota(openid), getUsedAiReviewCountThisMonth(openid)])
     return { success: true, quota, used, remaining: Math.max(0, quota - used) }
   }
+
+  // 生成点评前需拿到 user，用于校验已用次数（每次点评消耗 1 次）
+  const { data: userList } = await db.collection('users').where({ _openid: openid }).limit(1).get()
+  const user = userList && userList[0] ? userList[0] : null
 
   if (!['weekly', 'monthly', 'yearly'].includes(action)) {
     return { success: false, msg: '请传入 action：weekly | monthly | yearly' }
@@ -460,8 +477,8 @@ exports.main = async (event, context) => {
   if (!quota || quota < 1) {
     return { success: false, msg: '小勤点评需开通VIP后使用，开通即拥有当月额度' }
   }
-  // 每次生成都扣额度，不区分是否同周期已有点评
-  const used = await getUsedAiReviewCountThisMonth(openid)
+  // 每次生成都扣额度，不区分是否同周期已有点评（已用次数来自 users.aiReviewUsedThisMonth）
+  const used = await getUsedAiReviewCountThisMonth(openid, user)
   if (used >= quota) {
     return {
       success: false,
@@ -495,6 +512,7 @@ exports.main = async (event, context) => {
       }
       const now = new Date()
       await addAnnotation(openid, 'weekly', period, detail, brief)
+      await incrementUserAiReviewUsed(openid)
       return { success: true, action: 'weekly', period, data: { type: 'weekly', period, content: detail, contentShort: brief, createTime: now } }
     }
 
@@ -521,6 +539,7 @@ exports.main = async (event, context) => {
       }
       const now = new Date()
       await addAnnotation(openid, 'monthly', month, detail, brief)
+      await incrementUserAiReviewUsed(openid)
       return { success: true, action: 'monthly', period: month, data: { type: 'monthly', period: month, content: detail, contentShort: brief, createTime: now } }
     }
 
@@ -547,6 +566,7 @@ exports.main = async (event, context) => {
       }
       const now = new Date()
       await addAnnotation(openid, 'yearly', year, detail, brief)
+      await incrementUserAiReviewUsed(openid)
       return { success: true, action: 'yearly', period: year, data: { type: 'yearly', period: year, content: detail, contentShort: brief, createTime: now } }
     }
 

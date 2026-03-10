@@ -150,7 +150,7 @@ exports.main = async (event, context) => {
         ])
 
         // 处理群组名称
-        const currentGroupName = currentGroupRes.data?.name || ''
+        const currentGroupName = (currentGroupRes.data && currentGroupRes.data.name) || ''
         const groupNameMap = new Map()
         for (const g of allGroupsRes.data || []) {
           groupNameMap.set(g._id, g.name || '')

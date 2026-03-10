@@ -26,6 +26,8 @@
 | inviteCode | string | 可选；本人邀请码，唯一，用于分享给他人 |
 | inviteTime | date | 可选；绑定邀请人的时间 |
 | referralPoints | number | 可选；累计获得的邀请奖励积分（默认 0） |
+| aiReviewQuotaMonth | string | 可选；小勤点评配额所属月份 YYYY-MM，由定时任务与开通会员时写入 |
+| aiReviewUsedThisMonth | number | 可选；当月已使用小勤点评次数，每月初由云函数 resetAiReviewQuota 重置，开通/续费会员时重置为 0 |
 
 权限：用户仅可读写自己的记录（_openid == 当前用户）
 
@@ -160,7 +162,9 @@
 
 **生成方式**（云函数 `generateMomentAnnotations`，无定时触发器）：
 - 用户在小程序「小勤同学点评」页点击「上周 / 上月 / 去年」时调用，传入 `action: "weekly" | "monthly" | "yearly"`。
-- **VIP 档位限制**：每月可生成次数按 VIP 等级：普通 5 次、青铜 20 次、白银 40 次、黄金 100 次；开通即拥有额度，每月初 0 点更新；同周期重复生成（如再次生成同一周）只更新不占新次数。
+- **VIP 档位限制**：每月可生成次数按 VIP 等级：普通 5 次、青铜 20 次、白银 40 次、黄金 100 次；开通即拥有额度。
+- **次数重置**：每月 1 号 0 点由云函数 `resetAiReviewQuota` 定时任务将全体用户的 `aiReviewUsedThisMonth` 置 0；开设/续费会员时在 `upgradeVip` 中按会员类型重置为 0，当月即享有该档位额度。
+- **扣减**：每次成功生成一条点评（周/月/年）即扣减 1 次，写入 `users.aiReviewUsedThisMonth`。
 - 点评记录通过 moments 云函数 `getAnnotations` 查询（返回 content、contentShort、createTime 等），详情页展示详细点评，海报/列表使用 contentShort（周为本周整体概括）。
 
 ## 7. momentLikes（成长墙点赞）
