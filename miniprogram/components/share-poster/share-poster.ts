@@ -170,6 +170,28 @@ Component({
       return year + '-' + month + '-' + dayStr
     },
 
+    /** 格式：2026第x周 03.02~03.08（上周一至上周日） */
+    getWeekLabelForPoster(): string {
+      const today = new Date()
+      const day = today.getDay()
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1)
+      const thisMonday = new Date(today.getFullYear(), today.getMonth(), diff)
+      const monday = new Date(thisMonday)
+      monday.setDate(monday.getDate() - 7)
+      const sunday = new Date(monday)
+      sunday.setDate(sunday.getDate() + 6)
+      const year = monday.getFullYear()
+      const pad = (n: number) => ('0' + n).slice(-2)
+      const mondayStr = pad(monday.getMonth() + 1) + '.' + pad(monday.getDate())
+      const sundayStr = pad(sunday.getMonth() + 1) + '.' + pad(sunday.getDate())
+      const jan1 = new Date(year, 0, 1)
+      const jan1Day = jan1.getDay()
+      const firstMondayOffset = jan1Day === 0 ? -6 : 1 - jan1Day
+      const firstMonday = new Date(year, 0, 1 + firstMondayOffset)
+      const weekNum = 1 + Math.floor((monday.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000))
+      return `${year}第${weekNum}周 ${mondayStr}~${sundayStr}`
+    },
+
     // 获取一周打卡数据
     async getWeekCheckinData(openid: string): Promise<{ checkins: any[], totalDays: number, totalCount: number }> {
       const db = wx.cloud.database()
@@ -763,7 +785,7 @@ Component({
                 ctx.fillText(nickName + ' 的成长点评', cx, topCardTop + 96 * r)
                 ctx.fillStyle = '#999'
                 ctx.font = `${11 * r}px sans-serif`
-                ctx.fillText(new Date().toLocaleDateString('zh-CN'), cx, topCardTop + 112 * r)
+                ctx.fillText(this.getWeekLabelForPoster(), cx, topCardTop + 112 * r)
               }
               const drawContentAndQr = () => {
                 ctx.fillStyle = '#ffffff'

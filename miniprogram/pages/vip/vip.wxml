@@ -98,6 +98,34 @@
     </view>
   </view>
 
+  <!-- 积分兑换 VIP -->
+  <view class="points-exchange-section" wx:if="{{referralPoints !== undefined}}">
+    <view class="section-header">
+      <text class="section-title">积分兑换</text>
+      <text class="section-subtitle">邀请好友获得积分，可兑换VIP</text>
+    </view>
+    <view class="points-balance">
+      <text class="points-label">当前积分</text>
+      <text class="points-value">{{referralPoints}}</text>
+    </view>
+    <view class="exchange-options">
+      <view
+        class="exchange-option {{item.points > referralPoints ? 'disabled' : ''}}"
+        wx:for="{{pointsExchangeOptions}}"
+        wx:for-index="idx"
+        wx:key="points"
+        data-index="{{idx}}"
+        bindtap="onExchangeWithPoints"
+      >
+        <view class="exchange-desc">{{item.days}}天{{item.levelName}}</view>
+        <view class="exchange-cost">{{item.points}}积分</view>
+        <view class="exchange-btn" wx:if="{{!isExchanging && item.points <= referralPoints}}">兑换</view>
+        <view class="exchange-btn disabled" wx:elif="{{item.points > referralPoints}}">积分不足</view>
+        <view class="exchange-btn" wx:else>兑换中...</view>
+      </view>
+    </view>
+  </view>
+
   <!-- 权益亮点 -->
   <view class="benefits-highlight">
     <view class="highlight-item" wx:for="{{highlightBenefits}}" wx:key="index">
@@ -251,12 +279,12 @@
           bindtap="selectDuration"
         >
           <view class="duration-days">{{item.days}}天</view>
-          <view class="duration-price" wx:if="{{item.originalPrice}}">
-            <text class="original">¥{{item.originalPrice}}</text>
-            <text class="current">¥{{item.price}}</text>
+          <view class="duration-price" wx:if="{{item.originalPriceDisplay}}">
+            <text class="original">¥{{item.originalPriceDisplay}}</text>
+            <text class="current">¥{{item.priceDisplay}}</text>
           </view>
           <view class="duration-price" wx:else>
-            <text class="current">¥{{item.price}}</text>
+            <text class="current">¥{{item.priceDisplay}}</text>
           </view>
           <view class="duration-tag" wx:if="{{item.tag}}">{{item.tag}}</view>
         </view>
@@ -269,7 +297,7 @@
         disabled="{{!canUpgrade || isUpgrading}}"
       >
         <text class="pay-icon">💳</text>
-        <text class="pay-text">{{isUpgrading ? '开通中...' : (canUpgrade ? '立即支付 ¥' + currentPrice : '请选择套餐')}}</text>
+        <text class="pay-text">{{isUpgrading ? '开通中...' : (canUpgrade ? '立即支付 ¥' + currentPriceDisplay : '请选择套餐')}}</text>
       </button>
 
       <!-- 用户协议 -->

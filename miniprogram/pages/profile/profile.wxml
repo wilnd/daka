@@ -1,20 +1,12 @@
 <navigation-bar title="我的" back="{{false}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
-    <!-- 未授权状态 -->
-    <view wx:if="{{!hasUserInfo}}" class="need-auth">
-      <view class="empty-illustration">
-        <text class="empty-icon">👤</text>
-      </view>
-      <text class="empty-title">请先完成授权</text>
-      <text class="empty-desc">登录后就能看到你有多优秀了</text>
-      <navigator url="/pages/index/index" class="btn-primary auth-btn">
-        <text>去首页报道</text>
-      </navigator>
+    <view wx:if="{{!hasUserInfo}}" class="guest-tip-wrap">
+      <text class="guest-tip">登录后可查看个人数据</text>
+      <navigator url="/pages/index/index" class="auth-link">去首页报道</navigator>
     </view>
 
-    <!-- 已授权内容 -->
-    <view wx:else class="content">
+    <view class="content">
       <!-- VIP会员卡片 -->
       <view class="vip-card" bindtap="goToVip">
         <view class="vip-bg">
@@ -55,16 +47,18 @@
         </view>
       </view>
 
-      <!-- 用户信息卡片 -->
-      <view class="user-card">
+      <!-- 用户信息卡片（登录后显示） -->
+      <view class="user-card" wx:if="{{hasUserInfo && userInfo.nickName}}">
         <view class="user-main" bindtap="onEditUserInfo">
           <view class="avatar-wrapper">
             <image
+              wx:if="{{userInfo.avatarUrl}}"
               class="avatar"
               src="{{userInfo.avatarUrl}}"
               mode="aspectFill"
               catchtap="onViewMyMoments"
             ></image>
+            <view wx:else class="avatar avatar-initial" catchtap="onViewMyMoments"><text>{{userInfo.avatarInitial || '?'}}</text></view>
             <view class="avatar-edit-badge">
               <text>编辑</text>
             </view>
@@ -110,6 +104,17 @@
               <text>{{goalSummary.completed}}</text>
             </view>
           </view>
+
+          <!-- 我的邀请 -->
+          <navigator url="/pages/referral/referral" class="menu-card">
+            <view class="menu-icon-wrap">
+              <text class="menu-icon">👥</text>
+            </view>
+            <view class="menu-info">
+              <text class="menu-title">我的邀请</text>
+              <text class="menu-desc">邀请好友得积分，查看邀请关系</text>
+            </view>
+          </navigator>
 
           <!-- 记录日历 -->
           <navigator url="/pages/calendar/calendar" class="menu-card">
@@ -197,10 +202,11 @@
     </view>
   </view>
   <view class="modal-body">
-    <!-- 头像选择 -->
+    <!-- 头像选择：无头像时显示昵称首字母 -->
     <view class="avatar-section">
       <button class="btn-avatar" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
-        <image class="avatar-preview" src="{{editingInfo.avatarUrl}}" mode="aspectFill"></image>
+        <image wx:if="{{editingInfo.avatarUrl}}" class="avatar-preview" src="{{editingInfo.avatarUrl}}" mode="aspectFill"></image>
+        <view wx:else class="avatar-preview avatar-initial"><text>{{editingInfo.avatarInitial || '?'}}</text></view>
         <view class="avatar-mask">
           <text class="avatar-tip">戳我换头像</text>
         </view>

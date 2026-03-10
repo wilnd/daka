@@ -5,7 +5,10 @@
     <block wx:if="{{goal}}">
       <view class="goal-detail-card">
         <view class="goal-header">
-          <text class="goal-title">{{goal.title}}</text>
+          <view class="goal-title-wrap">
+            <text class="goal-title">{{goal.title}}</text>
+            <text class="goal-description" wx:if="{{goal.description}}">{{goal.description}}</text>
+          </view>
           <text class="goal-period {{goal.period}}">{{goal.period === 'daily' ? '每日' : goal.period === 'weekly' ? '每周' : '每月'}}</text>
         </view>
         <!-- 分类信息（仅成长墙类型显示） -->

@@ -32,7 +32,8 @@ import {
   GoalCategory
 } from '../../services/goal'
 import { getTodayStr } from '../../services/db'
-import { generateConfirmCode, defaultAvatar } from '../../services/utils'
+import { requireLogin } from '../../services/auth'
+import { generateConfirmCode, defaultAvatar, getAvatarInitial } from '../../services/utils'
 import { generateGoalShareUrl } from '../../services/goal'
 import { getMyGroups, getGroupMembersWithUserInfo } from '../../services/group'
 import { CHECKIN_CATEGORIES, getSubCategories, getCategoryDisplayName, Category, SubCategory } from '../../services/category'
@@ -124,6 +125,8 @@ Page({
     subCategories: [] as SubCategory[],
     // 是否显示分类选择（根据目标类型动态显示）
     needCategory: false,
+    // 计划描述（具体自律什么，最多10字）
+    goalDescription: '',
   },
 
   onLoad() {
@@ -398,9 +401,11 @@ Page({
   async onSelectConfirmorGroup(e: any) {
     const group = e.currentTarget.dataset.group
     const groupMembers = await getGroupMembersWithUserInfo(group._id)
-    // 过滤掉当前用户
+    // 过滤掉当前用户，并添加昵称首字母用于无头像时展示
     const currentUserId = app.globalData.openid
-    const filteredMembers = groupMembers.filter(m => m.openid !== currentUserId)
+    const filteredMembers = groupMembers
+      .filter(m => m.openid !== currentUserId)
+      .map(m => ({ ...m, avatarInitial: getAvatarInitial(m.nickName) }))
 
     this.setData({
       confirmorSelectionStep: 2,
@@ -859,15 +864,11 @@ Page({
 
     const name = manageTagType === 'reward' ? customRewardName : customPenaltyName
     const value = manageTagType === 'reward' ? customRewardValue : customPenaltyValue
-    const openid = app.globalData.openid
+    const openid = requireLogin()
+    if (!openid) return
 
     if (!name || !name.trim()) {
       wx.showToast({ title: '请输入标签名称', icon: 'none' })
-      return
-    }
-
-    if (!openid) {
-      wx.showToast({ title: '请先登录', icon: 'none' })
       return
     }
 
@@ -1048,6 +1049,12 @@ Page({
     })
   },
 
+  // 计划描述输入
+  onGoalDescriptionInput(e: WechatMiniprogram.CustomEvent) {
+    const value = (e.detail.value || '').trim().slice(0, 10)
+    this.setData({ goalDescription: value })
+  },
+
   // 预览目标
   onPreview() {
     const {
@@ -1067,9 +1074,11 @@ Page({
       deadlineDate,
       needCategory,
       selectedCategoryName,
-      selectedSubCategoryName
+      selectedSubCategoryName,
+      goalDescription
     } = this.data
     const config = GoalConfigs[selectedPeriod][selectedType]
+    const displayDesc = (goalDescription && goalDescription.trim()) ? goalDescription.trim().slice(0, 10) : config.description
 
     const confirmor = confirmorName && confirmCode ? {
       openid: '',
@@ -1115,7 +1124,7 @@ Page({
       showPreview: true,
       previewGoal: {
         title: config.title,
-        description: config.description,
+        description: displayDesc,
         period: selectedPeriod,
         type: selectedType,
         target: targetValue,
@@ -1141,11 +1150,8 @@ Page({
 
   // 创建目标
   async onCreateGoal() {
-    const openid = app.globalData.openid
-    if (!openid) {
-      wx.showToast({ title: '请先登录', icon: 'none' })
-      return
-    }
+    const openid = requireLogin()
+    if (!openid) return
 
     const {
       goalMode,
@@ -1166,7 +1172,8 @@ Page({
       selectedCategoryId,
       selectedCategoryName,
       selectedSubCategoryId,
-      selectedSubCategoryName
+      selectedSubCategoryName,
+      goalDescription
     } = this.data
 
     // 如果需要分类但未选择，提示用户
@@ -1225,7 +1232,8 @@ Page({
         confirmor,
         rewardInputTags,
         penaltyInputTags,
-        category
+        category,
+        goalDescription && goalDescription.trim() ? goalDescription.trim().slice(0, 10) : undefined
       )
 
       if (result.success) {
@@ -1242,6 +1250,7 @@ Page({
           useCustomDate: false,
           goalMode: 'periodic',
           deadlineDate: this.getDefaultDeadlineDate(),
+          goalDescription: '',
           // 重置分类
           needCategory: false,
           selectedCategoryId: '',
@@ -1265,12 +1274,8 @@ Page({
   // 删除目标
   async onDeleteGoal(e: any) {
     const goalId = e.currentTarget.dataset.id
-    const openid = app.globalData.openid
-
-    if (!openid) {
-      wx.showToast({ title: '请先登录', icon: 'none' })
-      return
-    }
+    const openid = requireLogin()
+    if (!openid) return
 
     wx.showModal({
       title: '确认删除',

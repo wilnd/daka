@@ -22,6 +22,50 @@ export interface UserRecord extends UserInfo {
   remindTime?: string
 }
 
+/** 登录页路径（首页报道） */
+export const LOGIN_PAGE = '/pages/index/index'
+
+/**
+ * 判断当前是否已登录（已获取 openid 且用户已完成报道，即存在 userInfo）
+ */
+export function isLoggedIn(): boolean {
+  const app = getApp() as any
+  const openid = wx.getStorageSync('openid') || (app.globalData && app.globalData.openid)
+  const userInfo = wx.getStorageSync('userInfo')
+  return !!(openid && userInfo && userInfo.nickName)
+}
+
+/**
+ * 使用功能前调用：若未登录则提示并跳转登录页，登录后可返回原页面。
+ * @param redirectUrl 登录成功后要跳转的页面路径（可选，不传则使用当前页面路径）
+ * @returns 已登录时返回 openid，未登录时跳转登录页并返回 null
+ */
+export function requireLogin(redirectUrl?: string): string | null {
+  if (isLoggedIn()) {
+    const app = getApp() as any
+    const openid = wx.getStorageSync('openid') || (app.globalData && app.globalData.openid)
+    return openid || null
+  }
+  wx.showToast({ title: '请先登录', icon: 'none' })
+  const url = redirectUrl || (() => {
+    const pages = getCurrentPages()
+    const cur = pages[pages.length - 1] as any
+    return cur && cur.route ? '/' + cur.route : LOGIN_PAGE
+  })()
+  wx.setStorageSync('loginRedirectUrl', url)
+  wx.switchTab({ url: LOGIN_PAGE })
+  return null
+}
+
+/**
+ * 异步版本：使用功能前调用，若未登录则跳转登录页。
+ * @param redirectUrl 登录成功后要跳转的页面路径（可选）
+ * @returns 已登录时返回 openid，未登录时返回 null（已跳转登录页）
+ */
+export async function requireLoginAsync(redirectUrl?: string): Promise<string | null> {
+  return Promise.resolve(requireLogin(redirectUrl))
+}
+
 /** 云函数获取 openid */
 export async function getOpenid(): Promise<string> {
   const res = await wx.cloud.callFunction({ name: 'login' })

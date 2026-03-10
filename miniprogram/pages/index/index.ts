@@ -1,11 +1,11 @@
 // index.ts
-import { getOrCreateUser, getOpenid } from '../../services/auth'
+import { getOrCreateUser, getOpenid, LOGIN_PAGE } from '../../services/auth'
 import { getMyGroups } from '../../services/group'
 import { doCheckinWithContent, isCheckedToday } from '../../services/checkin'
 import { getStreak, getMissStreak, getTotalDays, getTotalCount, getBestStreak, getAllRank, getDayRank, getWeekRank, getMonthRank, getAllStats, RankUser } from '../../services/stats'
 import { getYesterdayCheckin, getSimpleThemeColor, calculateTheme } from '../../services/theme'
 import { callGetMyRank, callGetGroupStats, callGetStats, callGetAchievements, RankResult, GroupStats } from '../../services/score'
-import { getCachedGroups, setCachedGroups, convertRankAvatarUrls, convertCloudUrl, hexToRgb, uploadAvatarIfNeeded, defaultAvatar } from '../../services/utils'
+import { getCachedGroups, setCachedGroups, convertRankAvatarUrls, convertCloudUrl, hexToRgb, uploadAvatarIfNeeded, defaultAvatar, getAvatarInitial } from '../../services/utils'
 import { getActiveGoals, calculateGoalProgress, getGoalStatus, Goal } from '../../services/goal'
 
 const app = getApp() as IAppOption
@@ -32,7 +32,8 @@ Component({
   data: {
     showSwitchModal: false,
     hasUserInfo: false,
-    userInfo: { avatarUrl: defaultAvatar, nickName: '' },
+    userInfo: { avatarUrl: '', nickName: '' },
+    avatarInitial: '',
     currentGroup: null as any,
     groups: [] as any[],
     checkedToday: false,
@@ -96,24 +97,38 @@ Component({
   methods: {
     async init() {
       const ui = wx.getStorageSync('userInfo')
-      if (ui && ui.nickName && ui.avatarUrl) {
-        let avatarUrl = ui.avatarUrl
-        if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
-          avatarUrl = defaultAvatar
-        } else if (avatarUrl.startsWith('cloud://')) {
+      if (ui && ui.nickName) {
+        let avatarUrl = ui.avatarUrl || ''
+        if (avatarUrl && !avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://') && !avatarUrl.startsWith('http://')) {
+          avatarUrl = ''
+        } else if (avatarUrl && avatarUrl.startsWith('cloud://')) {
           avatarUrl = await convertCloudUrl(avatarUrl)
         }
-        const userInfo = { ...ui, avatarUrl }
+        const userInfo = { ...ui, avatarUrl: avatarUrl || '' }
         wx.setStorageSync('userInfo', userInfo)
-        this.setData({ hasUserInfo: true, userInfo, loading: true })
+        this.setData({ hasUserInfo: true, userInfo: { ...userInfo, avatarUrl }, avatarInitial: getAvatarInitial(ui.nickName), loading: true })
         await this.ensureOpenid()
         this.loadData()
+        const openid = app.globalData.openid
+        if (openid) await this.tryBindInviteCode(openid)
         return
       }
       const canUse = wx.canIUse('button.open-type.chooseAvatar')
       if (!canUse) {
         wx.showToast({ title: '请升级微信版本', icon: 'none' })
       }
+    },
+    /** 若有待绑定邀请码则调用云函数绑定并清除缓存；仅新用户可绑定为下级。用户不感知被邀请，不 toast，静默处理。 */
+    async tryBindInviteCode(openid: string) {
+      const inviteCode = wx.getStorageSync('pendingInviteCode')
+      if (!inviteCode) return
+      try {
+        await wx.cloud.callFunction({
+          name: 'referral',
+          data: { action: 'bindInvite', inviteCode }
+        })
+      } catch (_) {}
+      wx.removeStorageSync('pendingInviteCode')
     },
     async ensureOpenid() {
       let openid = app.globalData.openid
@@ -173,30 +188,26 @@ Component({
         let rankList: RankUser[] = []
         let checkinCardColor = this.data.checkinCardColor
         let checkinCardColorRgb = this.data.checkinCardColorRgb
+        // 无论是否加入组织，都拉取今日打卡状态与个人统计（支持未加入组织时正常打卡与统计）
+        checkedToday = await isCheckedToday(openid, cur ? cur._id : undefined)
+        const allStatsData = await getAllStats(openid)
+        const { streak, totalDays, totalCount, missStreak, bestStreak } = allStatsData
+        const progressPercent = Math.min(100, Math.round((totalDays / 30) * 100))
+        stats = { streak, totalDays, totalCount, missStreak, bestStreak, progressPercent }
+        const checkedYesterday = await getYesterdayCheckin(openid)
+        if (app.updateTheme) app.updateTheme(checkedToday, checkedYesterday)
+        const cardTheme = calculateTheme(checkedToday, checkedYesterday)
+        if (checkedToday) {
+          checkinCardColor = '#1ABC9C'
+          checkinCardColorRgb = '26, 188, 156'
+        } else {
+          checkinCardColor = cardTheme.color
+          checkinCardColorRgb = hexToRgb(cardTheme.color)
+        }
         if (cur) {
-          checkedToday = await isCheckedToday(openid, cur._id)
-          const allStatsData = await getAllStats(openid)
-          const { streak, totalDays, totalCount, missStreak, bestStreak } = allStatsData
-          const progressPercent = Math.min(100, Math.round((totalDays / 30) * 100))
-          stats = { streak, totalDays, totalCount, missStreak, bestStreak, progressPercent }
           rankList = await getWeekRank(cur._id)
           rankList = await convertRankAvatarUrls(rankList)
           this.loadGroupStats(openid, cur._id)
-          const checkedYesterday = await getYesterdayCheckin(openid)
-          if (app.updateTheme) app.updateTheme(checkedToday, checkedYesterday)
-          // 打卡区颜色按今日/昨日打卡状态本地计算；今日已打卡时强制绿色，避免查询差异导致仍灰
-          const cardTheme = calculateTheme(checkedToday, checkedYesterday)
-          if (checkedToday) {
-            checkinCardColor = '#1ABC9C'
-            checkinCardColorRgb = '26, 188, 156'
-          } else {
-            checkinCardColor = cardTheme.color
-            checkinCardColorRgb = hexToRgb(cardTheme.color)
-          }
-        } else {
-          const fallback = getSimpleThemeColor()
-          checkinCardColor = fallback
-          checkinCardColorRgb = hexToRgb(fallback)
         }
 
         // 拉取正在进行的自律计划（仅在有组织时展示，最多 3 条）
@@ -237,11 +248,11 @@ Component({
     },
     onNicknameInput(e: any) {
       const nickName = e.detail.value || ''
-      this.setData({ 'userInfo.nickName': nickName })
+      this.setData({ 'userInfo.nickName': nickName, avatarInitial: getAvatarInitial(nickName) })
     },
     onNicknameBlur(e: any) {
       const nickName = e.detail.value || ''
-      this.setData({ 'userInfo.nickName': nickName })
+      this.setData({ 'userInfo.nickName': nickName, avatarInitial: getAvatarInitial(nickName) })
     },
 
     // uploadAvatarIfNeeded 已迁移到 services/utils.ts
@@ -261,15 +272,41 @@ Component({
         const openid = await this.ensureOpenid()
         if (!openid) throw new Error('获取 openid 失败')
         const savedAvatarUrl = await uploadAvatarIfNeeded(avatarUrl, openid)
-        await getOrCreateUser(openid, trimmedNickName, savedAvatarUrl)
-        wx.setStorageSync('userInfo', { nickName: trimmedNickName, avatarUrl: savedAvatarUrl })
+        await getOrCreateUser(openid, trimmedNickName, savedAvatarUrl || '')
+        wx.setStorageSync('userInfo', { nickName: trimmedNickName, avatarUrl: savedAvatarUrl || '' })
         this.setData({
           hasUserInfo: true,
-          userInfo: { nickName: trimmedNickName, avatarUrl: savedAvatarUrl }
+          userInfo: { nickName: trimmedNickName, avatarUrl: savedAvatarUrl || '' },
+          avatarInitial: getAvatarInitial(trimmedNickName)
         })
         app.globalData.openid = openid
+        await this.tryBindInviteCode(openid)
         this.loadData(true)
         wx.showToast({ title: '登录成功' })
+        // 若有待加入的群组（从群组邀请链接来），跳转组织页并弹出加入弹窗
+        const pendingGroupCode = wx.getStorageSync('pendingGroupInviteCode')
+        const pendingGroupInviter = wx.getStorageSync('pendingGroupInviterOpenid') || ''
+        if (pendingGroupCode) {
+          wx.removeStorageSync('pendingGroupInviteCode')
+          wx.removeStorageSync('pendingGroupInviterOpenid')
+          app.globalData.shouldOpenJoinModal = true
+          const g = app.globalData as Record<string, unknown>
+          g.pendingGroupInviteCode = pendingGroupCode
+          g.pendingGroupInviterOpenid = pendingGroupInviter
+          wx.switchTab({ url: '/pages/group/group' })
+        } else {
+          // 若因使用功能被要求登录，登录成功后跳回原页面
+          const redirect = wx.getStorageSync('loginRedirectUrl')
+          if (redirect && redirect !== LOGIN_PAGE) {
+            wx.removeStorageSync('loginRedirectUrl')
+            const tabPages = ['/pages/index/index', '/pages/group/group', '/pages/moments/moments', '/pages/profile/profile']
+            if (tabPages.includes(redirect)) {
+              wx.switchTab({ url: redirect })
+            } else {
+              wx.redirectTo({ url: redirect })
+            }
+          }
+        }
       } catch (e: any) {
         wx.showToast({ title: '授权失败: ' + (e && e.message ? e.message : '请稍后重试'), icon: 'none' })
       } finally {
@@ -414,6 +451,7 @@ Component({
       if (rankDimension === 'minutes') currentRankList = groupStats.leaderboard.byMinutes || []
       else if (rankDimension === 'days') currentRankList = groupStats.leaderboard.byDays || []
       else currentRankList = groupStats.leaderboard.byScore || []
+      currentRankList = currentRankList.map((item: any) => ({ ...item, avatarInitial: getAvatarInitial(item.nickName) }))
       this.setData({ currentRankList })
     },
     async refreshRankForNewGroup(groupId: string) {

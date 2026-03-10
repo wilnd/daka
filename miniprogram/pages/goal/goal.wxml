@@ -11,7 +11,10 @@
         <view class="goal-card {{item.status === 'completed' ? 'completed' : ''}} {{item.status === 'failed' ? 'failed' : ''}}" wx:for="{{activeGoals}}" wx:key="_id">
           <view class="goal-card-main" bindtap="goToGoalProgress" data-id="{{item._id}}">
             <view class="goal-header">
-              <text class="goal-title">{{item.title}}</text>
+              <view class="goal-header-left">
+                <text class="goal-title">{{item.title}}</text>
+                <text class="goal-desc" wx:if="{{item.description}}">{{item.description}}</text>
+              </view>
               <view class="goal-header-right">
                 <text class="goal-period {{item.period}}">{{item.period === 'daily' ? '每日' : item.period === 'weekly' ? '每周' : '每月'}}</text>
                 <view class="goal-delete-btn" catchtap="onDeleteGoal" data-id="{{item._id}}">
@@ -123,6 +126,19 @@
             bindtap="onTypeChange"
           >工作类</view>
         </view>
+      </view>
+
+      <!-- 计划描述：具体自律什么 -->
+      <view class="form-group">
+        <text class="form-label">具体自律什么</text>
+        <input
+          class="desc-input"
+          placeholder="填写具体内容，最多10字"
+          value="{{goalDescription}}"
+          bindinput="onGoalDescriptionInput"
+          maxlength="10"
+        />
+        <text class="form-hint">选填，在列表中显示</text>
       </view>
 
       <!-- 子类型选择（根据目标类型显示对应的小类） -->
@@ -394,7 +410,8 @@
       <scroll-view scroll-y class="member-list">
         <block wx:if="{{confirmorGroupMembers.length > 0}}">
           <view class="member-item" wx:for="{{confirmorGroupMembers}}" wx:key="_id" bindtap="onSelectConfirmorMember" data-member="{{item}}">
-            <image class="member-avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
+            <image wx:if="{{item.avatarUrl}}" class="member-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+            <view wx:else class="member-avatar member-avatar-initial"><text>{{item.avatarInitial || '?'}}</text></view>
             <text class="member-name">{{item.nickName || '未知用户'}}</text>
           </view>
         </block>
@@ -452,6 +469,10 @@
       <view class="preview-item">
         <text class="preview-label">目标</text>
         <text class="preview-value">{{previewGoal.title}}</text>
+      </view>
+      <view class="preview-item" wx:if="{{previewGoal.description}}">
+        <text class="preview-label">具体自律</text>
+        <text class="preview-value">{{previewGoal.description}}</text>
       </view>
       <view class="preview-item">
         <text class="preview-label">目标类型</text>

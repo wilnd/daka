@@ -1,6 +1,6 @@
 // group.ts
-import { getOrCreateUser, getOpenid } from '../../services/auth'
-import { getMyGroups, createGroup, joinByInviteCode } from '../../services/group'
+import { getOrCreateUser, getOpenid, requireLogin } from '../../services/auth'
+import { getMyGroups, createGroup, joinByInviteCode, getGroupByInviteCode } from '../../services/group'
 
 const app = getApp() as IAppOption
 
@@ -8,6 +8,27 @@ const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQ
 
 /** 本地缓存的群组列表 key */
 const GROUPS_CACHE_KEY = 'cachedGroups'
+
+/** 用户拒绝加入的邀请码列表（取消弹窗后不再弹出） */
+const DISMISSED_JOIN_CODES_KEY = 'dismissedJoinInviteCodes'
+
+function getDismissedJoinCodes(): string[] {
+  try {
+    const raw = wx.getStorageSync(DISMISSED_JOIN_CODES_KEY)
+    return Array.isArray(raw) ? raw : []
+  } catch {
+    return []
+  }
+}
+
+function addDismissedJoinCode(code: string): void {
+  if (!code) return
+  const upper = code.trim().toUpperCase()
+  const list = getDismissedJoinCodes()
+  if (list.includes(upper)) return
+  list.push(upper)
+  wx.setStorageSync(DISMISSED_JOIN_CODES_KEY, list)
+}
 
 /** 更新本地缓存的群组列表 */
 function updateCachedGroups(groups: any[]): void {
@@ -24,6 +45,7 @@ Component({
     showJoinModal: false,
     createName: '',
     joinCode: '',
+    joinGroupName: '', // 根据邀请码查到的组织名，弹窗展示「加入 XXX 组织」，不展示邀请人
     inviterOpenid: '' as string, // 从分享链接带入，用于邀请业务埋点
     // 动态主题色
     themeColor: '#1ABC9C',
@@ -31,39 +53,20 @@ Component({
   lifetimes: {
     attached() {
       this.init()
-      // 检查是否是否需要自动打开加入弹窗
-      if (app.globalData.shouldOpenJoinModal) {
-        app.globalData.shouldOpenJoinModal = false
-        this.setData({ showJoinModal: true, joinCode: '' })
-      }
-      // 检查是否有邀请码参数（从分享链接带入）
+      this.tryApplyJoinModal()
       this.checkInviteCodeFromShare()
     },
   },
   pageLifetimes: {
     show() {
-      // 同步主题色
       this.setData({ themeColor: '#1ABC9C' })
-      // 每次显示时检查授权状态
       let ui = wx.getStorageSync('userInfo')
-      if (ui && ui.nickName && ui.avatarUrl) {
-        let avatarUrl = ui.avatarUrl
-        // 如果不是有效的网络头像，使用默认头像
-        if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
-          avatarUrl = defaultAvatar
-          ui = { ...ui, avatarUrl }
-          wx.setStorageSync('userInfo', ui)
-        }
+      if (ui && ui.nickName) {
         if (!this.data.hasUserInfo) {
           this.setData({ hasUserInfo: true, userInfoStr: JSON.stringify(ui) })
         }
       }
-      // 检查是否需要自动打开加入弹窗
-      if (app.globalData.shouldOpenJoinModal) {
-        app.globalData.shouldOpenJoinModal = false
-        this.setData({ showJoinModal: true, joinCode: '' })
-      }
-      // 检查是否有邀请码参数
+      this.tryApplyJoinModal()
       this.checkInviteCodeFromShare()
       this.loadGroups()
     },
@@ -72,14 +75,7 @@ Component({
     async init() {
       let ui = wx.getStorageSync('userInfo')
       this.setData({ userInfoStr: JSON.stringify(ui) })
-      if (ui && ui.nickName && ui.avatarUrl) {
-        let avatarUrl = ui.avatarUrl
-        // 如果不是有效的网络头像，使用默认头像
-        if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
-          avatarUrl = defaultAvatar
-          ui = { ...ui, avatarUrl }
-          wx.setStorageSync('userInfo', ui)
-        }
+      if (ui && ui.nickName) {
         this.setData({ hasUserInfo: true, userInfoStr: JSON.stringify(ui) })
         await this.ensureOpenid()
         this.loadGroups()
@@ -117,8 +113,17 @@ Component({
     hideCreate() { this.setData({ showCreateModal: false }) },
     stopPropagation() {},
     onCreateInput(e: any) { this.setData({ createName: e.detail.value }) },
-    showJoin() { this.setData({ showJoinModal: true, joinCode: '' }) },
-    hideJoin() { this.setData({ showJoinModal: false }) },
+    showJoin() { this.setData({ showJoinModal: true, joinCode: '', joinGroupName: '' }) },
+    /** 本次忽略：关闭弹窗，不加入“不再提示”列表 */
+    hideJoin() {
+      this.setData({ showJoinModal: false })
+    },
+    /** 不再提示：加入 dismissed 列表并关闭弹窗 */
+    dismissJoinForever() {
+      const code = (this.data.joinCode || '').trim().toUpperCase()
+      if (code) addDismissedJoinCode(code)
+      this.setData({ showJoinModal: false })
+    },
     onJoinInput(e: any) { this.setData({ joinCode: (e.detail.value || '').toUpperCase() }) },
     async doCreate() {
       const name = (this.data.createName || '').trim()
@@ -126,11 +131,8 @@ Component({
         wx.showToast({ title: '名称长度2-10字', icon: 'none' })
         return
       }
-      const openid = app.globalData.openid
-      if (!openid) {
-        wx.showToast({ title: '请先登录', icon: 'none' })
-        return
-      }
+      const openid = requireLogin()
+      if (!openid) return
       wx.showLoading({ title: '创建中...' })
       try {
         const g = await createGroup(name, openid)
@@ -154,8 +156,8 @@ Component({
     async doJoin() {
       const code = (this.data.joinCode || '').trim().toUpperCase()
       if (!code) { wx.showToast({ title: '请输入邀请码', icon: 'none' }); return }
-      const openid = app.globalData.openid
-      if (!openid) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
+      const openid = requireLogin()
+      if (!openid) return
       try {
         const result = await joinByInviteCode(code, openid, this.data.inviterOpenid || undefined)
         if (result.ok) {
@@ -175,18 +177,55 @@ Component({
       const id = e.currentTarget.dataset.id
       wx.navigateTo({ url: `/pages/group-detail/group-detail?id=${id}` })
     },
-    // 检查是否有邀请码参数（从分享链接带入，含邀请人 openid 用于埋点）
-    checkInviteCodeFromShare() {
+    /** 若有待加入群组（登录后从首页跳转过来），先拉群列表判断是否已在群内、是否曾拒绝，未在且未拒绝则弹出加入弹窗；弹窗仅展示组织名，不展示邀请人 */
+    async tryApplyJoinModal() {
+      if (!app.globalData.shouldOpenJoinModal || !app.globalData.pendingGroupInviteCode) return
+      const code = String(app.globalData.pendingGroupInviteCode || '').trim().toUpperCase()
+      const inviterOpenid = String(app.globalData.pendingGroupInviterOpenid || '').trim()
+      app.globalData.shouldOpenJoinModal = false
+      app.globalData.pendingGroupInviteCode = ''
+      app.globalData.pendingGroupInviterOpenid = ''
+      const openid = app.globalData.openid
+      if (!openid) return
+      if (getDismissedJoinCodes().includes(code)) return
+      let joinGroupName = ''
+      try {
+        const group = await getGroupByInviteCode(code)
+        if (group && group.name) joinGroupName = group.name
+      } catch (_) {}
+      try {
+        const groups = await getMyGroups(openid)
+        const alreadyIn = groups.some((g: any) => (g.inviteCode || '').toUpperCase() === code)
+        if (!alreadyIn) {
+          this.setData({ showJoinModal: true, joinCode: code, joinGroupName, inviterOpenid })
+        }
+      } catch (_) {
+        this.setData({ showJoinModal: true, joinCode: code, joinGroupName, inviterOpenid })
+      }
+    },
+    /** 检查是否有邀请码参数（从分享链接带入）；已登录、未在该群且未拒绝过该邀请时才弹窗；仅展示组织名，不展示邀请人 */
+    async checkInviteCodeFromShare() {
+      const openid = app.globalData.openid
+      if (!openid) return
       const pages = getCurrentPages()
       const cur = pages[pages.length - 1] as any
       const options = (cur && cur.options) ? cur.options : {}
       const inviteCode = options.inviteCode
       const inviterOpenid = options.inviterOpenid && typeof options.inviterOpenid === 'string' ? options.inviterOpenid : ''
-
-      if (inviteCode && typeof inviteCode === 'string' && inviteCode.length >= 4) {
-        const code = inviteCode.trim().toUpperCase()
-        this.setData({ showJoinModal: true, joinCode: code, inviterOpenid })
-      }
+      if (!inviteCode || typeof inviteCode !== 'string' || inviteCode.length < 4) return
+      const code = inviteCode.trim().toUpperCase()
+      if (getDismissedJoinCodes().includes(code)) return
+      let joinGroupName = ''
+      try {
+        const group = await getGroupByInviteCode(code)
+        if (group && group.name) joinGroupName = group.name
+      } catch (_) {}
+      try {
+        const groups = await getMyGroups(openid)
+        const alreadyIn = groups.some((g: any) => (g.inviteCode || '').toUpperCase() === code)
+        if (alreadyIn) return
+      } catch (_) {}
+      this.setData({ showJoinModal: true, joinCode: code, joinGroupName, inviterOpenid })
     },
     // 分享给好友
     onShareAppMessage() {

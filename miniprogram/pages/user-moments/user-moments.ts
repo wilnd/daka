@@ -1,3 +1,5 @@
+import { getAvatarInitial } from '../../services/utils'
+
 const app = getApp<IAppOption>()
 
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
@@ -67,6 +69,7 @@ interface UserInfo {
   _id: string
   nickName: string
   avatarUrl: string
+  avatarInitial?: string
 }
 
 Page({
@@ -95,10 +98,9 @@ Page({
     // URL 解码
     try { avatarUrl = decodeURIComponent(avatarUrl) } catch {}
 
-    // 如果不是有效的网络头像，使用默认头像
-    if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
-      avatarUrl = defaultAvatar
-    }
+    // 无效头像时用昵称首字母
+    const hasValidAvatar = avatarUrl && (avatarUrl.startsWith('cloud://') || avatarUrl.startsWith('https://') || avatarUrl.startsWith('http://'))
+    if (!hasValidAvatar) avatarUrl = ''
 
     if (openid) {
       this.setData({
@@ -106,7 +108,8 @@ Page({
         userInfo: {
           _id: '',
           nickName,
-          avatarUrl
+          avatarUrl: avatarUrl || '',
+          avatarInitial: getAvatarInitial(nickName)
         }
       })
       this.loadUserInfo(openid)
@@ -149,16 +152,15 @@ Page({
 
       const result = res.result as any
       if (result.success && result.data) {
-        let avatarUrl = result.data.avatarUrl || defaultAvatar
-        // 如果不是有效的网络头像，使用默认头像
-        if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
-          avatarUrl = defaultAvatar
-        } else if (avatarUrl.startsWith('cloud://')) {
-          // 转换云存储 URL 为临时 HTTP URL
+        let avatarUrl = result.data.avatarUrl || ''
+        if (avatarUrl && avatarUrl.startsWith('cloud://')) {
           avatarUrl = await convertCloudUrl(avatarUrl)
+        } else if (!avatarUrl || (!avatarUrl.startsWith('https://') && !avatarUrl.startsWith('http://'))) {
+          avatarUrl = ''
         }
+        const nickName = result.data.nickName || ''
         this.setData({
-          userInfo: { ...result.data, avatarUrl }
+          userInfo: { ...result.data, avatarUrl: avatarUrl || '', avatarInitial: getAvatarInitial(nickName) }
         })
       }
     } catch (e) {
@@ -202,7 +204,7 @@ Page({
           }
         }
 
-        // 确保每个moment的comments和photos字段都有默认值
+        // 确保每个moment的comments和photos字段都有默认值，并预计算发表时间文案（WXML 无法调用 Page 方法）
         momentsData.forEach((moment) => {
           if (!moment.comments) {
             moment.comments = []
@@ -210,6 +212,10 @@ Page({
           if (moment.content && !moment.content.photos) {
             moment.content.photos = []
           }
+          const rawTime = moment.createTime && typeof moment.createTime === 'object' && (moment.createTime as any).$date != null
+            ? (moment.createTime as any).$date
+            : moment.createTime
+          ;(moment as any).createTimeText = this.formatPublishTime(rawTime || '')
         })
 
         this.setData({
@@ -272,7 +278,7 @@ Page({
           }
         }
 
-        // 确保每个moment的comments和photos字段都有默认值
+        // 确保每个moment的comments和photos字段都有默认值，并预计算发表时间文案
         newMoments.forEach((moment) => {
           if (!moment.comments) {
             moment.comments = []
@@ -280,6 +286,10 @@ Page({
           if (moment.content && !moment.content.photos) {
             moment.content.photos = []
           }
+          const rawTime = moment.createTime && typeof moment.createTime === 'object' && (moment.createTime as any).$date != null
+            ? (moment.createTime as any).$date
+            : moment.createTime
+          ;(moment as any).createTimeText = this.formatPublishTime(rawTime || '')
         })
 
         this.setData({

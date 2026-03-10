@@ -10,7 +10,7 @@
   - **单集合单批**：`{ "collection": "users", "batchSize": 100, "skip": 0 }`，返回 `nextSkip`、`done`，可循环直到 `done: true`。
   - **全量迁移**：`{ "runAll": true, "batchSize": 100 }`，会按批遍历所有相关集合并补写 `_openid`。
   - **试跑（不写库）**：`{ "runAll": true, "dryRun": true }` 可先看会更新多少条。
-- **涉及集合**：users、members、checkins、checkinStats、makeupQuota、moments、momentLikes、momentComments、momentAnnotations、suggestions、userTasks、userAchievements、goals、goalRecords。
+- **涉及集合**：users、members、checkins、checkinStats、makeupQuota、moments、momentLikes、momentComments、momentAnnotations、suggestions、userTasks、userAchievements、goals、goalRecords、referralRewardLog。
 
 ## 1. users（用户）
 | 字段 | 类型 | 说明 |
@@ -22,6 +22,10 @@
 | avatarUrl | string | 头像 URL |
 | createTime | date | 创建时间 |
 | updateTime | date | 更新时间 |
+| inviterOpenid | string | 可选；邀请人的 _openid（分销一级） |
+| inviteCode | string | 可选；本人邀请码，唯一，用于分享给他人 |
+| inviteTime | date | 可选；绑定邀请人的时间 |
+| referralPoints | number | 可选；累计获得的邀请奖励积分（默认 0） |
 
 权限：用户仅可读写自己的记录（_openid == 当前用户）
 
@@ -233,3 +237,15 @@
 | createTime | date | 创建时间 |
 
 权限：用户仅可读写自己的目标记录
+
+## 12. referralRewardLog（邀请奖励记录）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| _id | string | 自动生成 |
+| receiverOpenid | string | 获得奖励的用户 _openid |
+| type | string | direct（一级邀请）/ second（二级邀请） |
+| inviteeOpenid | string | 被邀请人 _openid（触发此次奖励的注册用户） |
+| points | number | 本次奖励积分 |
+| createTime | date | 创建时间 |
+
+用于记录每次邀请奖励发放，便于对账与展示。权限：仅云函数可写；用户可读自己（receiverOpenid == 当前用户）的记录。

@@ -1,0 +1,99 @@
+<navigation-bar title="我的邀请" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <view class="container">
+    <!-- 邀请码卡片 -->
+    <view class="card invite-card">
+      <view class="card-label">我的邀请码</view>
+      <view class="invite-code-wrap">
+        <text class="invite-code">{{inviteCode || '--'}}</text>
+        <button class="btn-copy" bindtap="onCopyCode">复制</button>
+      </view>
+      <!-- 邀请获得的积分展示 -->
+      <view class="earned-points-row">
+        <text class="earned-points-label">邀请新用户获得积分</text>
+        <text class="earned-points-value">{{stats ? stats.referralPoints : 0}}</text>
+      </view>
+      <view class="invite-hint">好友通过你的分享注册即可与你绑定邀请关系</view>
+      <button class="btn-share" open-type="share">分享邀请好友</button>
+    </view>
+
+    <!-- 奖励规则 -->
+    <view class="card rule-card">
+      <view class="card-title">
+        <text class="card-icon">🎁</text>
+        <text>奖励规则</text>
+      </view>
+      <view class="rule-desc">邀请即得积分，被邀请人坚持打卡你还能再得积分</view>
+      <view class="rule-detail">
+        <text>· 一级邀请（直接邀请）：每人 +{{rewardRules ? (rewardRules.directPoints || 10) : 10}} 积分</text>
+      </view>
+      <view class="rule-detail">
+        <text>· 二级邀请（下级邀请的人）：每人 +{{rewardRules ? (rewardRules.secondPoints || 3) : 3}} 积分</text>
+      </view>
+      <view class="rule-detail rule-detail-highlight">
+        <text>· 被邀请人连续打卡 7 天：你再得 10 积分（二级得 3 积分）</text>
+      </view>
+      <view class="rule-detail rule-detail-highlight">
+        <text>· 被邀请人连续打卡 27 天：你再得 10 积分（二级得 3 积分）</text>
+      </view>
+    </view>
+
+    <!-- 统计 -->
+    <view class="stats-row">
+      <view class="stat-item">
+        <text class="stat-value">{{stats ? stats.directCount : 0}}</text>
+        <text class="stat-label">一级邀请</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value">{{stats ? stats.secondCount : 0}}</text>
+        <text class="stat-label">二级邀请</text>
+      </view>
+      <view class="stat-item highlight">
+        <text class="stat-value">{{stats ? stats.referralPoints : 0}}</text>
+        <text class="stat-label">邀请获得积分</text>
+      </view>
+    </view>
+
+    <!-- 一级邀请列表 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">我邀请的人（一级）</text>
+        <text class="section-count">共 {{directInvites.length}} 人</text>
+      </view>
+      <view class="list empty" wx:if="{{directInvites.length === 0}}">
+        <text class="empty-text">暂无直接邀请用户，分享邀请码邀请好友吧</text>
+      </view>
+      <view class="user-list" wx:else>
+        <view class="user-item" wx:for="{{directInvites}}" wx:key="index">
+          <image wx:if="{{item.avatarUrl}}" class="user-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+          <view wx:else class="user-avatar user-avatar-initial"><text>{{item.avatarInitial || '?'}}</text></view>
+          <view class="user-info">
+            <text class="user-name">{{item.nickName || '微信用户'}}</text>
+            <text class="user-time">邀请于 {{item.inviteTimeText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 二级邀请列表 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">下级邀请的人（二级）</text>
+        <text class="section-count">共 {{secondLevelInvites.length}} 人</text>
+      </view>
+      <view class="list empty" wx:if="{{secondLevelInvites.length === 0}}">
+        <text class="empty-text">暂无二级邀请用户</text>
+      </view>
+      <view class="user-list" wx:else>
+        <view class="user-item" wx:for="{{secondLevelInvites}}" wx:key="index">
+          <image wx:if="{{item.avatarUrl}}" class="user-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+          <view wx:else class="user-avatar user-avatar-initial"><text>{{item.avatarInitial || '?'}}</text></view>
+          <view class="user-info">
+            <text class="user-name">{{item.nickName || '微信用户'}}</text>
+            <text class="user-time">邀请于 {{item.inviteTimeText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</scroll-view>

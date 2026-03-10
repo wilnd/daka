@@ -71,6 +71,17 @@
         border-radius: 50%;
         background: @color-bg-page;
       }
+      .avatar-initial {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+        color: @color-white;
+        .avatar-initial-text {
+          font-size: 72rpx;
+          font-weight: @font-weight-bold;
+        }
+      }
 
       .avatar-edit-badge {
         position: absolute;
@@ -159,6 +170,15 @@
     color: @color-text-hint;
     text-align: center;
     margin-top: 32rpx;
+    line-height: 1.5;
+  }
+  // 访客提示：可先浏览再登录
+  .browse-hint {
+    display: block;
+    font-size: @font-size-caption;
+    color: @color-text-hint;
+    text-align: center;
+    margin-top: 16rpx;
     line-height: 1.5;
   }
 }
@@ -766,14 +786,23 @@
         align-items: center;
         margin-bottom: 12rpx;
 
+        .goal-item-title-wrap {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 4rpx;
+        }
         .goal-item-title {
           font-size: @font-size-body;
           font-weight: @font-weight-medium;
           color: @color-text-title;
-          flex: 1;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+        .goal-item-desc {
+          font-size: @font-size-caption;
+          color: @color-text-hint;
         }
 
         .goal-item-period {
@@ -981,6 +1010,19 @@
         margin: 0 16rpx;
         background: @color-bg-page;
       }
+      .rank-avatar-initial {
+        width: 64rpx;
+        height: 64rpx;
+        border-radius: 50%;
+        margin: 0 16rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+        color: @color-white;
+        font-size: 28rpx;
+        font-weight: @font-weight-bold;
+      }
       .rank-name {
         flex: 1;
         font-size: @font-size-body;
@@ -1004,6 +1046,26 @@
         color: @color-primary;
         font-weight: @font-weight-medium;
       }
+    }
+  }
+}
+
+// 未加入组织时排行榜占位
+.rank-card-placeholder {
+  .rank-empty-placeholder {
+    text-align: center;
+    padding: 48rpx 32rpx;
+    .rank-placeholder-desc {
+      display: block;
+      color: @color-text-hint;
+      font-size: @font-size-body;
+      margin-bottom: 32rpx;
+    }
+    .rank-placeholder-actions {
+      display: flex;
+      justify-content: center;
+      gap: 24rpx;
+      flex-wrap: wrap;
     }
   }
 }

@@ -1,47 +1,39 @@
 <navigation-bar title="组织" back="{{false}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
-    <view wx:if="{{!hasUserInfo}}" class="need-auth">
-      <text>请先完成授权</text>
-      <view style="margin-top:20rpx; font-size:24rpx; color:#666;">
-        <text>storage: {{userInfoStr}}</text>
+    <view wx:if="{{!hasUserInfo}}" class="guest-tip">登录后可创建或加入组织</view>
+    <view class="actions">
+      <view class="action-btn create" bindtap="showCreate">
+        <text class="btn-icon">+</text> 创建组织
       </view>
-      <navigator url="/pages/index/index" class="link">去首页</navigator>
+      <view class="action-btn join" bindtap="showJoin">
+        <text class="btn-icon">↔</text> 加入组织
+      </view>
     </view>
-    <view wx:else>
-      <view class="actions">
-        <view class="action-btn create" bindtap="showCreate">
-          <text class="btn-icon">+</text> 创建组织
-        </view>
-        <view class="action-btn join" bindtap="showJoin">
-          <text class="btn-icon">↔</text> 加入组织
-        </view>
-      </view>
 
-      <view class="section-header" wx:if="{{groups.length > 0}}">
-        <view class="title-row">
-          <text class="section-title">我的组织</text>
-          <text class="section-count">{{groups.length}} 个</text>
-        </view>
-        <view class="refresh-btn" bindtap="loadGroups">
-          <text>刷新</text>
-        </view>
+    <view class="section-header" wx:if="{{groups.length > 0}}">
+      <view class="title-row">
+        <text class="section-title">我的组织</text>
+        <text class="section-count">{{groups.length}} 个</text>
       </view>
+      <view class="refresh-btn" bindtap="loadGroups">
+        <text>刷新</text>
+      </view>
+    </view>
 
-      <view class="group-list">
-        <view wx:for="{{groups || []}}" wx:key="_id" class="group-item" bindtap="goDetail" data-id="{{item._id}}">
-          <image class="group-icon" src="/assets/icons/selected/group.png" mode="aspectFit"></image>
-          <view class="group-info">
-            <text class="group-name">{{item.name}}</text>
-            <text class="group-meta">{{item.memberCount || 0}} 人</text>
-          </view>
-          <text class="arrow">></text>
+    <view class="group-list">
+      <view wx:for="{{groups || []}}" wx:key="_id" class="group-item" bindtap="goDetail" data-id="{{item._id}}">
+        <image class="group-icon" src="/assets/icons/selected/group.png" mode="aspectFit"></image>
+        <view class="group-info">
+          <text class="group-name">{{item.name}}</text>
+          <text class="group-meta">{{item.memberCount || 0}} 人</text>
         </view>
-        <view wx:if="{{groups.length === 0 && !loading}}" class="empty">
-          <image class="empty-icon" src="/assets/icons/normal/moments.png" mode="aspectFit"></image>
-          <text class="empty-text">还没有组织</text>
-          <text class="empty-hint">创建一个或加入别人的组织吧~</text>
-        </view>
+        <text class="arrow">></text>
+      </view>
+      <view wx:if="{{groups.length === 0 && !loading}}" class="empty">
+        <image class="empty-icon" src="/assets/icons/normal/moments.png" mode="aspectFit"></image>
+        <text class="empty-text">{{hasUserInfo ? '还没有组织' : '暂无组织'}}</text>
+        <text class="empty-hint">{{hasUserInfo ? '创建一个或加入别人的组织吧~' : '登录后可创建或加入组织'}}</text>
       </view>
     </view>
   </view>
@@ -59,13 +51,14 @@
   </view>
 </view>
 
-<!-- 加入组织弹窗 -->
+<!-- 加入组织弹窗：仅展示组织名，不展示邀请人；取消区分本次忽略/不再提示 -->
 <view class="modal {{showJoinModal ? 'show' : ''}}" wx:if="{{showJoinModal}}" bindtap="hideJoin">
   <view class="modal-content" catchtap="stopPropagation">
-    <text class="modal-title">加入组织</text>
+    <text class="modal-title">{{joinGroupName ? '加入 ' + joinGroupName : '加入组织'}}</text>
     <input class="modal-input" placeholder="输入邀请码" value="{{joinCode}}" bindinput="onJoinInput" maxlength="6" />
     <view class="modal-btns">
-      <button class="btn-secondary" bindtap="hideJoin">取消</button>
+      <button class="btn-secondary" bindtap="hideJoin">本次忽略</button>
+      <button class="btn-secondary" bindtap="dismissJoinForever">不再提示</button>
       <button class="btn-primary" bindtap="doJoin">加入</button>
     </view>
   </view>

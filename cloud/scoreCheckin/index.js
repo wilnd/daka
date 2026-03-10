@@ -715,7 +715,7 @@ async function callLLM(messages) {
     const model = cloud.ai().createModel('hunyuan-exp')
 
     const result = await model.generateText({
-      model: 'hunyuan-turbos-latest',
+      model: 'hunyuan-t1-latest',
       messages: messages,
       temperature: 0.3,
       max_tokens: 1000
@@ -744,7 +744,7 @@ async function* callLLMStream(messages) {
 
   const res = await model.streamText({
     data: {
-      model: 'hunyuan-turbos-latest',
+      model: 'hunyuan-t1-latest',
       messages: messages,
       temperature: 0.3,
       max_tokens: 1000
@@ -896,6 +896,96 @@ function applyVipGrowthBonus(totalScore, vipLevel) {
   if (!vipLevel || vipLevel <= 0) return totalScore
   const rate = 1 + vipLevel * VIP_GROWTH_BONUS_RATE
   return Math.round(totalScore * rate)
+}
+
+/** 积分兑换 VIP：每档位每天所需积分（青铜/白银/黄金） */
+const POINTS_PER_VIP_DAY = { 1: 50, 2: 80, 3: 120 }
+
+/**
+ * 获取用户积分余额（邀请奖励积分，用于兑换 VIP）
+ */
+async function handleGetPointsBalance(openid) {
+  if (!openid) return { success: false, error: '未获取到用户信息' }
+  try {
+    const { data: users } = await db.collection('users').where({ _openid: openid }).limit(1).get()
+    const referralPoints = (users && users[0] && users[0].referralPoints) ? users[0].referralPoints : 0
+    return { success: true, data: { referralPoints } }
+  } catch (e) {
+    console.error('getPointsBalance error:', e)
+    return { success: false, error: e.message }
+  }
+}
+
+/**
+ * 积分兑换 VIP：扣除邀请积分并增加 VIP 天数
+ */
+async function handleExchangePointsForVip(openid, params) {
+  const { level, days } = params || {}
+  if (!openid) return { success: false, msg: '未获取到用户信息' }
+  const vipLevel = Math.max(1, Math.min(3, parseInt(level, 10)))
+  const vipDays = Math.max(1, Math.min(365, parseInt(days, 10)))
+  const rate = POINTS_PER_VIP_DAY[vipLevel]
+  if (!rate) return { success: false, msg: '无效的VIP档位' }
+  const cost = rate * vipDays
+
+  try {
+    const { data: users } = await db.collection('users').where({ _openid: openid }).limit(1).get()
+    if (!users || users.length === 0) return { success: false, msg: '用户不存在' }
+    const user = users[0]
+    const currentPoints = user.referralPoints || 0
+    if (currentPoints < cost) {
+      return { success: false, msg: `积分不足，需要${cost}积分，当前${currentPoints}积分` }
+    }
+
+    const now = new Date()
+    const currentExpire = user.vipExpireTime ? new Date(user.vipExpireTime) : null
+    const isExpired = !currentExpire || currentExpire < now
+    const newExpireTime = isExpired
+      ? new Date(now.getTime() + vipDays * 24 * 60 * 60 * 1000)
+      : new Date(currentExpire.getTime() + vipDays * 24 * 60 * 60 * 1000)
+    const newPoints = currentPoints - cost
+    const totalVipDays = (user.totalVipDays || 0) + vipDays
+
+    await db.collection('users').doc(user._id).update({
+      data: {
+        referralPoints: newPoints,
+        vipLevel,
+        vipStartTime: isExpired ? now : user.vipStartTime,
+        vipExpireTime: newExpireTime,
+        totalVipDays,
+        updateTime: now
+      }
+    })
+
+    // 解锁「VIP会员」成就（若尚未解锁）
+    try {
+      const { data: existing } = await db.collection('userAchievements')
+        .where({ _openid: openid, achievementId: 'vip_member' })
+        .limit(1)
+        .get()
+      if (!existing || existing.length === 0) {
+        await db.collection('userAchievements').add({
+          data: {
+            _openid: openid,
+            achievementId: 'vip_member',
+            unlockedAt: now,
+            createTime: now
+          }
+        })
+      }
+    } catch (e) {
+      console.warn('解锁VIP成就失败', e)
+    }
+
+    return {
+      success: true,
+      data: { vipLevel, days: vipDays, pointsSpent: cost, remainingPoints: newPoints },
+      msg: '兑换成功'
+    }
+  } catch (e) {
+    console.error('exchangePointsForVip error:', e)
+    return { success: false, msg: e.message || '兑换失败，请稍后重试' }
+  }
 }
 
 /**
@@ -1446,6 +1536,12 @@ exports.main = async (event, context) => {
 
       case 'removeMember':
         return await handleRemoveMember(openid, params)
+
+      case 'getPointsBalance':
+        return await handleGetPointsBalance(openid)
+
+      case 'exchangePointsForVip':
+        return await handleExchangePointsForVip(openid, params)
 
       case 'score':
       default:

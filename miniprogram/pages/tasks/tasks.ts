@@ -1,8 +1,9 @@
-// tasks.ts
+// tasks.ts（访客可浏览任务列表，领取时再要求登录）
+import { isLoggedIn, requireLogin } from '../../services/auth'
 import { TASKS, ACHIEVEMENTS, getClaimableVipTasks, claimTaskReward, getUserTasks, getUserAchievements, Task, UserTaskProgress, Achievement } from '../../services/task'
 import { getVipInfo, VipLevel, VipLevelNames, VipLevelColors } from '../../services/vip'
 import { getStreak, getTotalDays, getAllStats } from '../../services/stats'
-import { defaultAvatar, convertCloudUrl } from '../../services/utils'
+import { defaultAvatar, convertCloudUrl, getAvatarInitial } from '../../services/utils'
 
 const app = getApp() as IAppOption
 
@@ -51,25 +52,39 @@ Page({
   },
 
   async loadData() {
-    const openid = app.globalData.openid
-    if (!openid) {
-      wx.showToast({ title: '请先登录', icon: 'none' })
+    if (!isLoggedIn()) {
+      // 访客模式：展示任务列表与 0 进度，不请求接口
+      const tasksWithProgress: TaskWithProgress[] = TASKS.map(task => ({
+        ...task,
+        progress: undefined,
+        current: 0,
+        percent: 0,
+        rewardText: formatReward(task.reward)
+      }))
+      this.setData({
+        userInfo: {},
+        vipInfo: null,
+        tasks: tasksWithProgress,
+        achievements: [],
+        claimableTasks: [],
+        completedTasksCount: 0,
+        userStats: { streak: 0, totalDays: 0 }
+      })
       return
     }
 
-    // 从本地存储获取用户信息
+    const openid = app.globalData.openid || wx.getStorageSync('openid')
+    if (!openid) return
+
     let userInfo = wx.getStorageSync('userInfo')
-    if (!userInfo || !userInfo.nickName) {
-      wx.showToast({ title: '请先授权', icon: 'none' })
-      return
-    }
+    if (!userInfo || !userInfo.nickName) return
 
-    // 处理头像路径：云存储路径需要转换为临时 URL
-    let avatarUrl = userInfo.avatarUrl || defaultAvatar
-    if (avatarUrl.startsWith('cloud://')) {
+    // 处理头像路径：云存储路径需要转换为临时 URL；无头像时用昵称首字母
+    let avatarUrl = userInfo.avatarUrl || ''
+    if (avatarUrl && avatarUrl.startsWith('cloud://')) {
       avatarUrl = await convertCloudUrl(avatarUrl)
     }
-    const displayUserInfo = { ...userInfo, avatarUrl }
+    const displayUserInfo = { ...userInfo, avatarUrl: avatarUrl || '', avatarInitial: getAvatarInitial(userInfo.nickName) }
 
     try {
       const [vipInfo, userTasks, claimableTasks, achievements, allStats] = await Promise.all([
@@ -83,7 +98,6 @@ Page({
       const streak = allStats.streak
       const totalDays = allStats.totalDays
 
-      // 合并任务和进度
       const tasksWithProgress: TaskWithProgress[] = TASKS.map(task => {
         const progress = userTasks.find(t => t.taskId === task.id)
         const current = progress && progress.current ? progress.current : 0
@@ -97,10 +111,7 @@ Page({
         }
       })
 
-      // 为可领取任务补充展示文案
       const claimableTasksWithText = claimableTasks.map(t => ({ ...t, rewardText: formatReward(t.reward) }))
-
-      // 计算已完成的任务数
       const completedTasksCount = tasksWithProgress.filter(t => t.percent >= 100).length
 
       this.setData({
@@ -110,10 +121,7 @@ Page({
         achievements,
         claimableTasks: claimableTasksWithText,
         completedTasksCount,
-        userStats: {
-          streak,
-          totalDays
-        }
+        userStats: { streak, totalDays }
       })
     } catch (e) {
       console.error('加载数据失败', e)
@@ -121,11 +129,11 @@ Page({
     }
   },
 
-  // 领取奖励
+  // 领取奖励（需登录）
   onClaimReward(e: any) {
-    const task = e.currentTarget.dataset.task as Task
-    const openid = app.globalData.openid
+    const openid = requireLogin()
     if (!openid) return
+    const task = e.currentTarget.dataset.task as Task
 
     wx.showLoading({ title: '领取中...' })
 

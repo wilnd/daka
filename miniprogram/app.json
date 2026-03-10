@@ -16,7 +16,8 @@
     "pages/goal-progress/goal-progress",
     "pages/goal-confirm/goal-confirm",
     "pages/ai-review/ai-review",
-    "pages/ai-review-detail/ai-review-detail"
+    "pages/ai-review-detail/ai-review-detail",
+    "pages/referral/referral"
   ],
   "window": {
     "navigationBarTextStyle": "white",

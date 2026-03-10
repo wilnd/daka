@@ -1,8 +1,8 @@
 <navigation-bar title="记录日历" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 <scroll-view class="page" scroll-y>
   <view class="container">
-    <view wx:if="{{!hasOpenid}}" class="empty-tip">请先登录</view>
-    <view wx:else>
+    <view wx:if="{{!hasOpenid}}" class="empty-tip empty-tip-inline">登录后可查看记录与补卡</view>
+    <view class="calendar-wrap">
       <view class="month-nav">
         <text class="nav-btn" bindtap="prevMonth">＜</text>
         <text class="month-title">{{displayMonth}}</text>

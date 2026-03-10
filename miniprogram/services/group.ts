@@ -103,6 +103,16 @@ export async function joinByInviteCode(
   return { ok: true, group }
 }
 
+/** 根据邀请码查询组织（仅读，用于加入弹窗展示组织名，不展示邀请人） */
+export async function getGroupByInviteCode(inviteCode: string): Promise<Group | null> {
+  if (!inviteCode || typeof inviteCode !== 'string') return null
+  const code = inviteCode.trim().toUpperCase()
+  if (!code) return null
+  const { data: list } = await groupsCol().where({ inviteCode: code }).get()
+  if (!list || list.length === 0) return null
+  return list[0] as Group
+}
+
 /** 获取用户加入的组织列表 */
 export async function getMyGroups(openid: string): Promise<(Group & { memberCount?: number })[]> {
   const _ = db.command

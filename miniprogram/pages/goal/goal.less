@@ -97,11 +97,20 @@
       justify-content: space-between;
       align-items: flex-start;
       margin-bottom: 16rpx;
+      .goal-header-left {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6rpx;
+      }
       .goal-title {
         font-size: 30rpx;
         font-weight: bold;
         color: @color-text-title;
-        flex: 1;
+      }
+      .goal-desc {
+        font-size: 24rpx;
+        color: #888;
       }
       .goal-header-right {
         display: flex;
@@ -241,6 +250,16 @@
     font-size: 24rpx;
     color: @color-text-hint;
     margin-top: 8rpx;
+  }
+  .desc-input {
+    width: 100%;
+    padding: 20rpx 24rpx;
+    font-size: 28rpx;
+    color: @color-text-title;
+    background: @color-bg-page;
+    border-radius: @radius-md;
+    border: 2rpx solid @color-border;
+    box-sizing: border-box;
   }
 }
 
@@ -448,6 +467,15 @@
     border-radius: 50%;
     margin-right: 24rpx;
     background: #e8f8f5;
+  }
+
+  .member-avatar-initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+    color: #fff;
+    text { font-size: 36rpx; font-weight: @font-weight-bold; }
   }
 
   .member-name {

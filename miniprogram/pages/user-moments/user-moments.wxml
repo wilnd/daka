@@ -2,13 +2,10 @@
   <navigation-bar title="{{userInfo.nickName || 'TA的成长墙'}}" back="{{true}}" color="white" background="{{themeColor}}"></navigation-bar>
 </page-meta>
 <scroll-view class="page" scroll-y refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="refreshMoments">
-  <!-- 用户信息头部 -->
+  <!-- 用户信息头部：无头像时显示昵称首字母 -->
   <view class="user-header">
-    <image 
-      class="user-avatar" 
-      src="{{userInfo.avatarUrl || defaultAvatar}}" 
-      mode="aspectFill"
-    ></image>
+    <image wx:if="{{userInfo.avatarUrl}}" class="user-avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
+    <view wx:else class="user-avatar user-avatar-initial"><text>{{userInfo.avatarInitial || '?'}}</text></view>
     <text class="user-nickname">{{userInfo.nickName || '匿名用户'}}</text>
     <text class="moments-count">{{moments ? moments.length : 0}} 条动态</text>
   </view>
@@ -55,7 +52,7 @@
 
       <!-- 时间和互动信息 -->
       <view class="moment-footer">
-        <text class="moment-time">发表时间 {{formatPublishTime(item.createTime)}}</text>
+        <text class="moment-time">发表时间 {{item.createTimeText || ''}}</text>
         <view class="moment-stats">
           <text class="stat-item">❤️ {{item.likeCount || 0}}</text>
           <text class="stat-item">💬 {{item.commentCount || 0}}</text>

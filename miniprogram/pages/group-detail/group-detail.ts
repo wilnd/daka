@@ -1,6 +1,7 @@
 // group-detail.ts
 import { callGetGroupDetail, removeMember, quitGroup, transferAdmin, updateInviteCode, updateGroup, dissolveGroup } from '../../services/group'
 import { getOpenid } from '../../services/auth'
+import { getAvatarInitial } from '../../services/utils'
 
 const app = getApp() as IAppOption
 const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
@@ -48,12 +49,15 @@ Page({
     defaultAvatar,
     selectedMemberNickName: '',
     selectedMemberAvatarUrl: '',
+    selectedMemberAvatarInitial: '',
     canTransferAdmin: false,
     canRemoveMember: false,
     isSelfMember: false,
     editInviteCode: '',
     inviteEnabled: true,
     themeColor: '#1ABC9C',
+    /** 我的邀请码（用于群组分享时带上 ref，新用户登录后算我的下级） */
+    myInviteCode: '' as string,
   },
   onLoad(options: Record<string, string | undefined>) {
     const id = (options && (options.id || options.groupId)) || app.globalData.currentGroupId || ''
@@ -67,6 +71,16 @@ Page({
   },
   onShow() {
     this.setData({ themeColor: '#1ABC9C' })
+    this.loadMyInviteCode()
+  },
+  async loadMyInviteCode() {
+    if (this.data.myInviteCode) return
+    try {
+      const res = await wx.cloud.callFunction({ name: 'referral', data: { action: 'ensureInviteCode' } }) as { result?: { inviteCode?: string } }
+      const resResult = res && res.result
+      const code = resResult && (resResult as any).inviteCode
+      if (code) this.setData({ myInviteCode: code })
+    } catch (_) {}
   },
   async ensureOpenid() {
       let openid = app.globalData.openid || wx.getStorageSync('openid')
@@ -108,22 +122,22 @@ Page({
         const { group, members: membersFromCloud, rankMembers: rankFromCloud, isAdmin, isCreator, inviteEnabled } = result.data
         // 云存储头像转临时链接（客户端才能调 getTempFileURL）
         const membersWithAvatar = await Promise.all((membersFromCloud || []).map(async (m: any) => {
-          let avatarUrl = m.avatarUrl || defaultAvatar
-          if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
-            avatarUrl = defaultAvatar
-          } else if (avatarUrl.startsWith('cloud://')) {
+          let avatarUrl = m.avatarUrl || ''
+          if (avatarUrl && avatarUrl.startsWith('cloud://')) {
             avatarUrl = await convertCloudUrl(avatarUrl)
+          } else if (!avatarUrl || (!avatarUrl.startsWith('https://') && !avatarUrl.startsWith('http://'))) {
+            avatarUrl = ''
           }
-          return { ...m, avatarUrl }
+          return { ...m, avatarUrl: avatarUrl || '', avatarInitial: getAvatarInitial(m.nickName) }
         }))
         const rankMembers = await Promise.all((rankFromCloud || []).map(async (m: any) => {
-          let avatarUrl = m.avatarUrl || defaultAvatar
-          if (!avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('https://')) {
-            avatarUrl = defaultAvatar
-          } else if (avatarUrl.startsWith('cloud://')) {
+          let avatarUrl = m.avatarUrl || ''
+          if (avatarUrl && avatarUrl.startsWith('cloud://')) {
             avatarUrl = await convertCloudUrl(avatarUrl)
+          } else if (!avatarUrl || (!avatarUrl.startsWith('https://') && !avatarUrl.startsWith('http://'))) {
+            avatarUrl = ''
           }
-          return { ...m, avatarUrl }
+          return { ...m, avatarUrl: avatarUrl || '', avatarInitial: getAvatarInitial(m.nickName) }
         }))
         this.setData({
           group: group as any,
@@ -233,7 +247,8 @@ Page({
         selectedMember: member,
         showMemberModal: true,
         selectedMemberNickName: member.nickName || '成员',
-        selectedMemberAvatarUrl: member.avatarUrl || defaultAvatar,
+        selectedMemberAvatarUrl: member.avatarUrl || '',
+        selectedMemberAvatarInitial: getAvatarInitial(member.nickName),
         canTransferAdmin: isAdmin && member.role !== 'admin',
         // 只有群主才能移除成员，且不能移除自己
         canRemoveMember: isCreator && !member.isSelf,
@@ -344,9 +359,9 @@ Page({
         wx.showToast({ title: '操作失败', icon: 'none' })
       }
     },
-    // 分享给好友（带上邀请人 openid，用于邀请业务埋点）
+    // 分享给好友（带上群邀请码、邀请人 openid、我的邀请码 ref，新用户登录后算我的下级再进群）
     onShareAppMessage() {
-      const { group, inviteEnabled } = this.data
+      const { group, inviteEnabled, myInviteCode } = this.data
       const openid = app.globalData.openid
       if (!inviteEnabled || !group.inviteCode) {
         return {
@@ -354,16 +369,19 @@ Page({
           path: '/pages/group/group'
         }
       }
-      const query = openid ? `inviteCode=${group.inviteCode}&inviterOpenid=${openid}` : `inviteCode=${group.inviteCode}`
+      const params = new URLSearchParams()
+      params.set('inviteCode', group.inviteCode)
+      if (openid) params.set('inviterOpenid', openid)
+      if (myInviteCode) params.set('ref', myInviteCode)
       return {
         title: `${group.name || '组织'} 邀请码：${group.inviteCode}，点击即可加入！`,
-        path: `/pages/group/group?${query}`,
+        path: `/pages/group/group?${params.toString()}`,
         imageUrl: ''
       }
     },
-    // 分享到朋友圈（带上邀请人 openid，用于邀请业务埋点）
+    // 分享到朋友圈（带上群邀请码、邀请人 openid、我的邀请码 ref）
     onShareTimeline() {
-      const { group, inviteEnabled } = this.data
+      const { group, inviteEnabled, myInviteCode } = this.data
       const openid = app.globalData.openid
       if (!inviteEnabled || !group.inviteCode) {
         return {
@@ -371,10 +389,13 @@ Page({
           query: ''
         }
       }
-      const query = openid ? `inviteCode=${group.inviteCode}&inviterOpenid=${openid}` : `inviteCode=${group.inviteCode}`
+      const params = new URLSearchParams()
+      params.set('inviteCode', group.inviteCode)
+      if (openid) params.set('inviterOpenid', openid)
+      if (myInviteCode) params.set('ref', myInviteCode)
       return {
         title: `${group.name || '组织'} 邀请码：${group.inviteCode}，点击即可加入！`,
-        query
+        query: params.toString()
       }
     },
 })

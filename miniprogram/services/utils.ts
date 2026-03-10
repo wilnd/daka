@@ -7,6 +7,13 @@ const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQ
 
 export { defaultAvatar }
 
+/** 无头像时用昵称首字母作为默认展示，中文取首字，英文等取首字母 */
+export function getAvatarInitial(nickName: string | undefined | null): string {
+  const s = (nickName || '').trim()
+  if (!s) return '?'
+  return s[0]
+}
+
 /** 本地缓存的群组列表 key */
 const GROUPS_CACHE_KEY = 'cachedGroups'
 

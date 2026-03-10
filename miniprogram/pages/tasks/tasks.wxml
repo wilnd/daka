@@ -5,7 +5,8 @@
     <view class="user-card">
       <view class="user-info">
         <view class="avatar-wrapper">
-          <image class="avatar" src="{{userInfo.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
+          <image wx:if="{{userInfo.avatarUrl}}" class="avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
+          <view wx:else class="avatar avatar-initial"><text>{{userInfo.avatarInitial || '?'}}</text></view>
           <view class="vip-badge" wx:if="{{vipInfo && vipInfo.level > 0}}">VIP</view>
         </view>
         <view class="user-detail">

@@ -150,6 +150,17 @@ export async function doCheckinWithContent(
     console.log('[checkin.service] syncCheckinStats 耗时 ms=', Date.now() - tSync0)
     if (syncRes.result && syncRes.result.success && syncRes.result.streak != null) {
       streakFromSync = syncRes.result.streak
+      // 邀请用户连续打卡 7 天/27 天时给邀请人发放里程碑积分（一级 +10，二级 +3）
+      if (streakFromSync === 7 || streakFromSync === 27) {
+        try {
+          await wx.cloud.callFunction({
+            name: 'referral',
+            data: { action: 'awardStreakMilestone', inviteeOpenid: openid, streak: streakFromSync }
+          })
+        } catch (e) {
+          console.warn('邀请里程碑积分发放失败，不影响打卡成功', e)
+        }
+      }
     }
   } catch (e) {
     console.warn('同步打卡统计失败，不影响打卡成功', e)

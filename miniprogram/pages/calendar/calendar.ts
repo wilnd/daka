@@ -1,6 +1,7 @@
-// calendar.ts
+// calendar.ts（访客可浏览日历结构，补卡时再要求登录）
 import { getCheckinsByMonth, doMakeup, getMakeupRemain } from '../../services/checkin'
 import { getTodayStr, getDateBefore } from '../../services/db'
+import { requireLogin } from '../../services/auth'
 
 const app = getApp() as IAppOption
 
@@ -30,7 +31,7 @@ Component({
   },
   methods: {
     init() {
-      const openid = app.globalData.openid
+      const openid = app.globalData.openid || wx.getStorageSync('openid')
       const now = new Date()
       const ym = `${now.getFullYear()}-${this.pad(now.getMonth() + 1)}`
       const today = getTodayStr()
@@ -39,9 +40,9 @@ Component({
         yearMonth: ym,
         displayMonth: this.fmtMonth(ym),
         isCurrentMonth: true,
-        selectedDate: today,   // 默认选中今天
+        selectedDate: today,
       })
-      if (openid) this.load()
+      this.load()
     },
     fmtMonth(ym: string) {
       const [y, m] = ym.split('-')
@@ -86,8 +87,12 @@ Component({
     },
     async load() {
       const { yearMonth } = this.data
-      const openid = app.globalData.openid
-      if (!openid) return
+      const openid = app.globalData.openid || wx.getStorageSync('openid')
+      if (!openid) {
+        // 访客模式：只渲染空日历
+        this.setEmptyCalendar()
+        return
+      }
       try {
         const [checkins, makeupRemain] = await Promise.all([
           getCheckinsByMonth(openid, '', yearMonth),
@@ -128,6 +133,20 @@ Component({
         wx.showToast({ title: '加载失败', icon: 'none' })
       }
     },
+    setEmptyCalendar() {
+      const { yearMonth } = this.data
+      const [y, m] = yearMonth.split('-').map(Number)
+      const firstDay = new Date(y, m - 1, 1).getDay()
+      const lastDay = new Date(y, m, 0).getDate()
+      const today = getTodayStr()
+      const days: any[] = []
+      for (let i = 0; i < firstDay; i++) days.push({ empty: true, date: `empty-${i}`, day: 0 })
+      for (let d = 1; d <= lastDay; d++) {
+        const date = `${yearMonth}-${this.pad(d)}`
+        days.push({ date, day: d, checked: false, makeup: false, canMakeup: false, isToday: date === today, empty: false })
+      }
+      this.setData({ days, makeupRemain: 0, checkinsMap: {}, selectedCheckins: [] })
+    },
     async onDayTap(e: any) {
       const { date, can, checked } = e.currentTarget.dataset
       if (!date || (date as string).startsWith('empty')) return
@@ -148,13 +167,16 @@ Component({
 
       if (!can) return
 
+      const openidForMakeup = requireLogin()
+      if (!openidForMakeup) return
+
       wx.showModal({
         title: '补卡',
         content: `确认补卡 ${date}？`,
         success: async (res) => {
           if (!res.confirm) return
           try {
-            const r = await doMakeup(app.globalData.openid!, date)
+            const r = await doMakeup(openidForMakeup, date)
             if (r.ok) {
               wx.showModal({
                 title: '补卡成功',

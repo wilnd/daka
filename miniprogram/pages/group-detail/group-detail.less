@@ -120,6 +120,7 @@
   .member-row {
     display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid @color-bg-card;
     .avatar { width: 72rpx; height: 72rpx; border-radius: 50%; background: @color-bg-card; margin-right: 24rpx; }
+    .avatar-initial { width: 72rpx; height: 72rpx; border-radius: 50%; margin-right: 24rpx; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%); color: #fff; text { font-size: 28rpx; font-weight: bold; } }
     .nick { flex: 1; }
     .status.checked { color: @color-primary; }
     .status.unchecked { color: @color-secondary; }
@@ -142,6 +143,7 @@
       margin-right: 16rpx;
     }
     .avatar { width: 72rpx; height: 72rpx; border-radius: 50%; background: @color-bg-card; margin-right: 24rpx; }
+    .avatar-initial { width: 72rpx; height: 72rpx; border-radius: 50%; margin-right: 24rpx; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%); color: #fff; text { font-size: 28rpx; font-weight: bold; } }
     .nick { flex: 1; font-size: 28rpx; }
     .days { font-size: 28rpx; color: @color-primary; font-weight: 500; }
     &.top .rank-num { color: #FFD700; }
@@ -164,7 +166,7 @@
 .modal-title { font-size: @font-size-title; font-weight: @font-weight-bold; color: @color-text-title; display: block; margin-bottom: 32rpx; }
 .modal-btns { display: flex; gap: 24rpx; button { flex: 1; } }
 
-.member-info { text-align: center; margin-bottom: 32rpx; .avatar-large { width: 160rpx; height: 160rpx; border-radius: 50%; } }
+.member-info { text-align: center; margin-bottom: 32rpx; .avatar-large { width: 160rpx; height: 160rpx; border-radius: 50%; } .avatar-initial-large { width: 160rpx; height: 160rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%); color: #fff; text { font-size: 64rpx; font-weight: bold; } } }
 .action-list { margin-bottom: 32rpx; }
 .action-item {
   padding: 32rpx; border-bottom: 1rpx solid @color-bg-card; text-align: center;

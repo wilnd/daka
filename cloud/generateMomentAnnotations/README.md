@@ -18,7 +18,7 @@
 
 完成上述配置后重新部署云函数并再次调用即可。401 期间接口会返回兜底文案（如「本周共 N 条打卡，坚持得很好～」），业务可正常使用，仅点评为固定话术而非 AI 生成。
 
-**模型说明**：扩展支持的混元模型为 `hunyuan-turbos-latest`（及 `hunyuan-2.0-thinking-20251109`）。若使用不支持的模型名（如 `hunyuan-vision-1.5-instruct`）也可能导致 401，本云函数已统一改为 `hunyuan-turbos-latest`。
+**模型说明**：扩展支持的混元模型为 `hunyuan-t1-latest`（及 `hunyuan-2.0-thinking-20251109`）。若使用不支持的模型名（如 `hunyuan-vision-1.5-instruct`）也可能导致 401，本云函数已统一改为 `hunyuan-t1-latest`。
 
 ## 超时（-504003 / statusCode 433）
 

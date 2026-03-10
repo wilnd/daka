@@ -15,6 +15,7 @@ import {
   GoalType,
   deleteGoal
 } from '../../services/goal'
+import { requireLogin } from '../../services/auth'
 import { goalsCol } from '../../services/db'
 
 const app = getApp() as IAppOption
@@ -280,12 +281,8 @@ Page({
   // 删除目标
   async onDeleteGoal(e: any) {
     const goalId = e.currentTarget.dataset.id
-    const openid = app.globalData.openid
-
-    if (!openid) {
-      wx.showToast({ title: '请先登录', icon: 'none' })
-      return
-    }
+    const openid = requireLogin()
+    if (!openid) return
 
     wx.showModal({
       title: '确认删除',

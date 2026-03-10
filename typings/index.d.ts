@@ -6,6 +6,8 @@ interface IAppOption {
     openid?: string
     currentGroupId?: string
     shouldOpenJoinModal?: boolean
+    pendingGroupInviteCode?: string
+    pendingGroupInviterOpenid?: string
     themeColor?: string
     themeType?: string
     themeConfig?: any

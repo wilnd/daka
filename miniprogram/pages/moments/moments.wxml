@@ -30,17 +30,26 @@
       <!-- 用户信息 -->
       <view class="moment-header">
         <image 
+          wx:if="{{item.userInfo && item.userInfo.avatarUrl}}"
           class="avatar" 
-          src="{{item.userInfo && item.userInfo.avatarUrl || 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'}}" 
+          src="{{item.userInfo.avatarUrl}}" 
           mode="aspectFill"
           bindtap="onViewUserMoments"
           data-openid="{{item.openid}}"
-          data-nick-name="{{item.userInfo && item.userInfo.nickName}}"
-          data-avatar-url="{{item.userInfo && item.userInfo.avatarUrl}}"
+          data-nick-name="{{item.userInfo.nickName}}"
+          data-avatar-url="{{item.userInfo.avatarUrl}}"
         ></image>
+        <view 
+          wx:else 
+          class="avatar avatar-initial" 
+          bindtap="onViewUserMoments"
+          data-openid="{{item.openid}}"
+          data-nick-name="{{item.userInfo && item.userInfo.nickName}}"
+          data-avatar-url=""
+        ><text>{{item.userInfo && item.userInfo.avatarInitial || '?'}}</text></view>
         <view class="user-info">
           <text class="nickname">{{item.userInfo && item.userInfo.nickName || '匿名用户'}}</text>
-          <text class="moment-time">发表时间 {{formatPublishTime(item.createTime)}}</text>
+          <text class="moment-time">发表时间 {{item.createTimeText || ''}}</text>
         </view>
         <view class="sport-tag" wx:if="{{item.content && item.content.categoryDisplayName}}">
           <text>{{item.content.categoryDisplayName}}</text>

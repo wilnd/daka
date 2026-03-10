@@ -10,13 +10,13 @@
       </view>
       <!-- 已选择的标签展示 -->
       <view class="selected-tag" wx:if="{{selectedTag}}">
-        <text class="tag-text">{{customCategoryDisplay || (selectedTag ? categories[categoryIndex].name + ' · ' + subCategories[subCategoryIndex].name : '')}}</text>
+        <text class="tag-text">{{customCategoryDisplay || (selectedTag && categoryIndex >= 0 && subCategoryIndex >= 0 ? (categories[categoryIndex].name || '') + ' · ' + (subCategories[subCategoryIndex].name || '') : '')}}</text>
       </view>
 
       <!-- 主类别标签（运动、学习、生活、工作） -->
       <view class="category-main-tags">
         <view 
-          wx:for="{{categories}}" 
+          wx:for="{{categories || []}}" 
           wx:key="id"
           class="main-tag-item {{selectedCategoryId === item.id ? 'active' : ''}}"
           bindtap="onSelectCategory"
@@ -30,7 +30,7 @@
       <view class="sub-tags-wrapper" wx:if="{{selectedCategoryId && !showCustomSubInput}}">
         <view class="sub-tags">
           <view 
-            wx:for="{{categories[categoryIndex].subCategories}}" 
+            wx:for="{{subCategories || []}}" 
             wx:key="id"
             wx:for-index="subIdx"
             class="sub-tag-item {{selectedTag === selectedCategoryId + '_' + item.id ? 'active' : ''}}"
@@ -80,7 +80,7 @@
           bindinput="onDurationInput"
         />
         <picker 
-          range="{{durationUnits}}"
+          range="{{durationUnits || []}}"
           value="{{durationUnitIndex}}"
           bindchange="onDurationUnitChange"
         >
@@ -147,7 +147,7 @@
     <view class="form-item" wx:if="{{isPublishToMoments && momentsGroupRange && momentsGroupRange.length > 1}}">
       <text class="label">成长墙可见</text>
       <picker
-        range="{{momentsGroupRange}}"
+        range="{{momentsGroupRange || []}}"
         range-key="name"
         value="{{momentsGroupIndex}}"
         bindchange="onMomentsGroupChange"

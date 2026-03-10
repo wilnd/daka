@@ -562,6 +562,60 @@ export async function callGetGoal(groupId: string): Promise<{ success: boolean; 
 }
 
 /**
+ * 获取用户积分余额（邀请奖励积分，用于兑换 VIP）
+ */
+export async function callGetPointsBalance(): Promise<{ success: boolean; referralPoints?: number }> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: { action: 'getPointsBalance' }
+    })
+    if (res.result && (res.result as any).success && (res.result as any).data) {
+      return {
+        success: true,
+        referralPoints: (res.result as any).data.referralPoints != null ? (res.result as any).data.referralPoints : 0
+      }
+    }
+    return { success: false }
+  } catch (e) {
+    console.warn('获取积分余额失败', e)
+    return { success: false }
+  }
+}
+
+/**
+ * 积分兑换 VIP
+ * @param level VIP 等级 1 青铜 / 2 白银 / 3 黄金
+ * @param days 兑换天数
+ */
+export async function callExchangePointsForVip(
+  level: 1 | 2 | 3,
+  days: number
+): Promise<{ success: boolean; msg?: string; remainingPoints?: number }> {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'scoreCheckin',
+      data: { action: 'exchangePointsForVip', level, days }
+    })
+    const r = res.result as any
+    if (r && r.success) {
+      return {
+        success: true,
+        remainingPoints: r.data && r.data.remainingPoints,
+        msg: r.msg
+      }
+    }
+    return {
+      success: false,
+      msg: (r && r.msg) || (r && r.error) || '兑换失败'
+    }
+  } catch (e) {
+    console.warn('积分兑换VIP失败', e)
+    return { success: false, msg: '兑换失败，请稍后重试' }
+  }
+}
+
+/**
  * 用户统计数据
  */
 export interface UserStats {

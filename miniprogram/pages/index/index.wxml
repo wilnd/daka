@@ -9,10 +9,11 @@
         <text class="welcome-desc">授权一下，让我们一起变强，变富，变好看！</text>
       </view>
 
-      <!-- 头像选择 -->
+      <!-- 头像选择：无头像时显示昵称首字母 -->
       <view class="avatar-area">
         <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
-          <image class="avatar-preview" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
+          <image wx:if="{{userInfo.avatarUrl}}" class="avatar-preview" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
+          <view wx:else class="avatar-preview avatar-initial"><text class="avatar-initial-text">{{avatarInitial || '?'}}</text></view>
           <view class="avatar-edit-badge">
             <text class="edit-icon">✎</text>
           </view>
@@ -41,6 +42,7 @@
 
       <!-- 隐私说明 -->
       <text class="privacy-tip">放心，我们只关心你有没有运动，不关心你几点睡~</text>
+      <text class="browse-hint">可先浏览组织、成长墙、我的等页面，使用功能时再登录</text>
     </view>
     <view wx:elif="{{loading}}" class="skeleton-wrap">
       <view class="skeleton-card">
@@ -58,18 +60,7 @@
       </view>
     </view>
     <view wx:else class="main">
-      <!-- 空状态：没有组织 -->
-      <view wx:if="{{!currentGroup}}" class="empty-state">
-        <view class="empty-icon">🏃</view>
-        <text class="empty-title">欢迎来到成长星球</text>
-        <text class="empty-desc">创建一个群或者抱紧大腿，加入组织一起开挂！</text>
-        <view class="empty-actions">
-          <button class="btn-primary" bindtap="goCreateGroup">创建组织</button>
-          <button class="btn-secondary" bindtap="goJoinGroup">抱紧大腿</button>
-        </view>
-      </view>
-      <!-- 有组织时显示正常内容 -->
-      <view wx:else>
+      <!-- 打卡卡片：无论是否加入组织都显示 -->
         <view
           class="checkin-card"
           style="--btn-color: {{checkinCardColor}}; --btn-color-rgb: {{checkinCardColorRgb}}"
@@ -83,7 +74,7 @@
               style="--btn-color: {{checkinCardColor}}; --btn-color-rgb: {{checkinCardColorRgb}}"
               hover-class="btn-hover"
               bindtap="onCheckin"
-              disabled="{{!currentGroup || checkinAnimating}}"
+              disabled="{{checkinAnimating}}"
             >
               <text wx:if="{{checkinAnimating}}">提交中...</text>
               <text wx:elif="{{checkedToday}}">太棒了</text>
@@ -157,7 +148,7 @@
         <view wx:if="{{currentGroup && activeGoals.length > 0}}" class="goals-card">
           <view class="goals-header">
             <text class="goals-title">正在进行的自律计划</text>
-            <text class="goals-view-all" bindtap="goToAllGoals">查看全部</text>
+            <text class="goals-view-all" bindtap="goToAllGoals">制定自律计划</text>
           </view>
           <view class="goals-list">
             <view
@@ -169,7 +160,10 @@
             >
               <view class="goal-item-main">
                 <view class="goal-item-header">
-                  <text class="goal-item-title">{{item.title}}</text>
+                  <view class="goal-item-title-wrap">
+                    <text class="goal-item-title">{{item.title}}</text>
+                    <text class="goal-item-desc" wx:if="{{item.description}}">{{item.description}}</text>
+                  </view>
                   <text class="goal-item-period">{{item.period === 'daily' ? '每日' : item.period === 'weekly' ? '每周' : '每月'}}</text>
                 </view>
                 <view class="goal-item-progress">
@@ -188,7 +182,7 @@
           </view>
         </view>
 
-        <!-- 排行榜 -->
+        <!-- 排行榜：有组织时显示完整排行榜 -->
         <view wx:if="{{currentGroup}}" class="rank-card">
           <view class="rank-header">
             <view class="group-selector" bindtap="showSwitchGroup">
@@ -231,13 +225,26 @@
           <view wx:else class="rank-list">
             <view wx:for="{{currentRankList || []}}" wx:key="openid" class="rank-item" bindtap="onViewUserMoments" data-openid="{{item.openid}}" data-nick-name="{{item.nickName}}" data-avatar-url="{{item.avatarUrl}}">
               <view class="rank-index {{index < 3 ? 'top' : ''}}">{{index + 1}}</view>
-              <image class="rank-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+              <image wx:if="{{item.avatarUrl}}" class="rank-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+              <view wx:else class="rank-avatar rank-avatar-initial"><text>{{item.avatarInitial || '?'}}</text></view>
               <text class="rank-name">{{item.nickName}}</text>
               <text class="rank-streak">{{rankDimension === 'minutes' ? item.totalMinutes + ' 分钟' : rankDimension === 'days' ? item.checkinDays + ' 天' : item.avgScore + ' 成长值'}}</text>
             </view>
           </view>
         </view>
-      </view>
+        <!-- 未加入组织时：排行榜占位，提示加入组织后显示 -->
+        <view wx:else class="rank-card rank-card-placeholder">
+          <view class="rank-header">
+            <text class="rank-title">排行榜</text>
+          </view>
+          <view class="rank-empty-placeholder">
+            <text class="rank-placeholder-desc">加入组织后显示排行榜</text>
+            <view class="rank-placeholder-actions">
+              <button class="btn-primary" bindtap="goCreateGroup">创建组织</button>
+              <button class="btn-secondary" bindtap="goJoinGroup">加入组织</button>
+            </view>
+          </view>
+        </view>
     </view>
   </view>
 </scroll-view>

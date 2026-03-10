@@ -8,6 +8,9 @@ App({
     openid: '',
     currentGroupId: '',
     shouldOpenJoinModal: false,
+    /** 待加入的群组邀请码（从群组邀请链接登录后带过去） */
+    pendingGroupInviteCode: '' as string,
+    pendingGroupInviterOpenid: '' as string,
     /** 当前主题颜色 */
     themeColor: '#1ABC9C',
     /** 当前主题类型 */
@@ -20,7 +23,19 @@ App({
     /** 主题定时器ID */
     themeTimer: null as number | null,
   },
-  onLaunch() {
+  onLaunch(options?: { query?: Record<string, string>; scene?: number }) {
+    // 从分享进入：ref=我的邀请码，inviteCode+inviterOpenid=群组邀请，登录后先绑定下级再进群组加群
+    const query = (options && options.query) || {}
+    if (query.ref) {
+      wx.setStorageSync('pendingInviteCode', String(query.ref).trim())
+    } else if (query.inviteCode && !query.inviterOpenid) {
+      // 仅当非群组邀请时：inviteCode 表示用户邀请码（分销页分享）；群组邀请的 inviteCode 是群组码，不写入 pendingInviteCode
+      wx.setStorageSync('pendingInviteCode', String(query.inviteCode).trim())
+    }
+    if (query.inviteCode && query.inviterOpenid) {
+      wx.setStorageSync('pendingGroupInviteCode', String(query.inviteCode).trim())
+      wx.setStorageSync('pendingGroupInviterOpenid', String(query.inviterOpenid).trim())
+    }
     this.checkAuth()
     this.initTheme()
     this.startThemeTimer()

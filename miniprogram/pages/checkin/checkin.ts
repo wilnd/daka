@@ -1,6 +1,6 @@
 // checkin.ts
 import { doCheckinWithContent, getTodayCheckin, CheckinContent } from '../../services/checkin'
-import { getOpenid, getOrCreateUser } from '../../services/auth'
+import { getOpenid, getOrCreateUser, requireLogin } from '../../services/auth'
 import { getMyGroups } from '../../services/group'
 import { getCategories, getSubCategories, Category, SubCategory } from '../../services/category'
 import { getCachedGroups, setCachedGroups, defaultAvatar } from '../../services/utils'
@@ -125,28 +125,34 @@ Page({
     }))
     this.setData({ categories, categoryGroups })
 
-    const openid = app.globalData.openid || wx.getStorageSync('openid')
+    let openid = app.globalData.openid || wx.getStorageSync('openid')
     if (!openid) {
       try {
         const newOpenid = await getOpenid()
         app.globalData.openid = newOpenid
         wx.setStorageSync('openid', newOpenid)
+        openid = newOpenid
       } catch (e) {
+        // 访客模式：无 openid 时仍展示页面，仅不加载用户数据
         wx.showToast({ title: '获取用户信息失败', icon: 'none' })
+        this.setData({
+          groups: [],
+          momentsGroupRange: [{ _id: '', name: '所有群组' }],
+        })
         return
       }
     }
 
     const finalOpenid = app.globalData.openid || wx.getStorageSync('openid')
-    if (finalOpenid && userInfo && userInfo.nickName && userInfo.avatarUrl) {
+    if (finalOpenid && userInfo && userInfo.nickName) {
       try {
-        await getOrCreateUser(finalOpenid, userInfo.nickName, userInfo.avatarUrl)
+        await getOrCreateUser(finalOpenid, userInfo.nickName, userInfo.avatarUrl || '')
       } catch (e) {
         console.warn('同步用户信息失败', e)
       }
     }
 
-    // 加载用户的群组列表
+    // 加载用户的群组列表（无 openid 时 loadGroups 内部会 no-op）
     await this.loadGroups()
     // 加载今日记录（仅用于展示用户历史选择）
     await this.loadTodayCheckin()
@@ -497,13 +503,9 @@ Page({
 
   // 提交记录
   async onSubmit() {
+    const openid = requireLogin()
+    if (!openid) return
     const { text, photos, selectedTag, selectedCategoryId, customCategoryName, isPublishToMoments, submitting, groupId } = this.data
-    const openid = app.globalData.openid
-
-    if (!openid) {
-      wx.showToast({ title: '请先登录', icon: 'none' })
-      return
-    }
 
     // 验证运动类型（记录类别）必选
     if (!selectedTag) {
@@ -588,6 +590,15 @@ Page({
           title: isPublishToMoments ? '记录成功，已发布到成长墙' : '记录成功',
           icon: 'none'
         })
+
+        // 打卡成功后通知首页刷新统计数据（返回 tab 时 show 会再刷一次，此处提前刷新）
+        try {
+          const pages = getCurrentPages()
+          const indexPage = pages.find((p: any) => (p as any).route === 'pages/index/index')
+          if (indexPage && typeof (indexPage as any).loadData === 'function') {
+            (indexPage as any).loadData(true)
+          }
+        } catch (_) {}
 
         // 记录成功后更新主题为绿色
         if (app.updateTheme) {

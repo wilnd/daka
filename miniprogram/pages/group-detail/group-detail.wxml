@@ -45,7 +45,8 @@
       <view wx:if="{{currentTab === 'today'}}" class="section">
         <view wx:if="{{!todayMembers || todayMembers.length === 0}}" class="empty-section">暂无成员</view>
         <view wx:for="{{todayMembers || []}}" wx:key="_id" class="member-row {{item.checked ? 'checked' : ''}}">
-          <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
+          <image wx:if="{{item.avatarUrl}}" class="avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+          <view wx:else class="avatar avatar-initial"><text>{{item.avatarInitial || '?'}}</text></view>
           <text class="nick">{{item.nickName || '未知'}}</text>
           <text class="status {{item.checked ? 'checked' : 'unchecked'}}">{{item.checked ? '已记录' : '未记录'}}</text>
         </view>
@@ -58,7 +59,8 @@
         </view>
         <view wx:if="{{!members || members.length === 0}}" class="empty-section">暂无成员</view>
         <view wx:for="{{members || []}}" wx:key="_id" class="member-row" bindtap="onMemberTap" data-member="{{item}}">
-          <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
+          <image wx:if="{{item.avatarUrl}}" class="avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+          <view wx:else class="avatar avatar-initial"><text>{{item.avatarInitial || '?'}}</text></view>
           <text class="nick">{{item.nickName || '未知'}}</text>
           <text wx:if="{{group.creatorId === item.openid}}" class="role-badge creator">群主</text>
           <text wx:elif="{{item.role === 'admin'}}" class="role-badge">组长</text>
@@ -71,7 +73,8 @@
         <view wx:if="{{!rankMembers || rankMembers.length === 0}}" class="empty-section">暂无数据</view>
         <view wx:for="{{rankMembers || []}}" wx:key="_id" class="rank-row {{index < 3 ? 'top' : ''}}">
           <view class="rank-num">{{index + 1}}</view>
-          <image class="avatar" src="{{item.avatarUrl || defaultAvatar}}" mode="aspectFill"></image>
+          <image wx:if="{{item.avatarUrl}}" class="avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+          <view wx:else class="avatar avatar-initial"><text>{{item.avatarInitial || '?'}}</text></view>
           <text class="nick">{{item.nickName || '未知'}}</text>
           <text class="days">{{item.checkinDays}} 天</text>
         </view>
@@ -91,7 +94,8 @@
   <view class="modal-content" catchtap="">
     <text class="modal-title">{{selectedMemberNickName}}</text>
     <view class="member-info">
-      <image class="avatar-large" src="{{selectedMemberAvatarUrl}}" mode="aspectFill"></image>
+      <image wx:if="{{selectedMemberAvatarUrl}}" class="avatar-large" src="{{selectedMemberAvatarUrl}}" mode="aspectFill"></image>
+      <view wx:else class="avatar-large avatar-initial-large"><text>{{selectedMemberAvatarInitial || '?'}}</text></view>
     </view>
     <view class="action-list">
       <view class="action-item" bindtap="onViewMoments">

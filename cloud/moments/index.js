@@ -21,7 +21,7 @@ exports.main = async (event, context) => {
 
   const AI_USER_INFO = {
     _id: 'ai_xiaoqin',
-    nickName: '小勤同学(AI)',
+    nickName: '小勤同学',
     avatarUrl: 'https://img.icons8.com/fluency/96/bot.png',
     isAI: true
   }
@@ -59,14 +59,29 @@ exports.main = async (event, context) => {
     switch (action) {
       case 'getMoments': {
         // 获取用户在某个群组的成长墙列表（带发布者信息）
-        // 同时返回：1. 当前群组专属动态 2. 全局动态（groupId 为空，表示所有群组可见）
+        // 权限：只返回「选中群组成员」发布的成长记录（当前群组动态 + 该群组成员发的全局动态）
         const _ = db.command
+
+        // 先查选中群组的成员 openid 列表，仅展示该群组成员的成长记录
+        const { data: groupMembers } = await db.collection('members')
+          .where({ groupId, status: 'normal' })
+          .get()
+        const memberOpenids = [...new Set((groupMembers || []).map(m => m._openid || m.openid).filter(Boolean))]
+        if (memberOpenids.length === 0) {
+          return { success: true, data: [] }
+        }
+
+        // 条件：发布者属于当前群组 且 (当前群组动态 或 全局动态)
+        const groupOrGlobal = _.or(
+          { groupId },
+          { groupId: '' },
+          { groupId: _.eq(null) }
+        )
         let query = db.collection('moments')
-          .where(_.or(
-            { groupId },  // 当前群组的动态
-            { groupId: '' },  // 全局动态（所有群组可见）
-            { groupId: _.eq(null) }  // 兼容 null 的全局动态
-          ))
+          .where(_.and([
+            { _openid: _.in(memberOpenids) },
+            groupOrGlobal
+          ]))
           .orderBy('createTime', 'desc')
           .limit(limit)
 
@@ -77,11 +92,8 @@ exports.main = async (event, context) => {
               const lastTime = lastMoment.data.createTime
               query = db.collection('moments')
                 .where(_.and([
-                  _.or(
-                    { groupId },
-                    { groupId: '' },
-                    { groupId: _.eq(null) }
-                  ),
+                  { _openid: _.in(memberOpenids) },
+                  groupOrGlobal,
                   { createTime: _.lt(lastTime) }
                 ]))
                 .orderBy('createTime', 'desc')

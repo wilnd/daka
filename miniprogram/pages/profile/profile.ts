@@ -1,11 +1,11 @@
 // profile.ts
 import { getStreak, getMissStreak, wasCheckedInYesterday } from '../../services/stats'
 import { checkinsCol, membersCol, usersCol, SUBSCRIBE_TEMPLATE_ID, getTodayStr } from '../../services/db'
-import { updateUserInfo, getOpenid } from '../../services/auth'
+import { updateUserInfo, getOpenid, requireLogin } from '../../services/auth'
 import { getVipInfo, VipLevel, VipLevelNames, VipLevelColors, VipBenefits, getMakeupQuotaDisplay } from '../../services/vip'
 import { getClaimableVipTasks, getUserAchievements } from '../../services/task'
 import { getActiveGoals, calculateGoalProgress, Goal } from '../../services/goal'
-import { convertCloudUrl, defaultAvatar, uploadAvatarIfNeeded } from '../../services/utils'
+import { convertCloudUrl, defaultAvatar, uploadAvatarIfNeeded, getAvatarInitial } from '../../services/utils'
 import { isAdmin } from '../../services/suggestion'
 import { getMyGroups } from '../../services/group'
 
@@ -56,7 +56,7 @@ Component({
     // 生成提醒文案时需要群组选择
     showGroupPickerModal: false,
     groups: [] as any[],
-    editingInfo: { nickName: '', avatarUrl: defaultAvatar },
+    editingInfo: { nickName: '', avatarUrl: '', avatarInitial: '?' },
     isSubscribed: false,
     remindTime: '21:00',
     // 管理员标识
@@ -88,13 +88,11 @@ Component({
     async init() {
       const ui = wx.getStorageSync('userInfo')
       if (ui && ui.nickName) {
-        let avatarUrl = ui.avatarUrl || defaultAvatar
-        // 云存储路径需要转换为临时 URL
-        if (avatarUrl.startsWith('cloud://')) {
+        let avatarUrl = ui.avatarUrl || ''
+        if (avatarUrl && avatarUrl.startsWith('cloud://')) {
           avatarUrl = await convertCloudUrl(avatarUrl)
         }
-        // 正确设置 userInfo
-        const userInfo = { nickName: ui.nickName, avatarUrl }
+        const userInfo = { nickName: ui.nickName, avatarUrl: avatarUrl || '', avatarInitial: getAvatarInitial(ui.nickName) }
         this.setData({ hasUserInfo: true, userInfo })
         this.loadData()
         this.loadSubscriptionStatus()
@@ -222,7 +220,8 @@ Component({
         showEditModal: true,
         editingInfo: {
           nickName: userInfo.nickName || '',
-          avatarUrl: userInfo.avatarUrl || defaultAvatar,
+          avatarUrl: userInfo.avatarUrl || '',
+          avatarInitial: getAvatarInitial(userInfo.nickName),
         }
       })
     },
@@ -255,37 +254,34 @@ Component({
     },
     onNicknameInput(e: any) {
       const nickName = e.detail.value || ''
-      this.setData({ 'editingInfo.nickName': nickName })
+      this.setData({ 'editingInfo.nickName': nickName, 'editingInfo.avatarInitial': getAvatarInitial(nickName) })
     },
 
     // uploadAvatarIfNeeded 已迁移到 services/utils.ts
 
     async saveUserInfo() {
       const { nickName, avatarUrl } = this.data.editingInfo
-      if (!nickName || !avatarUrl) {
-        wx.showToast({ title: '请填写昵称并选择头像', icon: 'none' })
+      if (!nickName || !nickName.trim()) {
+        wx.showToast({ title: '请填写昵称', icon: 'none' })
         return
       }
-      const openid = app.globalData.openid
-      if (!openid) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
+      const openid = requireLogin()
+      if (!openid) return
       wx.showLoading({ title: '保存中' })
       try {
-        // 如果选择了新头像，先上传到云存储
-        const savedAvatarUrl = await uploadAvatarIfNeeded(avatarUrl, openid)
-        await updateUserInfo(openid, nickName, savedAvatarUrl)
+        const trimmedNickName = nickName.trim()
+        const savedAvatarUrl = await uploadAvatarIfNeeded(avatarUrl || '', openid)
+        await updateUserInfo(openid, trimmedNickName, savedAvatarUrl || '')
 
-        // 云存储路径需要转换为临时 URL 显示
-        let displayAvatarUrl = savedAvatarUrl
-        if (savedAvatarUrl.startsWith('cloud://')) {
-          displayAvatarUrl = await convertCloudUrl(savedAvatarUrl)
+        let displayAvatarUrl = savedAvatarUrl || ''
+        if (displayAvatarUrl && displayAvatarUrl.startsWith('cloud://')) {
+          displayAvatarUrl = await convertCloudUrl(displayAvatarUrl)
         }
 
-        // 保存到本地存储（保存云存储路径）
-        wx.setStorageSync('userInfo', { nickName, avatarUrl: savedAvatarUrl })
-        // 显示用临时 URL
+        wx.setStorageSync('userInfo', { nickName: trimmedNickName, avatarUrl: savedAvatarUrl || '' })
         this.setData({
           hasUserInfo: true,
-          userInfo: { nickName, avatarUrl: displayAvatarUrl },
+          userInfo: { nickName: trimmedNickName, avatarUrl: displayAvatarUrl, avatarInitial: getAvatarInitial(trimmedNickName) },
           showEditModal: false
         })
         wx.showToast({ title: '保存成功' })
@@ -301,8 +297,8 @@ Component({
         wx.showToast({ title: '请在代码中配置订阅消息模板ID', icon: 'none' })
         return
       }
-      const openid = app.globalData.openid
-      if (!openid) { wx.showToast({ title: '请先登录', icon: 'none' }); return }
+      const openid = requireLogin()
+      if (!openid) return
 
       // 如果已订阅，提供修改时间或取消订阅的选项
       if (this.data.isSubscribed) {

@@ -263,7 +263,7 @@ async function generateWeeklyReview(checkinsInWeek, periodWeek, weekStart, weekE
     },
     { role: 'user', content: `上周按日汇总（周期 ${periodWeek}，${weekStart}～${weekEnd}）：\n\n${input}\n\n请根据以上「每天」的打卡情况生成两段：第一段详细描述100-300字（含运动、学习、作息、进步点、小建议）。第二段本周整体概括50-80字，概括本周主要做了哪些事情（如运动/学习/生活维度的具体内容与频率），整体描述、信息具体，两段之间空行分隔。` }
   ]
-  const params = { type: 'weekly', period: periodWeek, model: 'hunyuan-turbos-latest', messages, temperature: 0.7, max_tokens: 1500 }
+  const params = { type: 'weekly', period: periodWeek, model: 'hunyuan-t1-latest', messages, temperature: 0.7, max_tokens: 1500 }
   console.log('[AI点评] 周点评请求参数:', JSON.stringify({ ...params, messages: params.messages }, null, 2))
 
   const t0 = Date.now()
@@ -309,7 +309,7 @@ async function generateMonthlyReview(weeklyItems) {
     },
     { role: 'user', content: `上月各周点评如下：\n${input}\n\n请生成两段月点评：第一段详细描述200-400字（复盘成果、不足、成长、下月建议），第二段简要点评40-50字，空行分隔。` }
   ]
-  const params = { type: 'monthly', period: periodLabel, model: 'hunyuan-turbos-latest', messages, temperature: 0.7, max_tokens: 3000 }
+  const params = { type: 'monthly', period: periodLabel, model: 'hunyuan-t1-latest', messages, temperature: 0.7, max_tokens: 3000 }
   console.log('[AI点评] 月点评请求参数:', JSON.stringify({ ...params, messages: params.messages }, null, 2))
 
   const t0 = Date.now()
@@ -349,7 +349,7 @@ async function generateYearlyReview(monthlyItems) {
     },
     { role: 'user', content: `上一年各月点评如下：\n${input}\n\n请生成两段年点评：第一段详细描述300-500字（全年成长、突破、不足、来年方向），第二段简要点评40-50字，空行分隔。` }
   ]
-  const params = { type: 'yearly', period: periodLabel, model: 'hunyuan-turbos-latest', messages, temperature: 0.7, max_tokens: 5000 }
+  const params = { type: 'yearly', period: periodLabel, model: 'hunyuan-t1-latest', messages, temperature: 0.7, max_tokens: 5000 }
   console.log('[AI点评] 年点评请求参数:', JSON.stringify({ ...params, messages: params.messages }, null, 2))
 
   const t0 = Date.now()

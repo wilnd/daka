@@ -2,6 +2,7 @@
 import { getOpenid, getOrCreateUser } from '../../services/auth'
 import { getMyGroups } from '../../services/group'
 import { getCategoryInfoBySubCategoryId, getCategoryById } from '../../services/category'
+import { getAvatarInitial } from '../../services/utils'
 
 const app = getApp() as IAppOption
 
@@ -68,6 +69,7 @@ interface MomentItem {
     _id: string
     nickName: string
     avatarUrl: string
+    avatarInitial?: string
   }
   groupName?: string
   isLiked?: boolean
@@ -138,8 +140,8 @@ Page({
 
     // 确保 users 集合有当前用户信息，避免展示为“匿名用户”
     const userInfo = wx.getStorageSync('userInfo')
-    const syncUserPromise = openid && userInfo && userInfo.nickName && userInfo.avatarUrl
-      ? getOrCreateUser(openid, userInfo.nickName, userInfo.avatarUrl).catch(e => console.warn('同步用户信息失败', e))
+    const syncUserPromise = openid && userInfo && userInfo.nickName
+      ? getOrCreateUser(openid, userInfo.nickName, userInfo.avatarUrl || '').catch(e => console.warn('同步用户信息失败', e))
       : Promise.resolve()
 
     // 先并行加载群组和用户信息（群组会先显示缓存，再更新）
@@ -301,14 +303,20 @@ Page({
           }
         }
 
-        // 应用转换后的 URL
+        // 应用转换后的 URL，无头像时用昵称首字母
         momentsData.forEach((moment) => {
-          // 头像
-          if (moment.userInfo && moment.userInfo.avatarUrl) {
-            if (urlMap.has(moment.userInfo.avatarUrl)) {
-              moment.userInfo.avatarUrl = urlMap.get(moment.userInfo.avatarUrl)!
-            } else if (moment.userInfo.avatarUrl.startsWith('cloud://')) {
-              moment.userInfo.avatarUrl = defaultAvatar
+          if (moment.userInfo) {
+            moment.userInfo.avatarInitial = getAvatarInitial(moment.userInfo.nickName)
+            if (moment.userInfo.avatarUrl) {
+              if (urlMap.has(moment.userInfo.avatarUrl)) {
+                moment.userInfo.avatarUrl = urlMap.get(moment.userInfo.avatarUrl)!
+              } else if (moment.userInfo.avatarUrl.startsWith('cloud://')) {
+                moment.userInfo.avatarUrl = ''
+              } else if (!moment.userInfo.avatarUrl.startsWith('http')) {
+                moment.userInfo.avatarUrl = ''
+              }
+            } else {
+              moment.userInfo.avatarUrl = ''
             }
           }
           // 成长墙图片
@@ -322,14 +330,21 @@ Page({
               return photo
             })
           }
-          // 评论头像
+          // 评论头像与首字母
           if (moment.comments && moment.comments.length > 0) {
             moment.comments.forEach((comment) => {
-              if (comment.userInfo && comment.userInfo.avatarUrl) {
-                if (urlMap.has(comment.userInfo.avatarUrl)) {
-                  comment.userInfo.avatarUrl = urlMap.get(comment.userInfo.avatarUrl)!
-                } else if (comment.userInfo.avatarUrl.startsWith('cloud://')) {
-                  comment.userInfo.avatarUrl = defaultAvatar
+              if (comment.userInfo) {
+                comment.userInfo.avatarInitial = getAvatarInitial(comment.userInfo.nickName)
+                if (comment.userInfo.avatarUrl) {
+                  if (urlMap.has(comment.userInfo.avatarUrl)) {
+                    comment.userInfo.avatarUrl = urlMap.get(comment.userInfo.avatarUrl)!
+                  } else if (comment.userInfo.avatarUrl.startsWith('cloud://')) {
+                    comment.userInfo.avatarUrl = ''
+                  } else if (!comment.userInfo.avatarUrl.startsWith('http')) {
+                    comment.userInfo.avatarUrl = ''
+                  }
+                } else {
+                  comment.userInfo.avatarUrl = ''
                 }
               }
             })
@@ -357,6 +372,11 @@ Page({
           if (moment.content && !moment.content.photos) {
             moment.content.photos = []
           }
+          // 预计算发表时间文案（WXML 无法调用 Page 方法）
+          const rawTime = moment.createTime && typeof moment.createTime === 'object' && (moment.createTime as any).$date != null
+            ? (moment.createTime as any).$date
+            : moment.createTime
+          ;(moment as any).createTimeText = this.formatPublishTime(rawTime || '')
         })
 
         this.setData({
@@ -463,14 +483,20 @@ Page({
           }
         }
 
-        // 应用转换后的 URL
+        // 应用转换后的 URL，无头像时用昵称首字母
         newMoments.forEach((moment) => {
-          // 头像
-          if (moment.userInfo && moment.userInfo.avatarUrl) {
-            if (urlMap.has(moment.userInfo.avatarUrl)) {
-              moment.userInfo.avatarUrl = urlMap.get(moment.userInfo.avatarUrl)!
-            } else if (moment.userInfo.avatarUrl.startsWith('cloud://')) {
-              moment.userInfo.avatarUrl = defaultAvatar
+          if (moment.userInfo) {
+            moment.userInfo.avatarInitial = getAvatarInitial(moment.userInfo.nickName)
+            if (moment.userInfo.avatarUrl) {
+              if (urlMap.has(moment.userInfo.avatarUrl)) {
+                moment.userInfo.avatarUrl = urlMap.get(moment.userInfo.avatarUrl)!
+              } else if (moment.userInfo.avatarUrl.startsWith('cloud://')) {
+                moment.userInfo.avatarUrl = ''
+              } else if (!moment.userInfo.avatarUrl.startsWith('http')) {
+                moment.userInfo.avatarUrl = ''
+              }
+            } else {
+              moment.userInfo.avatarUrl = ''
             }
           }
           // 成长墙图片
@@ -484,14 +510,21 @@ Page({
               return photo
             })
           }
-          // 评论头像
+          // 评论头像与首字母
           if (moment.comments && moment.comments.length > 0) {
             moment.comments.forEach((comment) => {
-              if (comment.userInfo && comment.userInfo.avatarUrl) {
-                if (urlMap.has(comment.userInfo.avatarUrl)) {
-                  comment.userInfo.avatarUrl = urlMap.get(comment.userInfo.avatarUrl)!
-                } else if (comment.userInfo.avatarUrl.startsWith('cloud://')) {
-                  comment.userInfo.avatarUrl = defaultAvatar
+              if (comment.userInfo) {
+                comment.userInfo.avatarInitial = getAvatarInitial(comment.userInfo.nickName)
+                if (comment.userInfo.avatarUrl) {
+                  if (urlMap.has(comment.userInfo.avatarUrl)) {
+                    comment.userInfo.avatarUrl = urlMap.get(comment.userInfo.avatarUrl)!
+                  } else if (comment.userInfo.avatarUrl.startsWith('cloud://')) {
+                    comment.userInfo.avatarUrl = ''
+                  } else if (!comment.userInfo.avatarUrl.startsWith('http')) {
+                    comment.userInfo.avatarUrl = ''
+                  }
+                } else {
+                  comment.userInfo.avatarUrl = ''
                 }
               }
             })
@@ -518,6 +551,10 @@ Page({
           if (moment.content && !moment.content.photos) {
             moment.content.photos = []
           }
+          const rawTime = moment.createTime && typeof moment.createTime === 'object' && (moment.createTime as any).$date != null
+            ? (moment.createTime as any).$date
+            : moment.createTime
+          ;(moment as any).createTimeText = this.formatPublishTime(rawTime || '')
         })
 
         this.setData({
@@ -689,10 +726,10 @@ Page({
 
       // 非阻塞兜底同步用户信息（避免同步失败/卡顿影响评论）
       const userInfo = wx.getStorageSync('userInfo')
-      if (userInfo && userInfo.nickName && userInfo.avatarUrl) {
+      if (userInfo && userInfo.nickName) {
         try {
           // 不 await：同步失败不影响评论发送
-          getOrCreateUser(openid, userInfo.nickName, userInfo.avatarUrl)
+          getOrCreateUser(openid, userInfo.nickName, userInfo.avatarUrl || '')
         } catch (e) {
           console.warn('同步用户信息失败', e)
         }

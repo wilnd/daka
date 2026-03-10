@@ -11,7 +11,23 @@
   padding-bottom: calc(@spacing-xl * 2);
 }
 
-// ========== 未授权状态 ==========
+// ========== 访客提示（未登录时顶部） ==========
+.guest-tip-wrap {
+  text-align: center;
+  padding: 24rpx 0 32rpx;
+  .guest-tip {
+    font-size: @font-size-caption;
+    color: @color-text-hint;
+    display: block;
+    margin-bottom: 16rpx;
+  }
+  .auth-link {
+    font-size: @font-size-body;
+    color: @color-primary;
+  }
+}
+
+// ========== 未授权状态（保留备用） ==========
 .need-auth {
   display: flex;
   flex-direction: column;
@@ -237,6 +253,14 @@
         border-radius: 50%;
         border: 4rpx solid @color-primary;
         background: @color-bg-page;
+        &.avatar-initial {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+          color: white;
+          text { font-size: 48rpx; font-weight: @font-weight-bold; }
+        }
       }
       
       .avatar-edit-badge {
@@ -488,6 +512,15 @@
         .avatar-preview {
           width: 100%;
           height: 100%;
+          border-radius: 50%;
+          &.avatar-initial {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+            color: white;
+            text { font-size: 64rpx; font-weight: @font-weight-bold; }
+          }
         }
         
         .avatar-mask {

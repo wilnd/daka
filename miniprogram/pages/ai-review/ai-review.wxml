@@ -11,7 +11,7 @@
 
     <view class="generate-bar">
       <view class="generate-row">
-        <text class="generate-label">生成点评</text>
+        <text class="generate-label">生成点评(点击上周/月/年即可生成相应总结)</text>
         <text wx:if="{{aiReviewQuota === 0}}" class="quota-hint quota-none">开通VIP可使用</text>
         <text wx:else class="quota-hint">本月剩余 {{aiReviewRemaining}}/{{aiReviewQuota}} 次</text>
       </view>

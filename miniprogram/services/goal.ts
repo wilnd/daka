@@ -754,6 +754,7 @@ export async function checkAndProcessGoal(openid: string, goalId: string): Promi
  * @param commonRewardTags 常用奖励标签（可选）
  * @param commonPenaltyTags 常用惩罚标签（可选）
  * @param category 目标分类（用于成长墙类型的目标）
+ * @param customDescription 自定义描述（具体自律什么，最多10字）
  */
 export async function createGoal(
   openid: string,
@@ -767,7 +768,8 @@ export async function createGoal(
   confirmor?: GoalConfirmor,
   commonRewardTags?: UserRewardPenaltyTag[],
   commonPenaltyTags?: UserRewardPenaltyTag[],
-  category?: GoalCategory
+  category?: GoalCategory,
+  customDescription?: string
 ): Promise<{ success: boolean; goal?: Goal; msg?: string }> {
   try {
     const config = GoalConfigs[period][type]
@@ -813,12 +815,16 @@ export async function createGoal(
     // 判断是否需要确认人验收
     const needConfirmorVerify = !!confirmor
 
+    const description = (customDescription && String(customDescription).trim())
+      ? String(customDescription).trim().slice(0, 10)
+      : config.description
+
     const goalData = {
       type,
       period,
       target,
       title: config.title,
-      description: config.description,
+      description,
       startDate,
       endDate,
       reward,

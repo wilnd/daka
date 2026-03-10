@@ -120,7 +120,7 @@ async function generateWeekSummary(checkins, totalDays, totalCount, categoryId) 
     const userPrompt = `用户本周打卡数据如下：\n${dataSummary}\n\n请生成一段 120～180 字的精彩周总结，突出坚持与进步，用温暖正能量的语言表达，不要逐字复述打卡原文。`
 
     const result = await model.generateText({
-      model: 'hunyuan-turbos-latest',
+      model: 'hunyuan-t1-latest',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }

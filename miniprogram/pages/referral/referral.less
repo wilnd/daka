@@ -1,0 +1,214 @@
+@import '../../styles/theme.less';
+
+/* scroll-view 需要明确高度才能正常滚动 */
+.page {
+  height: 100vh;
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #1ABC9C 0%, #F8F9FA 18%);
+  padding-bottom: 40rpx;
+}
+
+.container {
+  padding: @spacing-lg;
+}
+
+.card {
+  background: #fff;
+  border-radius: @radius-xl;
+  padding: @spacing-lg;
+  margin-bottom: @spacing-lg;
+  box-shadow: @shadow-md;
+}
+
+.invite-card {
+  .card-label {
+    font-size: 28rpx;
+    color: @color-text-body;
+    margin-bottom: @spacing-sm;
+  }
+  .invite-code-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: @spacing-md;
+  }
+  .earned-points-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: @spacing-md;
+    padding: @spacing-md 20rpx;
+    background: rgba(26, 188, 156, 0.08);
+    border-radius: @radius-md;
+  }
+  .earned-points-label {
+    font-size: 26rpx;
+    color: @color-text-body;
+  }
+  .earned-points-value {
+    font-size: 44rpx;
+    font-weight: bold;
+    color: @color-primary;
+  }
+  .invite-code {
+    font-size: 48rpx;
+    font-weight: bold;
+    letter-spacing: 6rpx;
+    color: @color-primary;
+  }
+  .btn-copy {
+    font-size: 28rpx;
+    color: @color-primary;
+    background: rgba(26, 188, 156, 0.12);
+    padding: 12rpx 28rpx;
+    border-radius: @radius-full;
+    border: none;
+  }
+  .invite-hint {
+    font-size: 24rpx;
+    color: @color-text-hint;
+    margin-bottom: @spacing-md;
+  }
+  .btn-share {
+    background: linear-gradient(135deg, #1ABC9C 0%, #16A085 100%);
+    color: #fff;
+    font-size: 30rpx;
+    border-radius: @radius-lg;
+    border: none;
+  }
+}
+
+.rule-card {
+  .card-title {
+    display: flex;
+    align-items: center;
+    font-size: 32rpx;
+    font-weight: bold;
+    color: @color-text-title;
+    margin-bottom: @spacing-sm;
+  }
+  .card-icon {
+    margin-right: 8rpx;
+  }
+  .rule-desc {
+    font-size: 28rpx;
+    color: @color-text-body;
+    margin-bottom: @spacing-sm;
+  }
+  .rule-detail {
+    font-size: 26rpx;
+    color: @color-text-hint;
+    margin-top: 8rpx;
+  }
+  .rule-detail-highlight {
+    color: @color-primary;
+    margin-top: 12rpx;
+  }
+}
+
+.stats-row {
+  display: flex;
+  justify-content: space-around;
+  background: #fff;
+  border-radius: @radius-xl;
+  padding: @spacing-lg;
+  margin-bottom: @spacing-lg;
+  box-shadow: @shadow-md;
+}
+
+.stat-item {
+  text-align: center;
+  .stat-value {
+    display: block;
+    font-size: 40rpx;
+    font-weight: bold;
+    color: @color-primary;
+  }
+  .stat-label {
+    font-size: 24rpx;
+    color: @color-text-hint;
+  }
+  &.highlight .stat-value {
+    color: @color-gold;
+  }
+}
+
+.section {
+  background: #fff;
+  border-radius: @radius-xl;
+  padding: @spacing-lg;
+  margin-bottom: @spacing-lg;
+  box-shadow: @shadow-md;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: @spacing-md;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: @color-text-title;
+}
+
+.section-count {
+  font-size: 24rpx;
+  color: @color-text-hint;
+}
+
+.user-list .user-item {
+  display: flex;
+  align-items: center;
+  padding: @spacing-md 0;
+  border-bottom: 1rpx solid @color-border-light;
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.user-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  margin-right: @spacing-md;
+}
+
+.user-avatar-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, @color-primary-light 0%, @color-primary 100%);
+  color: #fff;
+  text { font-size: 36rpx; font-weight: @font-weight-bold; }
+}
+
+.user-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 28rpx;
+  color: @color-text-title;
+}
+
+.user-time {
+  font-size: 24rpx;
+  color: @color-text-hint;
+  margin-top: 4rpx;
+}
+
+.list.empty {
+  padding: @spacing-xl;
+  text-align: center;
+}
+
+.empty-text {
+  font-size: 26rpx;
+  color: @color-text-hint;
+}

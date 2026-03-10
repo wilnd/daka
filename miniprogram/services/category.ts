@@ -58,6 +58,7 @@ export const CHECKIN_CATEGORIES: Category[] = [
     name: '生活类',
     subCategories: [
       { id: 'diet', name: '饮食记录' },
+      { id: 'diet_control', name: '饮食控制' },
       { id: 'sleep', name: '睡眠' },
       { id: 'meditation', name: '冥想' },
       { id: 'habit', name: '习惯养成' },
